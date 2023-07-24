@@ -9,11 +9,11 @@ pub struct Info {
 
 impl Info {
     pub fn new(optional_client: Option<reqwest::Client>, base_url: Option<String>) -> Self {
-        let client = optional_client.unwrap_or_else(|| reqwest::Client::new());
+        let client = optional_client.unwrap_or_else(reqwest::Client::new);
         let unwrapped_base_url = base_url.unwrap_or_else(|| consts::MAINNET_API_URL.to_owned());
 
         Info {
-            client: client,
+            client,
             base_url: unwrapped_base_url,
         }
     }
@@ -26,9 +26,6 @@ impl Info {
         let data = serde_json::to_string(&input).unwrap();
         let url = self.base_url.clone() + "/info";
         let return_data = post(&self.client, &url, data).await;
-        println!("return data: {}", return_data);
-        let decoded_return_data =
-            serde_json::from_str::<Vec<info_structs::Order>>(&return_data).unwrap();
-        decoded_return_data
+        serde_json::from_str::<Vec<info_structs::Order>>(&return_data).unwrap()
     }
 }

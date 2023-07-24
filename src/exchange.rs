@@ -4,11 +4,11 @@ use serde::Serialize;
 use serde_json;
 
 pub struct Exchange {
-    client: reqwest::Client,
-    wallet: LocalAccount,
-    base_url: String,
-    meta: Meta,
-    vault_address: Option<String>,
+    pub client: reqwest::Client,
+    pub wallet: LocalAccount,
+    pub base_url: String,
+    pub meta: Meta,
+    pub vault_address: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -27,16 +27,16 @@ impl Exchange {
         meta: Option<Meta>,
         vault_address: Option<String>,
     ) -> Self {
-        let client = optional_client.unwrap_or_else(|| reqwest::Client::new());
+        let client = optional_client.unwrap_or_else(reqwest::Client::new);
 
         let unwrapped_base_url = base_url.unwrap_or_else(|| consts::MAINNET_API_URL.to_owned());
 
         Exchange {
-            client: client,
-            wallet: wallet,
+            client,
+            wallet,
             base_url: unwrapped_base_url,
             meta: meta.unwrap(),
-            vault_address: vault_address,
+            vault_address,
         }
     }
 
@@ -47,13 +47,13 @@ impl Exchange {
         nonce: u64,
     ) -> String {
         let exchange_payload = ExchangePayload {
-            action: action,
-            signature: signature,
-            nonce: nonce,
+            action,
+            signature,
+            nonce,
             vault_address: self.vault_address.clone(),
         };
         let res = serde_json::to_string(&exchange_payload).unwrap();
         let url = self.base_url.clone() + "/exchange";
-        return post(&self.client, &url, res).await;
+        post(&self.client, &url, res).await
     }
 }

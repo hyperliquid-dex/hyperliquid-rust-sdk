@@ -18,7 +18,7 @@ pub async fn post(client: &reqwest::Client, full_url: &String, data: String) -> 
         .build()
         .unwrap();
     let result = client.execute(request).await.unwrap();
-    return process_response(result).await;
+    process_response(result).await
 }
 
 async fn process_response(response: reqwest::Response) -> String {
@@ -31,7 +31,7 @@ async fn process_response(response: reqwest::Response) -> String {
     }
     let error_data = serde_json::from_str::<ErrorData>(&text);
 
-    if status_code >= 400 && status_code < 500 {
+    if (400..500).contains(&status_code) {
         match error_data {
             Ok(error_data) => panic!("Client error: status code: {}, error code: {}, error message: {}, response headers: {:?}, error data: {}", status_code, error_data.code, error_data.msg, headers, error_data.data), 
             Err(_) => panic!("Client error: status code: {}, error message: {}, response headers: {:?}", status_code, text, headers)
