@@ -1,4 +1,1 @@
-
-pub struct LocalAccount {
-    
-}
+pub struct LocalAccount {}

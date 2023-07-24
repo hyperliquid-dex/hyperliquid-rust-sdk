@@ -1,5 +1,1 @@
-
-
-pub struct Meta {
-    
-}
+pub struct Meta {}
