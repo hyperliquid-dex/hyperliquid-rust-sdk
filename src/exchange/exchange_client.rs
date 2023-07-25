@@ -98,8 +98,8 @@ impl<'a> ExchangeClient<'a> {
         amount: &str,
         destination: &str,
     ) -> Result<String, Box<dyn Error>> {
-        let chain_type: ChainType;
-        let l1_name: String;
+        let chain_type;
+        let l1_name;
         if self.http_client.base_url.eq(MAINNET_API_URL) {
             chain_type = ChainType::Mainnet;
             l1_name = "Arbitrum".to_string();
