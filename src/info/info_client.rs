@@ -8,13 +8,13 @@ use std::error::Error;
 #[derive(Serialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
-enum InfoRequest {
+enum InfoRequest<'a> {
     #[serde(rename = "clearinghouseState")]
     UserState {
-        user: String,
+        user: &'a str,
     },
     OpenOrders {
-        user: String,
+        user: &'a str,
     },
 }
 
@@ -34,7 +34,7 @@ impl<'a> InfoClient<'a> {
 
     pub async fn open_orders(
         &self,
-        address: String,
+        address: &str,
     ) -> Result<Vec<OpenOrdersResponse>, Box<dyn Error>> {
         let input = InfoRequest::OpenOrders { user: address };
         let data = serde_json::to_string(&input)?;
@@ -43,7 +43,7 @@ impl<'a> InfoClient<'a> {
         Ok(serde_json::from_str(&return_data)?)
     }
 
-    pub async fn user_state(&self, address: String) -> Result<UserStateResponse, Box<dyn Error>> {
+    pub async fn user_state(&self, address: &str) -> Result<UserStateResponse, Box<dyn Error>> {
         let input = InfoRequest::UserState { user: address };
         let data = serde_json::to_string(&input)?;
 
