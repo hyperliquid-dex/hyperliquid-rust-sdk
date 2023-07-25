@@ -6,7 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ethers = "2.0.8"
+chrono = "0.4.26"
+ethers = {version = "0.17", features = ["eip712", "abigen"]}
 hex = "0.4.3"
 http = "0.2.9"
 reqwest = {git = "https://github.com/seanmonstar/reqwest.git", rev = "61b1b2b"}

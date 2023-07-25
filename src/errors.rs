@@ -43,3 +43,25 @@ impl Display for ServerError {
 }
 
 impl Error for ServerError {}
+
+#[derive(Debug, Clone)]
+pub(crate) struct ChainError;
+
+impl Display for ChainError {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "Chain type not allowed for this function")
+    }
+}
+
+impl Error for ChainError {}
+
+#[derive(Debug, Clone)]
+pub(crate) struct AssetNotFoundError;
+
+impl Display for AssetNotFoundError {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "Asset not found!")
+    }
+}
+
+impl Error for AssetNotFoundError {}

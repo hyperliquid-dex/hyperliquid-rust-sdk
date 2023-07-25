@@ -1,9 +1,22 @@
-use hyperliquid_rust_sdk::InfoClient;
+use ethers::signers::LocalWallet;
+use hyperliquid_rust_sdk::ExchangeClient;
 
 #[tokio::main]
 async fn main() {
-    let my_info = InfoClient::new(None, None);
-    let user_address = "0x010461c14e146ac35fe42271bdc1134ee31c703a";
-    let user_state = my_info.user_state(user_address).await;
-    println!("{:?}", user_state);
+    let wallet = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e"
+        .parse::<LocalWallet>()
+        .unwrap();
+    let exchange_client = ExchangeClient::new(
+        None,
+        wallet,
+        Some("https://api.hyperliquid-testnet.xyz"),
+        None,
+        None,
+    )
+    .await
+    .unwrap();
+    let ret = exchange_client
+        .update_leverage(5, "SOL", true)
+        .await;
+    println!("{:?}", ret);
 }

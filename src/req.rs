@@ -15,7 +15,7 @@ pub struct HttpClient<'a> {
     pub base_url: &'a str,
 }
 
-async fn process_response(response: Response) -> Result<String, Box<dyn Error>> {
+async fn parse_response(response: Response) -> Result<String, Box<dyn Error>> {
     let status_code = response.status().as_u16();
     let headers = response.headers().clone();
     let text = response.text().await?;
@@ -34,12 +34,12 @@ async fn process_response(response: Response) -> Result<String, Box<dyn Error>> 
                 headers,
                 error_data: Some(error_data.data),
             },
-            Err(_) => ClientError {
+            Err(err) => ClientError {
                 status_code,
                 error_message: text,
                 headers,
                 error_code: None,
-                error_data: None,
+                error_data: Some(err.to_string()),
             },
         };
         return Err(Box::new(client_error));
@@ -66,6 +66,6 @@ impl<'a> HttpClient<'a> {
             .build()
             .unwrap();
         let result = self.client.execute(request).await.unwrap();
-        process_response(result).await
+        parse_response(result).await
     }
 }
