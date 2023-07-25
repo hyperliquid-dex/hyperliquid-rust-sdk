@@ -1,3 +1,3 @@
-pub mod info_impl;
-pub mod open_order;
-pub mod user_state;
+pub(super) mod info_client;
+mod open_order;
+mod user_state;

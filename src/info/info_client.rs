@@ -1,14 +1,14 @@
 use crate::info::open_order::OpenOrdersResponse;
 use crate::info::user_state::UserStateResponse;
-use crate::{consts::MAINNET_API_URL, req::ClientAndBaseUrl};
+use crate::{consts::MAINNET_API_URL, req::HttpClient};
+use reqwest::Client;
 use serde::Serialize;
 use std::error::Error;
-use reqwest::Client; 
 
 #[derive(Serialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
-pub enum InfoRequest {
+enum InfoRequest {
     #[serde(rename = "clearinghouseState")]
     UserState {
         user: String,
@@ -18,17 +18,17 @@ pub enum InfoRequest {
     },
 }
 
-pub struct Info {
-    pub client_and_base_url: ClientAndBaseUrl,
+pub struct InfoClient<'a> {
+    pub http_client: HttpClient<'a>,
 }
 
-impl Info {
-    pub fn new(client: Option<Client>, base_url: Option<String>) -> Self {
+impl<'a> InfoClient<'a> {
+    pub fn new(client: Option<Client>, base_url: Option<&'a str>) -> Self {
         let client = client.unwrap_or_else(Client::new);
-        let base_url = base_url.unwrap_or_else(|| MAINNET_API_URL.to_owned());
+        let base_url = base_url.unwrap_or(MAINNET_API_URL);
 
-        Info {
-            client_and_base_url: ClientAndBaseUrl { client, base_url },
+        InfoClient {
+            http_client: HttpClient { client, base_url },
         }
     }
 
@@ -39,21 +39,15 @@ impl Info {
         let input = InfoRequest::OpenOrders { user: address };
         let data = serde_json::to_string(&input)?;
 
-        let return_data = self
-            .client_and_base_url
-            .post("/info".to_string(), data)
-            .await?;
-        Ok(serde_json::from_str::<Vec<OpenOrdersResponse>>(&return_data)?)
+        let return_data = self.http_client.post("/info", data).await?;
+        Ok(serde_json::from_str(&return_data)?)
     }
 
     pub async fn user_state(&self, address: String) -> Result<UserStateResponse, Box<dyn Error>> {
         let input = InfoRequest::UserState { user: address };
         let data = serde_json::to_string(&input)?;
 
-        let return_data = self
-            .client_and_base_url
-            .post("/info".to_string(), data)
-            .await?;
-        Ok(serde_json::from_str::<UserStateResponse>(&return_data)?)
+        let return_data = self.http_client.post("/info", data).await?;
+        Ok(serde_json::from_str(&return_data)?)
     }
 }

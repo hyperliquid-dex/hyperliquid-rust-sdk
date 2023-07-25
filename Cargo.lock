@@ -1498,6 +1498,7 @@ name = "hyperliquid_rust_sdk"
 version = "0.1.0"
 dependencies = [
  "ethers",
+ "hex",
  "http",
  "reqwest 0.11.18 (git+https://github.com/seanmonstar/reqwest.git?rev=61b1b2b)",
  "serde",

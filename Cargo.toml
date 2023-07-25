@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 ethers = "2.0.8"
+hex = "0.4.3"
 http = "0.2.9"
 reqwest = {git = "https://github.com/seanmonstar/reqwest.git", rev = "61b1b2b"}
 serde = {version = "1.0.175", features = ["derive"]}

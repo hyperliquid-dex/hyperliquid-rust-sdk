@@ -1,5 +1,3 @@
-use serde;
-
 #[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenOrdersResponse {

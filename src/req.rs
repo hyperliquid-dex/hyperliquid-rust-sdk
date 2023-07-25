@@ -1,21 +1,18 @@
-use reqwest;
-use serde_json;
-
 use crate::errors::{ClientError, ServerError};
+use reqwest::{Client, Response};
 use serde::Deserialize;
 use std::error::Error;
-use reqwest::{Client, Response}; 
 
 #[derive(Deserialize)]
-pub struct ErrorData {
+struct ErrorData {
     data: String,
     code: u16,
     msg: String,
 }
 
-pub struct ClientAndBaseUrl {
+pub struct HttpClient<'a> {
     pub client: Client,
-    pub base_url: String,
+    pub base_url: &'a str,
 }
 
 async fn process_response(response: Response) -> Result<String, Box<dyn Error>> {
@@ -28,7 +25,7 @@ async fn process_response(response: Response) -> Result<String, Box<dyn Error>> 
     }
     let error_data = serde_json::from_str::<ErrorData>(&text);
 
-    if (400..500).contains(&status_code) {
+    if status_code >= 400 && status_code < 500 {
         let client_error = match error_data {
             Ok(error_data) => ClientError {
                 status_code,
@@ -54,8 +51,12 @@ async fn process_response(response: Response) -> Result<String, Box<dyn Error>> 
     }))
 }
 
-impl ClientAndBaseUrl {
-    pub async fn post(&self, url_path: String, data: String) -> Result<String, Box<dyn Error>> {
+impl<'a> HttpClient<'a> {
+    pub async fn post(
+        &self,
+        url_path: &'static str,
+        data: String,
+    ) -> Result<String, Box<dyn Error>> {
         let full_url = format!("{}{url_path}", self.base_url);
         let request = self
             .client

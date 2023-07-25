@@ -1,40 +1,40 @@
-use crate::{consts::MAINNET_API_URL, meta::Meta, req::ClientAndBaseUrl, signature::Signature, wallet::LocalAccount};
+use crate::{consts::MAINNET_API_URL, meta::Meta, req::HttpClient, signature::Signature};
+use ethers::signers::LocalWallet;
 use reqwest::Client;
 use serde::Serialize;
-use serde_json;
 use std::error::Error;
 
-pub struct Exchange {
-    pub client_and_base_url: ClientAndBaseUrl,
-    pub wallet: LocalAccount,
+pub struct ExchangeClient<'a> {
+    pub http_client: HttpClient<'a>,
+    pub wallet: LocalWallet,
     pub meta: Option<Meta>,
-    pub vault_address: Option<String>,
+    pub vault_address: Option<&'a str>,
 }
 
 #[derive(Serialize)]
-pub struct ExchangePayload {
+struct ExchangePayload<'a> {
     action: serde_json::Value,
     signature: Signature,
     nonce: u64,
-    vault_address: Option<String>,
+    vault_address: Option<&'a str>,
 }
 
-impl Exchange {
+impl<'a> ExchangeClient<'a> {
     pub fn new(
         client: Option<Client>,
-        wallet: LocalAccount,
-        base_url: Option<String>,
+        wallet: LocalWallet,
+        base_url: Option<&'a str>,
         meta: Option<Meta>,
-        vault_address: Option<String>,
+        vault_address: Option<&'a str>,
     ) -> Self {
         let client = client.unwrap_or_else(Client::new);
-        let base_url = base_url.unwrap_or_else(|| MAINNET_API_URL.to_owned());
+        let base_url = base_url.unwrap_or(MAINNET_API_URL);
 
-        Exchange {
+        ExchangeClient {
             wallet,
             meta,
             vault_address,
-            client_and_base_url: ClientAndBaseUrl { client, base_url },
+            http_client: HttpClient { client, base_url },
         }
     }
 
@@ -48,11 +48,9 @@ impl Exchange {
             action,
             signature,
             nonce,
-            vault_address: self.vault_address.clone(),
+            vault_address: self.vault_address,
         };
         let res = serde_json::to_string(&exchange_payload).unwrap();
-        self.client_and_base_url
-            .post("/exchange".to_string(), res)
-            .await
+        self.http_client.post("/exchange", res).await
     }
 }
