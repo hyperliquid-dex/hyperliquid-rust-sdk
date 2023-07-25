@@ -1,24 +1,30 @@
 use crate::{
     consts::{MAINNET_API_URL, ZERO_ADDRESS},
-    exchange::actions::{UsdcTransfer, UpdateLeverage},
+    errors::AssetNotFoundError,
+    exchange::actions::{UpdateLeverage, UsdcTransfer},
     helpers::{get_timestamp_ms, ChainType},
     info::info_client::InfoClient,
     meta::Meta,
     req::HttpClient,
-    signature::{sign_usd_transfer_action, usdc_transfer::mainnet::UsdTransferSignPayload, sign_l1_action, keccak},
-    errors::AssetNotFoundError,
+    signature::{
+        keccak, sign_l1_action, sign_usd_transfer_action,
+        usdc_transfer::mainnet::UsdTransferSignPayload,
+    },
 };
-use ethers::{signers::LocalWallet, types::{Signature, H160}};
+use ethers::{
+    signers::LocalWallet,
+    types::{Signature, H160},
+};
 use reqwest::Client;
 use serde::Serialize;
-use std::{error::Error, collections::HashMap, str::FromStr};
+use std::{collections::HashMap, error::Error, str::FromStr};
 
 pub struct ExchangeClient<'a> {
     pub http_client: HttpClient<'a>,
     pub wallet: LocalWallet,
     pub meta: Meta,
     pub vault_address: Option<&'a str>,
-    pub coin_to_asset: HashMap<String, u32>, 
+    pub coin_to_asset: HashMap<String, u32>,
 }
 
 #[derive(Serialize)]
@@ -35,7 +41,7 @@ struct ExchangePayload<'a> {
 #[serde(rename_all = "camelCase")]
 enum Actions {
     UsdTransfer(UsdcTransfer),
-    UpdateLeverage(UpdateLeverage), 
+    UpdateLeverage(UpdateLeverage),
 }
 
 impl<'a> ExchangeClient<'a> {
@@ -57,9 +63,9 @@ impl<'a> ExchangeClient<'a> {
             retrieved_meta = info.meta().await?;
         }
 
-        let mut coin_to_asset = HashMap::new(); 
+        let mut coin_to_asset = HashMap::new();
         for (asset_ind, asset) in retrieved_meta.universe.iter().enumerate() {
-            coin_to_asset.insert(asset.name.clone(), asset_ind as u32); 
+            coin_to_asset.insert(asset.name.clone(), asset_ind as u32);
         }
 
         Ok(ExchangeClient {
@@ -119,20 +125,25 @@ impl<'a> ExchangeClient<'a> {
         self.post(action, signature, timestamp).await
     }
 
-    pub async fn update_leverage (&self, leverage: u32, coin: &str, is_cross: bool) -> Result<String, Box<dyn Error>> {
+    pub async fn update_leverage(
+        &self,
+        leverage: u32,
+        coin: &str,
+        is_cross: bool,
+    ) -> Result<String, Box<dyn Error>> {
         let timestamp = get_timestamp_ms();
-        let vault_address = H160::from_str(self.vault_address.unwrap_or(ZERO_ADDRESS))?; 
+        let vault_address = H160::from_str(self.vault_address.unwrap_or(ZERO_ADDRESS))?;
 
         if let Some(&asset_index) = self.coin_to_asset.get(coin) {
-            let connection_id = keccak((asset_index, is_cross, leverage, vault_address, timestamp)); 
+            let connection_id = keccak((asset_index, is_cross, leverage, vault_address, timestamp));
 
             let action = serde_json::to_value(Actions::UpdateLeverage(UpdateLeverage {
                 asset: asset_index,
                 is_cross,
-                leverage, 
+                leverage,
             }))?;
 
-            let signature = sign_l1_action(&self.wallet, connection_id)?; 
+            let signature = sign_l1_action(&self.wallet, connection_id)?;
             self.post(action, signature, timestamp).await
         } else {
             Err(Box::new(AssetNotFoundError))

@@ -15,8 +15,6 @@ async fn main() {
     )
     .await
     .unwrap();
-    let ret = exchange_client
-        .update_leverage(5, "SOL", true)
-        .await;
+    let ret = exchange_client.update_leverage(5, "SOL", true).await;
     println!("{:?}", ret);
 }
