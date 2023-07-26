@@ -6,33 +6,27 @@ use ethers::{
         Secp256k1,
     },
     signers::LocalWallet,
-    types::{
-        transaction::eip712::{Eip712, Eip712Error},
-        Signature, H256, U256,
-    },
+    types::{transaction::eip712::Eip712, Signature, H256, U256},
     utils::keccak256,
 };
 
-use crate::helpers::ChainType;
-use crate::proxy_digest::Sha256Proxy;
-use crate::signature::{
-    agent::{l1, mainnet, testnet},
-    usdc_transfer,
+use crate::{
+    helpers::ChainType,
+    prelude::*,
+    proxy_digest::Sha256Proxy,
+    signature::{
+        agent::{l1, mainnet, testnet},
+        usdc_transfer,
+    },
+    Error,
 };
-
-use crate::errors::ChainError;
-
-use std::error::Error;
 
 pub(crate) fn keccak(x: impl AbiEncode) -> H256 {
     keccak256(x.encode()).into()
 }
 
-pub(crate) fn sign_l1_action(
-    wallet: &LocalWallet,
-    connection_id: H256,
-) -> Result<Signature, Box<dyn Error>> {
-    Ok(sign_with_agent(wallet, ChainType::L1, "a", connection_id)?)
+pub(crate) fn sign_l1_action(wallet: &LocalWallet, connection_id: H256) -> Result<Signature> {
+    sign_with_agent(wallet, ChainType::Arbitrum, "a", connection_id)
 }
 
 pub(crate) fn sign_usd_transfer_action(
@@ -41,10 +35,10 @@ pub(crate) fn sign_usd_transfer_action(
     amount: &str,
     destination: &str,
     timestamp: u64,
-) -> Result<Signature, Box<dyn Error>> {
+) -> Result<Signature> {
     match chain_type {
-        ChainType::L1 => Err(Box::new(ChainError)),
-        ChainType::Mainnet => Ok(sign_typed_data(
+        ChainType::Arbitrum => Err(Error::ChainNotAllowed),
+        ChainType::HyperliquidMainnet => Ok(sign_typed_data(
             &usdc_transfer::mainnet::UsdTransferSignPayload {
                 destination: destination.to_string(),
                 amount: amount.to_string(),
@@ -52,7 +46,7 @@ pub(crate) fn sign_usd_transfer_action(
             },
             wallet,
         )?),
-        ChainType::Testnet => Ok(sign_typed_data(
+        ChainType::HyperliquidTestnet => Ok(sign_typed_data(
             &usdc_transfer::testnet::UsdTransferSignPayload {
                 destination: destination.to_string(),
                 amount: amount.to_string(),
@@ -68,23 +62,23 @@ pub(crate) fn sign_with_agent(
     chain_type: ChainType,
     source: &str,
     connection_id: H256,
-) -> Result<Signature, Eip712Error> {
+) -> Result<Signature> {
     match chain_type {
-        ChainType::L1 => sign_typed_data(
+        ChainType::Arbitrum => sign_typed_data(
             &l1::Agent {
                 source: source.to_string(),
                 connection_id,
             },
             wallet,
         ),
-        ChainType::Mainnet => sign_typed_data(
+        ChainType::HyperliquidMainnet => sign_typed_data(
             &mainnet::Agent {
                 source: source.to_string(),
                 connection_id,
             },
             wallet,
         ),
-        ChainType::Testnet => sign_typed_data(
+        ChainType::HyperliquidTestnet => sign_typed_data(
             &testnet::Agent {
                 source: source.to_string(),
                 connection_id,
@@ -94,10 +88,10 @@ pub(crate) fn sign_with_agent(
     }
 }
 
-fn sign_typed_data<T: Eip712>(payload: &T, wallet: &LocalWallet) -> Result<Signature, Eip712Error> {
+fn sign_typed_data<T: Eip712>(payload: &T, wallet: &LocalWallet) -> Result<Signature> {
     let encoded = payload
         .encode_eip712()
-        .map_err(|e| Eip712Error::Message(e.to_string()))?;
+        .map_err(|e| Error::Eip712(e.to_string()))?;
 
     Ok(sign_hash(H256::from(encoded), wallet))
 }

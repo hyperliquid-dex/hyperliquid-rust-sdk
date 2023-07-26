@@ -13,4 +13,5 @@ http = "0.2.9"
 reqwest = {git = "https://github.com/seanmonstar/reqwest.git", rev = "61b1b2b"}
 serde = {version = "1.0.175", features = ["derive"]}
 serde_json = "1.0.103"
+thiserror = "1.0.44"
 tokio = {version = "1.29.1", features = ["full"]}

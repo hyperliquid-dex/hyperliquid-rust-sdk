@@ -1,7 +1,6 @@
-use crate::errors::{ClientError, ServerError};
+use crate::{prelude::*, Error};
 use reqwest::{Client, Response};
 use serde::Deserialize;
-use std::error::Error;
 
 #[derive(Deserialize)]
 struct ErrorData {
@@ -15,10 +14,13 @@ pub struct HttpClient<'a> {
     pub base_url: &'a str,
 }
 
-async fn parse_response(response: Response) -> Result<String, Box<dyn Error>> {
+async fn parse_response(response: Response) -> Result<String> {
     let status_code = response.status().as_u16();
     let headers = response.headers().clone();
-    let text = response.text().await?;
+    let text = response
+        .text()
+        .await
+        .map_err(|e| Error::GenericRequest(e.to_string()))?;
 
     if status_code < 400 {
         return Ok(text);
@@ -27,14 +29,14 @@ async fn parse_response(response: Response) -> Result<String, Box<dyn Error>> {
 
     if status_code >= 400 && status_code < 500 {
         let client_error = match error_data {
-            Ok(error_data) => ClientError {
+            Ok(error_data) => Error::ClientRequest {
                 status_code,
                 error_code: Some(error_data.code),
                 error_message: error_data.msg,
                 headers,
                 error_data: Some(error_data.data),
             },
-            Err(err) => ClientError {
+            Err(err) => Error::ClientRequest {
                 status_code,
                 error_message: text,
                 headers,
@@ -42,21 +44,17 @@ async fn parse_response(response: Response) -> Result<String, Box<dyn Error>> {
                 error_data: Some(err.to_string()),
             },
         };
-        return Err(Box::new(client_error));
+        return Err(client_error);
     }
 
-    Err(Box::new(ServerError {
+    Err(Error::ServerRequest {
         status_code,
         error_message: text,
-    }))
+    })
 }
 
 impl<'a> HttpClient<'a> {
-    pub async fn post(
-        &self,
-        url_path: &'static str,
-        data: String,
-    ) -> Result<String, Box<dyn Error>> {
+    pub async fn post(&self, url_path: &'static str, data: String) -> Result<String> {
         let full_url = format!("{}{url_path}", self.base_url);
         let request = self
             .client
@@ -64,8 +62,12 @@ impl<'a> HttpClient<'a> {
             .header("Content-Type", "application/json")
             .body(data)
             .build()
-            .unwrap();
-        let result = self.client.execute(request).await.unwrap();
+            .map_err(|e| Error::GenericRequest(e.to_string()))?;
+        let result = self
+            .client
+            .execute(request)
+            .await
+            .map_err(|e| Error::GenericRequest(e.to_string()))?;
         parse_response(result).await
     }
 }

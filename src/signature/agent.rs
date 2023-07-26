@@ -43,7 +43,6 @@ pub(crate) mod testnet {
         chain_id = 421613,
         verifying_contract = "0x0000000000000000000000000000000000000000"
     )]
-
     pub(crate) struct Agent {
         pub(crate) source: String,
         pub(crate) connection_id: H256,
