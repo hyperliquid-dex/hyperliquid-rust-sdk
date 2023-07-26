@@ -14,6 +14,8 @@ async fn main() {
     )
     .await
     .unwrap();
-    let ret = exchange_client.update_leverage(5, "SOL", true).await;
+    let ret = exchange_client
+        .usdc_transfer("1", "0x0D1d9635D0640821d15e323ac8AdADfA9c111414")
+        .await;
     println!("{:?}", ret);
 }

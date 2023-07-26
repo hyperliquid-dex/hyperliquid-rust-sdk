@@ -109,3 +109,48 @@ fn sign_hash(hash: H256, wallet: &LocalWallet) -> Signature {
 
     Signature { r, s, v }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    fn get_wallet() -> Result<LocalWallet> {
+        let priv_key = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e";
+        priv_key
+            .parse::<LocalWallet>()
+            .map_err(|e| Error::Wallet(e.to_string()))
+    }
+    #[test]
+    fn test_sign_l1_action() -> Result<()> {
+        let wallet = get_wallet()?;
+        let connection_id =
+            H256::from_str("0xde6c4037798a4434ca03cd05f00e3b803126221375cd1e7eaaaf041768be06eb")
+                .map_err(|e| Error::GenericParse(e.to_string()))?;
+
+        let expected_sig = "fa8a41f6a3fa728206df80801a83bcbfbab08649cd34d9c0bfba7c7b2f99340f53a00226604567b98a1492803190d65a201d6805e5831b7044f17fd530aec7841c";
+        assert_eq!(
+            sign_l1_action(&wallet, connection_id)?.to_string(),
+            expected_sig
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_sign_usd_transfer_action() -> Result<()> {
+        let wallet = get_wallet()?;
+
+        let chain_type = ChainType::HyperliquidTestnet;
+        let amount = "1";
+        let destination = "0x0D1d9635D0640821d15e323ac8AdADfA9c111414";
+        let timestamp = 1690393044548;
+
+        let expected_sig = "78f879e7ae6fbc3184dc304317e602507ac562b49ad9a5db120a41ac181b96ba2e8bd7022526a1827cf4b0ba96384d40ec3a5ed4239499c328081f3d0b394bb61b";
+        assert_eq!(
+            sign_usd_transfer_action(&wallet, chain_type, amount, destination, timestamp)?
+                .to_string(),
+            expected_sig
+        );
+        Ok(())
+    }
+}

@@ -5,7 +5,7 @@ pub(crate) fn now_timestamp_ms() -> u64 {
     now.timestamp_millis() as u64
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub(crate) enum ChainType {
     Arbitrum,
     HyperliquidMainnet,

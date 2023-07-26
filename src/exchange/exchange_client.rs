@@ -120,7 +120,6 @@ impl<'a> ExchangeClient<'a> {
 
         let signature =
             sign_usd_transfer_action(&self.wallet, chain, amount, destination, timestamp)?;
-
         self.post(action, signature, timestamp).await
     }
 
@@ -135,15 +134,14 @@ impl<'a> ExchangeClient<'a> {
 
         if let Some(&asset_index) = self.coin_to_asset.get(coin) {
             let connection_id = keccak((asset_index, is_cross, leverage, vault_address, timestamp));
-
             let action = serde_json::to_value(Actions::UpdateLeverage(UpdateLeverage {
                 asset: asset_index,
                 is_cross,
                 leverage,
             }))
             .map_err(|e| Error::JsonParse(e.to_string()))?;
-
             let signature = sign_l1_action(&self.wallet, connection_id)?;
+
             self.post(action, signature, timestamp).await
         } else {
             Err(Error::AssetNotFound)
