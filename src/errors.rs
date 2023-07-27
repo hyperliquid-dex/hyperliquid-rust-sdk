@@ -3,6 +3,7 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {
+    // TODO: turn some embedded types into errors instead of strings
     #[error("Client error: status code: {status_code}, error code: {error_code:?}, error message: {error_message}, headers: {headers:?}, error data: {error_data:?}")]
     ClientRequest {
         status_code: u16,
@@ -20,7 +21,7 @@ pub enum Error {
     GenericRequest(String),
     #[error("Chain type not allowed for this function")]
     ChainNotAllowed,
-    #[error("Asset not found!")]
+    #[error("Asset not found")]
     AssetNotFound,
     #[error("Error from Eip712 struct: {0:?}")]
     Eip712(String),
@@ -32,18 +33,20 @@ pub enum Error {
     Wallet(String),
     #[error("Websocket error: {0:?}")]
     Websocket(String),
-    #[error("Subscription not found!")]
+    #[error("Subscription not found")]
     SubscriptionNotFound,
-    #[error("WS manager not instantiated!")]
+    #[error("WS manager not instantiated")]
     WsManagerNotFound,
-    #[error("WS send error: {0:?}!")]
+    #[error("WS send error: {0:?}")]
     WsSend(String),
-    #[error("Reader data not found!")]
+    #[error("Reader data not found")]
     ReaderDataNotFound,
-    #[error("Reader error: {0:?}!")]
+    #[error("Reader error: {0:?}")]
     GenericReader(String),
-    #[error("Reader text conversion error: {0:?}!")]
+    #[error("Reader text conversion error: {0:?}")]
     ReaderTextConversion(String),
-    #[error("Cannot support multiple user event subscriptions!")]
+    #[error("Cannot support multiple user event subscriptions")]
     MultipleUserEvents,
+    #[error("Order type not found")]
+    OrderTypeNotFound,
 }

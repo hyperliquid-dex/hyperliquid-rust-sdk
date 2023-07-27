@@ -1,6 +1,7 @@
 use crate::{
     consts::MAINNET_API_URL,
     exchange::actions::{UpdateLeverage, UsdcTransfer},
+    exchange::order_types::{BulkOrderRequest, ClientOrderRequest},
     helpers::{now_timestamp_ms, ChainType},
     info::info_client::InfoClient,
     meta::Meta,
@@ -19,6 +20,8 @@ use ethers::{
 use reqwest::Client;
 use serde::Serialize;
 use std::collections::HashMap;
+
+use super::actions::UpdateIsolatedMargin;
 
 pub struct ExchangeClient<'a> {
     pub http_client: HttpClient<'a>,
@@ -43,6 +46,8 @@ struct ExchangePayload {
 enum Actions {
     UsdTransfer(UsdcTransfer),
     UpdateLeverage(UpdateLeverage),
+    UpdateIsolatedMargin(UpdateIsolatedMargin),
+    Order(BulkOrderRequest),
 }
 
 impl<'a> ExchangeClient<'a> {
@@ -59,7 +64,7 @@ impl<'a> ExchangeClient<'a> {
         let meta = if let Some(meta) = meta {
             meta
         } else {
-            let info = InfoClient::new(None, Some(base_url), true).await?;
+            let info = InfoClient::new(None, Some(base_url)).await?;
             info.meta().await?
         };
 
@@ -123,6 +128,35 @@ impl<'a> ExchangeClient<'a> {
         self.post(action, signature, timestamp).await
     }
 
+    pub async fn order(&self, order: ClientOrderRequest) -> Result<String> {
+        self.bulk_order(vec![order]).await
+    }
+
+    pub async fn bulk_order(&self, orders: Vec<ClientOrderRequest>) -> Result<String> {
+        let timestamp = now_timestamp_ms();
+        let vault_address = self.vault_address.unwrap_or_default();
+
+        let mut hashable_tuples = Vec::new();
+        for order in orders.iter() {
+            hashable_tuples.push(order.create_hashable_tuple(&self.coin_to_asset)?);
+        }
+        let mut transformed_orders = Vec::new();
+        for order in orders.into_iter() {
+            transformed_orders.push(order.convert(&self.coin_to_asset)?);
+        }
+        let orders = transformed_orders;
+
+        let connection_id = keccak((hashable_tuples, 0, vault_address, timestamp));
+        let action = serde_json::to_value(Actions::Order(BulkOrderRequest {
+            grouping: "na".to_string(),
+            orders,
+        }))
+        .map_err(|e| Error::JsonParse(e.to_string()))?;
+        let signature = sign_l1_action(&self.wallet, connection_id)?;
+
+        self.post(action, signature, timestamp).await
+    }
+
     pub async fn update_leverage(
         &self,
         leverage: u32,
@@ -140,6 +174,28 @@ impl<'a> ExchangeClient<'a> {
                 leverage,
             }))
             .map_err(|e| Error::JsonParse(e.to_string()))?;
+            let signature = sign_l1_action(&self.wallet, connection_id)?;
+
+            self.post(action, signature, timestamp).await
+        } else {
+            Err(Error::AssetNotFound)
+        }
+    }
+
+    pub async fn update_isolated_margin(&self, amount: f64, coin: &str) -> Result<String> {
+        let amount = (amount * 1_000_000.0).round() as i64;
+        let timestamp = now_timestamp_ms();
+        let vault_address = self.vault_address.unwrap_or_default();
+
+        if let Some(&asset_index) = self.coin_to_asset.get(coin) {
+            let connection_id = keccak((asset_index, true, amount, vault_address, timestamp));
+            let action =
+                serde_json::to_value(Actions::UpdateIsolatedMargin(UpdateIsolatedMargin {
+                    asset: asset_index,
+                    is_buy: true,
+                    ntli: amount,
+                }))
+                .map_err(|e| Error::JsonParse(e.to_string()))?;
             let signature = sign_l1_action(&self.wallet, connection_id)?;
 
             self.post(action, signature, timestamp).await

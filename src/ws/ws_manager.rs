@@ -1,4 +1,4 @@
-use crate::{prelude::*, ws::subscription_response_types::Trades, Error};
+use crate::{prelude::*, ws::message_types::Trades, Error};
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
 use log::error;
 use serde::{Deserialize, Serialize};
@@ -6,20 +6,20 @@ use std::{collections::HashMap, sync::Arc};
 use tokio::{
     net::TcpStream,
     spawn,
-    sync::{mpsc, Mutex},
+    sync::{mpsc::UnboundedSender, Mutex},
 };
 use tokio_tungstenite::{
     connect_async,
-    tungstenite::{self, protocol::Message},
+    tungstenite::{self, protocol},
     MaybeTlsStream, WebSocketStream,
 };
 
 struct SubscriptionData {
-    sending_channel: mpsc::UnboundedSender<String>,
+    sending_channel: UnboundedSender<String>,
     subscription_id: u32,
 }
 pub(crate) struct WsManager {
-    writer: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>,
+    writer: SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>,
     subscriptions: Arc<Mutex<HashMap<String, Vec<SubscriptionData>>>>,
     subscription_id: u32,
     subscription_identifiers: HashMap<u32, String>,
@@ -28,7 +28,7 @@ pub(crate) struct WsManager {
 #[derive(Serialize, Debug)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
-pub enum SubscriptionType {
+pub enum Subscription {
     AllMids,
     Trades { coin: String },
 }
@@ -36,38 +36,68 @@ pub enum SubscriptionType {
 #[derive(Deserialize)]
 #[serde(tag = "channel")]
 #[serde(rename_all = "camelCase")]
-enum SubscriptionResponseType {
+enum Message {
     AllMids,
     Trades(Trades),
     SubscriptionResponse,
 }
 
 #[derive(Serialize)]
-pub(crate) struct WebsocketData<'a> {
+pub(crate) struct WebsocketSubscriptionData<'a> {
     method: &'static str,
     subscription: &'a serde_json::Value,
 }
 
 impl WsManager {
-    fn get_identifier(response: SubscriptionResponseType) -> Result<String> {
-        match response {
-            SubscriptionResponseType::AllMids => Ok("allMids".to_string()),
-            SubscriptionResponseType::Trades(trades) => {
+    pub(crate) async fn new(url: String) -> Result<WsManager> {
+        let (ws_stream, _) = connect_async(url.clone())
+            .await
+            .map_err(|e| Error::Websocket(e.to_string()))?;
+
+        let (writer, mut reader) = ws_stream.split();
+
+        let subscriptions_map: HashMap<String, Vec<SubscriptionData>> = HashMap::new();
+        let subscriptions = Arc::new(Mutex::new(subscriptions_map));
+        let subscriptions_copy = Arc::clone(&subscriptions);
+
+        let reader_fut = async move {
+            // TODO: reconnect
+            loop {
+                let data = reader.next().await;
+                if let Err(err) = WsManager::parse_and_send_data(data, &subscriptions_copy).await {
+                    error!("error with parse and send: {err}");
+                }
+            }
+        };
+        spawn(reader_fut);
+
+        Ok(WsManager {
+            writer,
+            subscriptions,
+            subscription_id: 0,
+            subscription_identifiers: HashMap::new(),
+        })
+    }
+
+    fn get_identifier(message: Message) -> Result<String> {
+        match message {
+            Message::AllMids => Ok("allMids".to_string()),
+            Message::Trades(trades) => {
                 if trades.data.is_empty() {
                     Ok(String::default())
                 } else {
-                    serde_json::to_string(&SubscriptionType::Trades {
+                    serde_json::to_string(&Subscription::Trades {
                         coin: trades.data[0].coin.clone(),
                     })
                     .map_err(|e| Error::JsonParse(e.to_string()))
                 }
             }
-            SubscriptionResponseType::SubscriptionResponse => Ok(String::default()),
+            Message::SubscriptionResponse => Ok(String::default()),
         }
     }
 
-    async fn parse_data(
-        data: Option<std::result::Result<Message, tungstenite::Error>>,
+    async fn parse_and_send_data(
+        data: Option<std::result::Result<protocol::Message, tungstenite::Error>>,
         subscriptions: &Arc<Mutex<HashMap<String, Vec<SubscriptionData>>>>,
     ) -> Result<()> {
         let data = data
@@ -80,10 +110,10 @@ impl WsManager {
             return Ok(());
         }
 
-        let response = serde_json::from_str::<SubscriptionResponseType>(&data)
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
+        let message =
+            serde_json::from_str::<Message>(&data).map_err(|e| Error::JsonParse(e.to_string()))?;
 
-        let identifier = WsManager::get_identifier(response)?;
+        let identifier = WsManager::get_identifier(message)?;
         if identifier.is_empty() {
             return Ok(());
         }
@@ -103,53 +133,24 @@ impl WsManager {
         }
         res
     }
-    pub(crate) async fn new(url: String) -> Result<WsManager> {
-        let (ws_stream, _) = connect_async(url.clone())
-            .await
-            .map_err(|e| Error::Websocket(e.to_string()))?;
-
-        let (writer, mut reader) = ws_stream.split();
-
-        let subscriptions_map: HashMap<String, Vec<SubscriptionData>> = HashMap::new();
-        let subscriptions = Arc::new(Mutex::new(subscriptions_map));
-        let subscriptions_copy = Arc::clone(&subscriptions);
-
-        let reader_fut = async move {
-            // TODO: reconnect
-            loop {
-                let data = reader.next().await;
-                if let Err(err) = WsManager::parse_data(data, &subscriptions_copy).await {
-                    error!("{err}");
-                }
-            }
-        };
-        spawn(reader_fut);
-
-        Ok(WsManager {
-            writer,
-            subscriptions,
-            subscription_id: 0,
-            subscription_identifiers: HashMap::new(),
-        })
-    }
 
     pub(crate) async fn add_subscription(
         &mut self,
         identifier: String,
-        sending_channel: mpsc::UnboundedSender<String>,
+        sending_channel: UnboundedSender<String>,
     ) -> Result<u32> {
         let mut subscriptions = self.subscriptions.lock().await;
 
-        let entry = subscriptions
+        let subscriptions = subscriptions
             .entry(identifier.clone())
             .or_insert(Vec::new());
 
-        if identifier.eq("userEvents") && !entry.is_empty() {
+        if identifier.eq("userEvents") && !subscriptions.is_empty() {
             return Err(Error::MultipleUserEvents);
         }
 
-        if entry.is_empty() {
-            let payload = serde_json::to_string(&WebsocketData {
+        if subscriptions.is_empty() {
+            let payload = serde_json::to_string(&WebsocketSubscriptionData {
                 method: "subscribe",
                 subscription: &serde_json::from_str::<serde_json::Value>(&identifier)
                     .map_err(|e| Error::JsonParse(e.to_string()))?,
@@ -157,7 +158,7 @@ impl WsManager {
             .map_err(|e| Error::JsonParse(e.to_string()))?;
 
             self.writer
-                .send(Message::Text(payload))
+                .send(protocol::Message::Text(payload))
                 .await
                 .map_err(|e| Error::Websocket(e.to_string()))?;
         }
@@ -165,7 +166,7 @@ impl WsManager {
         let subscription_id = self.subscription_id;
         self.subscription_identifiers
             .insert(subscription_id, identifier.clone());
-        entry.push(SubscriptionData {
+        subscriptions.push(SubscriptionData {
             sending_channel,
             subscription_id,
         });
@@ -196,7 +197,7 @@ impl WsManager {
         subscriptions.remove(index);
 
         if subscriptions.is_empty() {
-            let payload = serde_json::to_string(&WebsocketData {
+            let payload = serde_json::to_string(&WebsocketSubscriptionData {
                 method: "unsubscribe",
                 subscription: &serde_json::from_str::<serde_json::Value>(&identifier)
                     .map_err(|e| Error::JsonParse(e.to_string()))?,
@@ -204,7 +205,7 @@ impl WsManager {
             .map_err(|e| Error::JsonParse(e.to_string()))?;
 
             self.writer
-                .send(Message::Text(payload))
+                .send(protocol::Message::Text(payload))
                 .await
                 .map_err(|e| Error::Websocket(e.to_string()))?;
         }

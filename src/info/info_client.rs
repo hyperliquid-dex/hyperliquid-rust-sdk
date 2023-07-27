@@ -4,7 +4,7 @@ use crate::{
     meta::Meta,
     prelude::*,
     req::HttpClient,
-    ws::{SubscriptionType, WsManager},
+    ws::{Subscription, WsManager},
     Error,
 };
 
@@ -33,31 +33,27 @@ pub struct InfoClient<'a> {
 }
 
 impl<'a> InfoClient<'a> {
-    pub async fn new(
-        client: Option<Client>,
-        base_url: Option<&'a str>,
-        skip_websocket: bool,
-    ) -> Result<InfoClient> {
+    pub async fn new(client: Option<Client>, base_url: Option<&'a str>) -> Result<InfoClient> {
         let client = client.unwrap_or_else(Client::new);
         let base_url = base_url.unwrap_or(MAINNET_API_URL);
 
-        let ws_manager = if !skip_websocket {
-            Some(WsManager::new(format!("ws{}/ws", &base_url[4..])).await?)
-        } else {
-            None
-        };
-
         Ok(InfoClient {
             http_client: HttpClient { client, base_url },
-            ws_manager,
+            ws_manager: None,
         })
     }
 
     pub async fn subscribe(
         &mut self,
-        subscription: SubscriptionType,
+        subscription: Subscription,
         sender_channel: UnboundedSender<String>,
     ) -> Result<u32> {
+        if self.ws_manager.is_none() {
+            let ws_manager =
+                WsManager::new(format!("ws{}/ws", &self.http_client.base_url[4..])).await?;
+            self.ws_manager = Some(ws_manager);
+        }
+
         let identifier =
             serde_json::to_string(&subscription).map_err(|e| Error::JsonParse(e.to_string()))?;
 
@@ -69,6 +65,12 @@ impl<'a> InfoClient<'a> {
     }
 
     pub async fn unsubscribe(&mut self, subscription_id: u32) -> Result<()> {
+        if self.ws_manager.is_none() {
+            let ws_manager =
+                WsManager::new(format!("ws{}/ws", &self.http_client.base_url[4..])).await?;
+            self.ws_manager = Some(ws_manager);
+        }
+
         self.ws_manager
             .as_mut()
             .ok_or(Error::WsManagerNotFound)?

@@ -13,3 +13,11 @@ pub(crate) struct UpdateLeverage {
     pub(crate) is_cross: bool,
     pub(crate) leverage: u32,
 }
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct UpdateIsolatedMargin {
+    pub(crate) asset: u32,
+    pub(crate) is_buy: bool,
+    pub(crate) ntli: i64,
+}

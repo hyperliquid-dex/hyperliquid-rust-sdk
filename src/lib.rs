@@ -12,7 +12,9 @@ mod signature;
 mod ws;
 
 pub use errors::Error;
-pub use exchange::ExchangeClient;
+pub use exchange::{
+    ClientLimit, ClientOrderRequest, ClientOrderType, ClientTrigger, ExchangeClient,
+};
 pub use info::info_client::InfoClient;
 pub use meta::{AssetMeta, Meta};
-pub use ws::SubscriptionType;
+pub use ws::Subscription;
