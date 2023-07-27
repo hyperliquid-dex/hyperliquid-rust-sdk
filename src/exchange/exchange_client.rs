@@ -59,7 +59,7 @@ impl<'a> ExchangeClient<'a> {
         let meta = if let Some(meta) = meta {
             meta
         } else {
-            let info = InfoClient::new(None, Some(base_url));
+            let info = InfoClient::new(None, Some(base_url), true).await?;
             info.meta().await?
         };
 

@@ -30,4 +30,20 @@ pub enum Error {
     GenericParse(String),
     #[error("Wallet error: {0:?}")]
     Wallet(String),
+    #[error("Websocket error: {0:?}")]
+    Websocket(String),
+    #[error("Subscription not found!")]
+    SubscriptionNotFound,
+    #[error("WS manager not instantiated!")]
+    WsManagerNotFound,
+    #[error("WS send error: {0:?}!")]
+    WsSend(String),
+    #[error("Reader data not found!")]
+    ReaderDataNotFound,
+    #[error("Reader error: {0:?}!")]
+    GenericReader(String),
+    #[error("Reader text conversion error: {0:?}!")]
+    ReaderTextConversion(String),
+    #[error("Cannot support multiple user event subscriptions!")]
+    MultipleUserEvents,
 }

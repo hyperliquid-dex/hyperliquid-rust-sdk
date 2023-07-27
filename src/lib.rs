@@ -9,8 +9,10 @@ mod prelude;
 mod proxy_digest;
 mod req;
 mod signature;
+mod ws;
 
 pub use errors::Error;
 pub use exchange::ExchangeClient;
 pub use info::info_client::InfoClient;
 pub use meta::{AssetMeta, Meta};
+pub use ws::SubscriptionType;
