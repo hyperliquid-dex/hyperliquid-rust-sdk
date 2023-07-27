@@ -36,7 +36,7 @@ pub enum SubscriptionType {
 #[derive(Deserialize)]
 #[serde(tag = "channel")]
 #[serde(rename_all = "camelCase")]
-enum SubscriptionResponseTypes {
+enum SubscriptionResponseType {
     AllMids,
     Trades(Trades),
     SubscriptionResponse,
@@ -49,10 +49,10 @@ pub(crate) struct WebsocketData<'a> {
 }
 
 impl WsManager {
-    fn get_identifier(response: SubscriptionResponseTypes) -> Result<String> {
+    fn get_identifier(response: SubscriptionResponseType) -> Result<String> {
         match response {
-            SubscriptionResponseTypes::AllMids => Ok("allMids".to_string()),
-            SubscriptionResponseTypes::Trades(trades) => {
+            SubscriptionResponseType::AllMids => Ok("allMids".to_string()),
+            SubscriptionResponseType::Trades(trades) => {
                 if trades.data.is_empty() {
                     Ok(String::default())
                 } else {
@@ -62,7 +62,7 @@ impl WsManager {
                     .map_err(|e| Error::JsonParse(e.to_string()))
                 }
             }
-            SubscriptionResponseTypes::SubscriptionResponse => Ok(String::default()),
+            SubscriptionResponseType::SubscriptionResponse => Ok(String::default()),
         }
     }
 
@@ -80,7 +80,7 @@ impl WsManager {
             return Ok(());
         }
 
-        let response = serde_json::from_str::<SubscriptionResponseTypes>(&data)
+        let response = serde_json::from_str::<SubscriptionResponseType>(&data)
             .map_err(|e| Error::JsonParse(e.to_string()))?;
 
         let identifier = WsManager::get_identifier(response)?;
