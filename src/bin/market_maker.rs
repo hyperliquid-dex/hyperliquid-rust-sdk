@@ -70,6 +70,107 @@ fn bps_diff(x: f64, y: f64) -> u16 {
 }
 
 impl<'a> MarketMaker<'a> {
+    async fn new(input: MarketMakerInput) -> MarketMaker<'a> {
+        let user_address = input.wallet.address();
+
+        let info_client = InfoClient::new(None, Some(TESTNET_API_URL)).await.unwrap();
+        let exchange_client =
+            ExchangeClient::new(None, input.wallet, Some(TESTNET_API_URL), None, None)
+                .await
+                .unwrap();
+
+        MarketMaker {
+            asset: input.asset,
+            target_liquidity: input.target_liquidity,
+            half_spread: input.half_spread,
+            max_bps_diff: input.max_bps_diff,
+            max_absolute_position_size: input.max_absolute_position_size,
+            decimals: input.decimals,
+            lower_resting: MarketMakerRestingOrder {
+                oid: 0,
+                position: 0.0,
+                price: -1.0,
+            },
+            upper_resting: MarketMakerRestingOrder {
+                oid: 0,
+                position: 0.0,
+                price: -1.0,
+            },
+            cur_position: 0.0,
+            latest_mid_price: -1.0,
+            info_client,
+            exchange_client,
+            user_address,
+        }
+    }
+
+    async fn start(&mut self) {
+        let (sender, mut receiver) = unbounded_channel();
+
+        // Subscribe to UserEvents for fills
+        self.info_client
+            .subscribe(
+                Subscription::UserEvents {
+                    user: self.user_address,
+                },
+                sender.clone(),
+            )
+            .await
+            .unwrap();
+
+        // Subscribe to AllMids so we can market make around the mid price
+        self.info_client
+            .subscribe(Subscription::AllMids, sender)
+            .await
+            .unwrap();
+
+        loop {
+            let message = receiver.recv().await.unwrap();
+            match message {
+                Message::AllMids(all_mids) => {
+                    let all_mids = all_mids.data.mids;
+                    let mid = all_mids.get(&self.asset);
+                    if let Some(mid) = mid {
+                        let mid = mid.parse::<f64>().unwrap();
+                        self.latest_mid_price = mid;
+                        // Check to see if we need to cancel or place any new orders
+                        self.potentially_update().await;
+                    } else {
+                        error!(
+                            "could not get mid for asset {}: {all_mids:?}",
+                            self.asset.clone()
+                        );
+                    }
+                }
+                Message::User(user_events) => {
+                    // We haven't seen the first mid price event yet, so just continue
+                    if self.latest_mid_price < 0.0 {
+                        continue;
+                    }
+                    let fills = user_events.data.fills;
+                    for fill in fills {
+                        let amount = fill.sz.parse::<f64>().unwrap();
+                        // Update our resting positions whenever we see a fill
+                        if fill.side.eq("B") {
+                            self.cur_position += amount;
+                            self.lower_resting.position -= amount;
+                            info!("Fill: bought {amount} {}", self.asset.clone());
+                        } else {
+                            self.cur_position -= amount;
+                            self.upper_resting.position -= amount;
+                            info!("Fill: sold {amount} {}", self.asset.clone());
+                        }
+                    }
+                    // Check to see if we need to cancel or place any new orders
+                    self.potentially_update().await;
+                }
+                _ => {
+                    panic!("Unsupported message type");
+                }
+            }
+        }
+    }
+
     async fn attempt_cancel(&self, asset: String, oid: u64) -> bool {
         let cancel: Result<ExchangeResponseStatus, hyperliquid_rust_sdk::Error> = self
             .exchange_client
@@ -208,107 +309,6 @@ impl<'a> MarketMaker<'a> {
                     "Sell for {amount_resting} {} resting at {upper_price}",
                     self.asset.clone()
                 );
-            }
-        }
-    }
-
-    async fn new(input: MarketMakerInput) -> MarketMaker<'a> {
-        let user_address = input.wallet.address();
-
-        let info_client = InfoClient::new(None, Some(TESTNET_API_URL)).await.unwrap();
-        let exchange_client =
-            ExchangeClient::new(None, input.wallet, Some(TESTNET_API_URL), None, None)
-                .await
-                .unwrap();
-
-        MarketMaker {
-            asset: input.asset,
-            target_liquidity: input.target_liquidity,
-            half_spread: input.half_spread,
-            max_bps_diff: input.max_bps_diff,
-            max_absolute_position_size: input.max_absolute_position_size,
-            decimals: input.decimals,
-            lower_resting: MarketMakerRestingOrder {
-                oid: 0,
-                position: 0.0,
-                price: -1.0,
-            },
-            upper_resting: MarketMakerRestingOrder {
-                oid: 0,
-                position: 0.0,
-                price: -1.0,
-            },
-            cur_position: 0.0,
-            latest_mid_price: -1.0,
-            info_client,
-            exchange_client,
-            user_address,
-        }
-    }
-
-    async fn start(&mut self) {
-        let (sender, mut receiver) = unbounded_channel();
-
-        // Subscribe to UserEvents for fills
-        self.info_client
-            .subscribe(
-                Subscription::UserEvents {
-                    user: self.user_address,
-                },
-                sender.clone(),
-            )
-            .await
-            .unwrap();
-
-        // Subscribe to AllMids so we can market make around the mid price
-        self.info_client
-            .subscribe(Subscription::AllMids, sender)
-            .await
-            .unwrap();
-
-        loop {
-            let message = receiver.recv().await.unwrap();
-            match message {
-                Message::AllMids(all_mids) => {
-                    let all_mids = all_mids.data.mids;
-                    let mid = all_mids.get(&self.asset);
-                    if let Some(mid) = mid {
-                        let mid = mid.parse::<f64>().unwrap();
-                        self.latest_mid_price = mid;
-                        // Check to see if we need to cancel or place any new orders
-                        self.potentially_update().await;
-                    } else {
-                        error!(
-                            "could not get mid for asset {}: {all_mids:?}",
-                            self.asset.clone()
-                        );
-                    }
-                }
-                Message::User(user_events) => {
-                    // We haven't seen the first mid price event yet, so just continue
-                    if self.latest_mid_price < 0.0 {
-                        continue;
-                    }
-                    let fills = user_events.data.fills;
-                    for fill in fills {
-                        let amount = fill.sz.parse::<f64>().unwrap();
-                        // Update our resting positions whenever we see a fill
-                        if fill.side.eq("B") {
-                            self.cur_position += amount;
-                            self.lower_resting.position -= amount;
-                            info!("Fill: bought {amount} {}", self.asset.clone());
-                        } else {
-                            self.cur_position -= amount;
-                            self.upper_resting.position -= amount;
-                            info!("Fill: sold {amount} {}", self.asset.clone());
-                        }
-                    }
-                    // Check to see if we need to cancel or place any new orders
-                    self.potentially_update().await;
-                }
-                _ => {
-                    panic!("Unsupported message type");
-                }
             }
         }
     }
