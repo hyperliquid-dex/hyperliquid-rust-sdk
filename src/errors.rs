@@ -45,8 +45,12 @@ pub enum Error {
     GenericReader(String),
     #[error("Reader text conversion error: {0:?}")]
     ReaderTextConversion(String),
-    #[error("Cannot support multiple user event subscriptions")]
-    MultipleUserEvents,
     #[error("Order type not found")]
     OrderTypeNotFound,
+    #[error("Issue with generating random data: {0:?}")]
+    RandGen(String),
+    #[error("Private key parse error: {0:?}")]
+    PrivateKeyParse(String),
+    #[error("Cannot subscribe to multiple user events")]
+    UserEvents,
 }

@@ -1,4 +1,4 @@
-mod agent;
+pub(crate) mod agent;
 mod create_signature;
 pub(crate) mod usdc_transfer;
 

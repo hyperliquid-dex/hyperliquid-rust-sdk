@@ -1,6 +1,10 @@
 mod actions;
+mod cancel;
 mod exchange_client;
-mod order_types;
+mod exchange_responses;
+mod order;
 
+pub use cancel::ClientCancelRequest;
 pub use exchange_client::ExchangeClient;
-pub use order_types::{ClientLimit, ClientOrderRequest, ClientOrderType, ClientTrigger};
+pub use exchange_responses::*;
+pub use order::{ClientLimit, ClientOrder, ClientOrderRequest, ClientTrigger};

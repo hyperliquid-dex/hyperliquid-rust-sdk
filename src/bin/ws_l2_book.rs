@@ -1,6 +1,6 @@
-use log::debug;
+use log::info;
 
-use hyperliquid_rust_sdk::{InfoClient, Subscription};
+use hyperliquid_rust_sdk::{InfoClient, Message, Subscription, TESTNET_API_URL};
 use tokio::{
     spawn,
     sync::mpsc::unbounded_channel,
@@ -9,14 +9,14 @@ use tokio::{
 
 #[tokio::main]
 async fn main() {
-    let mut info_client = InfoClient::new(None, Some("https://api.hyperliquid-testnet.xyz"))
-        .await
-        .unwrap();
+    env_logger::init();
+
+    let mut info_client = InfoClient::new(None, Some(TESTNET_API_URL)).await.unwrap();
 
     let (sender, mut receiver) = unbounded_channel();
     let subscription_id = info_client
         .subscribe(
-            Subscription::Trades {
+            Subscription::L2Book {
                 coin: "ETH".to_string(),
             },
             sender,
@@ -26,16 +26,12 @@ async fn main() {
 
     spawn(async move {
         sleep(Duration::from_secs(30)).await;
-        debug!("Unsubscribing");
+        info!("Unsubscribing from l2 book data");
         info_client.unsubscribe(subscription_id).await.unwrap()
     });
 
-    loop {
-        let ret = receiver.recv().await.unwrap_or_default();
-        if ret.is_empty() {
-            // we've unsubscribed
-            break;
-        }
-        println!("received data: {ret}")
+    // This loop ends when we unsubscribe
+    while let Some(Message::L2Book(l2_book)) = receiver.recv().await {
+        info!("Received l2 book data: {l2_book:?}");
     }
 }

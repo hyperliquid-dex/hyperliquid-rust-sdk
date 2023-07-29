@@ -1,3 +1,6 @@
 pub(super) mod info_client;
-mod open_order;
-mod user_state;
+mod response_structs;
+mod sub_structs;
+
+pub use response_structs::*;
+pub use sub_structs::*;

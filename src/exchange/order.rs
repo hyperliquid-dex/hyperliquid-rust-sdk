@@ -3,7 +3,6 @@ use crate::{
     helpers::{float_to_int_for_hashing, float_to_string_for_hashing},
     prelude::*,
 };
-use ethers::types::H160;
 use serde::Serialize;
 use std::collections::HashMap;
 
@@ -22,16 +21,9 @@ pub(crate) struct Trigger {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) enum OrderType {
+pub(crate) enum Order {
     Limit(Limit),
     Trigger(Trigger),
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(crate) struct BulkOrderRequest {
-    pub(crate) grouping: String,
-    pub(crate) orders: Vec<OrderRequest>,
 }
 
 #[derive(Serialize)]
@@ -42,7 +34,7 @@ pub(crate) struct OrderRequest {
     pub(crate) reduce_only: bool,
     pub(crate) limit_px: String,
     pub(crate) sz: String,
-    pub(crate) order_type: OrderType,
+    pub(crate) order_type: Order,
 }
 
 pub struct ClientLimit {
@@ -55,7 +47,7 @@ pub struct ClientTrigger {
     pub tpsl: String,
 }
 
-pub enum ClientOrderType {
+pub enum ClientOrder {
     Limit(ClientLimit),
     Trigger(ClientTrigger),
 }
@@ -65,14 +57,14 @@ pub struct ClientOrderRequest {
     pub reduce_only: bool,
     pub limit_px: f64,
     pub sz: f64,
-    pub order_type: ClientOrderType,
+    pub order_type: ClientOrder,
 }
 
 impl ClientOrderRequest {
     pub(crate) fn convert(self, coin_to_asset: &HashMap<String, u32>) -> Result<OrderRequest> {
         let order_type = match self.order_type {
-            ClientOrderType::Limit(limit) => OrderType::Limit(Limit { tif: limit.tif }),
-            ClientOrderType::Trigger(trigger) => OrderType::Trigger(Trigger {
+            ClientOrder::Limit(limit) => Order::Limit(Limit { tif: limit.tif }),
+            ClientOrder::Trigger(trigger) => Order::Trigger(Trigger {
                 trigger_px: float_to_string_for_hashing(trigger.trigger_px),
                 is_market: trigger.is_market,
                 tpsl: trigger.tpsl,
@@ -107,16 +99,16 @@ impl ClientOrderRequest {
     }
 }
 
-impl ClientOrderType {
+impl ClientOrder {
     pub(crate) fn get_type(&self) -> Result<(u8, u64)> {
         match self {
-            ClientOrderType::Limit(limit) => match limit.tif.as_str() {
+            ClientOrder::Limit(limit) => match limit.tif.as_str() {
                 "Gtc" => Ok((2, 0)),
                 "Alo" => Ok((1, 0)),
                 "Ioc" => Ok((3, 0)),
                 _ => Err(Error::OrderTypeNotFound),
             },
-            ClientOrderType::Trigger(trigger) => match (trigger.is_market, trigger.tpsl.as_str()) {
+            ClientOrder::Trigger(trigger) => match (trigger.is_market, trigger.tpsl.as_str()) {
                 (true, "tp") => Ok((4, float_to_int_for_hashing(trigger.trigger_px))),
                 (false, "tp") => Ok((5, float_to_int_for_hashing(trigger.trigger_px))),
                 (true, "sl") => Ok((6, float_to_int_for_hashing(trigger.trigger_px))),

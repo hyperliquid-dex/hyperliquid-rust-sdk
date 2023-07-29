@@ -1435,6 +1435,7 @@ dependencies = [
  "hex",
  "http",
  "log",
+ "rand",
  "reqwest 0.11.18 (git+https://github.com/seanmonstar/reqwest.git?rev=61b1b2b)",
  "serde",
  "serde_json",

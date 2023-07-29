@@ -1,4 +1,8 @@
-use crate::{prelude::*, ws::message_types::Trades, Error};
+use crate::{
+    prelude::*,
+    ws::message_types::{AllMids, L2Book, Trades, User},
+    Error,
+};
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
 use log::error;
 use serde::{Deserialize, Serialize};
@@ -14,8 +18,10 @@ use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream,
 };
 
+use ethers::types::H160;
+
 struct SubscriptionData {
-    sending_channel: UnboundedSender<String>,
+    sending_channel: UnboundedSender<Message>,
     subscription_id: u32,
 }
 pub(crate) struct WsManager {
@@ -25,25 +31,29 @@ pub(crate) struct WsManager {
     subscription_identifiers: HashMap<u32, String>,
 }
 
-#[derive(Serialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
 pub enum Subscription {
     AllMids,
     Trades { coin: String },
+    L2Book { coin: String },
+    UserEvents { user: H160 },
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Clone, Debug)]
 #[serde(tag = "channel")]
 #[serde(rename_all = "camelCase")]
-enum Message {
-    AllMids,
+pub enum Message {
+    AllMids(AllMids),
     Trades(Trades),
+    L2Book(L2Book),
+    User(User),
     SubscriptionResponse,
 }
 
 #[derive(Serialize)]
-pub(crate) struct WebsocketSubscriptionData<'a> {
+pub(crate) struct SubscriptionSendData<'a> {
     method: &'static str,
     subscription: &'a serde_json::Value,
 }
@@ -65,7 +75,7 @@ impl WsManager {
             loop {
                 let data = reader.next().await;
                 if let Err(err) = WsManager::parse_and_send_data(data, &subscriptions_copy).await {
-                    error!("error with parse and send: {err}");
+                    error!("Error processing data received by WS manager reader: {err}");
                 }
             }
         };
@@ -79,9 +89,11 @@ impl WsManager {
         })
     }
 
-    fn get_identifier(message: Message) -> Result<String> {
+    fn get_identifier(message: &Message) -> Result<String> {
         match message {
-            Message::AllMids => Ok("allMids".to_string()),
+            Message::AllMids(_) => serde_json::to_string(&Subscription::AllMids)
+                .map_err(|e| Error::JsonParse(e.to_string())),
+            Message::User(_) => Ok("userEvents".to_string()),
             Message::Trades(trades) => {
                 if trades.data.is_empty() {
                     Ok(String::default())
@@ -92,6 +104,10 @@ impl WsManager {
                     .map_err(|e| Error::JsonParse(e.to_string()))
                 }
             }
+            Message::L2Book(l2_book) => serde_json::to_string(&Subscription::L2Book {
+                coin: l2_book.data.coin.clone(),
+            })
+            .map_err(|e| Error::JsonParse(e.to_string())),
             Message::SubscriptionResponse => Ok(String::default()),
         }
     }
@@ -113,7 +129,7 @@ impl WsManager {
         let message =
             serde_json::from_str::<Message>(&data).map_err(|e| Error::JsonParse(e.to_string()))?;
 
-        let identifier = WsManager::get_identifier(message)?;
+        let identifier = WsManager::get_identifier(&message)?;
         if identifier.is_empty() {
             return Ok(());
         }
@@ -124,7 +140,7 @@ impl WsManager {
             for subscription_data in subscription_datas {
                 if let Err(e) = subscription_data
                     .sending_channel
-                    .send(data.clone())
+                    .send(message.clone())
                     .map_err(|e| Error::WsSend(e.to_string()))
                 {
                     res = Err(e);
@@ -137,20 +153,29 @@ impl WsManager {
     pub(crate) async fn add_subscription(
         &mut self,
         identifier: String,
-        sending_channel: UnboundedSender<String>,
+        sending_channel: UnboundedSender<Message>,
     ) -> Result<u32> {
         let mut subscriptions = self.subscriptions.lock().await;
 
+        let identifier_entry = if let Subscription::UserEvents { user: _ } =
+            serde_json::from_str::<Subscription>(&identifier)
+                .map_err(|e| Error::JsonParse(e.to_string()))?
+        {
+            "userEvents".to_string()
+        } else {
+            identifier.clone()
+        };
+
         let subscriptions = subscriptions
-            .entry(identifier.clone())
+            .entry(identifier_entry.clone())
             .or_insert(Vec::new());
 
-        if identifier.eq("userEvents") && !subscriptions.is_empty() {
-            return Err(Error::MultipleUserEvents);
+        if !subscriptions.is_empty() && identifier_entry.eq("userEvents") {
+            return Err(Error::UserEvents);
         }
 
         if subscriptions.is_empty() {
-            let payload = serde_json::to_string(&WebsocketSubscriptionData {
+            let payload = serde_json::to_string(&SubscriptionSendData {
                 method: "subscribe",
                 subscription: &serde_json::from_str::<serde_json::Value>(&identifier)
                     .map_err(|e| Error::JsonParse(e.to_string()))?,
@@ -183,12 +208,21 @@ impl WsManager {
             .ok_or(Error::SubscriptionNotFound)?
             .clone();
 
+        let identifier_entry = if let Subscription::UserEvents { user: _ } =
+            serde_json::from_str::<Subscription>(&identifier)
+                .map_err(|e| Error::JsonParse(e.to_string()))?
+        {
+            "userEvents".to_string()
+        } else {
+            identifier.clone()
+        };
+
         self.subscription_identifiers.remove(&subscription_id);
 
         let mut subscriptions = self.subscriptions.lock().await;
 
         let subscriptions = subscriptions
-            .get_mut(&identifier)
+            .get_mut(&identifier_entry)
             .ok_or(Error::SubscriptionNotFound)?;
         let index = subscriptions
             .iter()
@@ -197,7 +231,7 @@ impl WsManager {
         subscriptions.remove(index);
 
         if subscriptions.is_empty() {
-            let payload = serde_json::to_string(&WebsocketSubscriptionData {
+            let payload = serde_json::to_string(&SubscriptionSendData {
                 method: "unsubscribe",
                 subscription: &serde_json::from_str::<serde_json::Value>(&identifier)
                     .map_err(|e| Error::JsonParse(e.to_string()))?,

@@ -1,17 +1,30 @@
 use crate::{
     consts::MAINNET_API_URL,
-    info::{open_order::OpenOrdersResponse, user_state::UserStateResponse},
+    info::{
+        CandlesSnapshotResponse, FundingHistoryResponse, L2SnapshotResponse, OpenOrdersResponse,
+        UserFillsResponse, UserStateResponse,
+    },
     meta::Meta,
     prelude::*,
     req::HttpClient,
     ws::{Subscription, WsManager},
-    Error,
+    Error, Message,
 };
 
 use ethers::types::H160;
 use reqwest::Client;
 use serde::Serialize;
+use std::collections::HashMap;
 use tokio::sync::mpsc::UnboundedSender;
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CandleSnapshotRequest {
+    coin: String,
+    interval: String,
+    start_time: u64,
+    end_time: u64,
+}
 
 #[derive(Serialize)]
 #[serde(tag = "type")]
@@ -25,6 +38,23 @@ enum InfoRequest {
         user: H160,
     },
     Meta,
+    AllMids,
+    UserFills {
+        user: H160,
+    },
+    #[serde(rename_all = "camelCase")]
+    FundingHistory {
+        coin: String,
+        start_time: u64,
+        end_time: Option<u64>,
+    },
+    L2Book {
+        coin: String,
+    },
+    #[serde(rename_all = "camelCase")]
+    CandleSnapshot {
+        req: CandleSnapshotRequest,
+    },
 }
 
 pub struct InfoClient<'a> {
@@ -46,7 +76,7 @@ impl<'a> InfoClient<'a> {
     pub async fn subscribe(
         &mut self,
         subscription: Subscription,
-        sender_channel: UnboundedSender<String>,
+        sender_channel: UnboundedSender<Message>,
     ) -> Result<u32> {
         if self.ws_manager.is_none() {
             let ws_manager =
@@ -96,6 +126,68 @@ impl<'a> InfoClient<'a> {
 
     pub async fn meta(&self) -> Result<Meta> {
         let input = InfoRequest::Meta;
+        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        let return_data = self.http_client.post("/info", data).await?;
+        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+    }
+
+    pub async fn all_mids(&self) -> Result<HashMap<String, String>> {
+        let input = InfoRequest::AllMids;
+        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        let return_data = self.http_client.post("/info", data).await?;
+        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+    }
+
+    pub async fn user_fills(&self, address: H160) -> Result<Vec<UserFillsResponse>> {
+        let input = InfoRequest::UserFills { user: address };
+        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        let return_data = self.http_client.post("/info", data).await?;
+        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+    }
+
+    pub async fn funding_history(
+        &self,
+        coin: String,
+        start_time: u64,
+        end_time: Option<u64>,
+    ) -> Result<Vec<FundingHistoryResponse>> {
+        let input = InfoRequest::FundingHistory {
+            coin,
+            start_time,
+            end_time,
+        };
+        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        let return_data = self.http_client.post("/info", data).await?;
+        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+    }
+
+    pub async fn l2_snapshot(&self, coin: String) -> Result<L2SnapshotResponse> {
+        let input = InfoRequest::L2Book { coin };
+        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        let return_data = self.http_client.post("/info", data).await?;
+        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+    }
+
+    pub async fn candles_snapshot(
+        &self,
+        coin: String,
+        interval: String,
+        start_time: u64,
+        end_time: u64,
+    ) -> Result<Vec<CandlesSnapshotResponse>> {
+        let input = InfoRequest::CandleSnapshot {
+            req: CandleSnapshotRequest {
+                coin,
+                interval,
+                start_time,
+                end_time,
+            },
+        };
         let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         let return_data = self.http_client.post("/info", data).await?;

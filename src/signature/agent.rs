@@ -3,6 +3,8 @@ use ethers::{
     types::{transaction::eip712::Eip712, H256},
 };
 
+use serde::Serialize;
+
 pub(crate) mod l1 {
     use super::*;
     #[derive(Debug, Eip712, Clone, EthAbiType)]
@@ -21,13 +23,14 @@ pub(crate) mod l1 {
 pub(crate) mod mainnet {
     use super::*;
 
-    #[derive(Debug, Eip712, Clone, EthAbiType)]
+    #[derive(Debug, Eip712, Clone, EthAbiType, Serialize)]
     #[eip712(
         name = "Exchange",
         version = "1",
         chain_id = 42161,
         verifying_contract = "0x0000000000000000000000000000000000000000"
     )]
+    #[serde(rename_all = "camelCase")]
     pub(crate) struct Agent {
         pub(crate) source: String,
         pub(crate) connection_id: H256,

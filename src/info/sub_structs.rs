@@ -2,14 +2,6 @@ use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct UserStateResponse {
-    pub asset_positions: Vec<AssetPosition>,
-    pub cross_margin_summary: MarginSummary,
-    pub margin_summary: MarginSummary,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
 pub struct Leverage {
     #[serde(rename = "type")]
     pub type_string: String,
@@ -47,4 +39,12 @@ pub struct MarginSummary {
     pub total_ntl_pos: String,
     pub total_raw_usd: String,
     pub withdrawable: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Level {
+    pub n: u64,
+    pub px: String,
+    pub sz: String,
 }

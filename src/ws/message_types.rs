@@ -1,11 +1,22 @@
+use crate::ws::sub_structs::*;
 use serde::Deserialize;
 
-#[derive(Deserialize)]
-pub(crate) struct Coin {
-    pub(crate) coin: String,
+#[derive(Deserialize, Clone, Debug)]
+pub struct Trades {
+    pub data: Vec<Trade>,
 }
 
-#[derive(Deserialize)]
-pub(crate) struct Trades {
-    pub(crate) data: Vec<Coin>,
+#[derive(Deserialize, Clone, Debug)]
+pub struct L2Book {
+    pub data: L2BookData,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct AllMids {
+    pub data: AllMidsData,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct User {
+    pub data: UserData,
 }
