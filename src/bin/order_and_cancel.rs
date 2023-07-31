@@ -10,8 +10,8 @@ use std::{thread::sleep, time::Duration};
 #[tokio::main]
 async fn main() {
     env_logger::init();
-    let wallet = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e"
-        .parse::<LocalWallet>()
+    let wallet: LocalWallet = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e"
+        .parse()
         .unwrap();
 
     let exchange_client = ExchangeClient::new(None, wallet, Some(TESTNET_API_URL), None, None)

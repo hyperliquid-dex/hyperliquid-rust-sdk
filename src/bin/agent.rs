@@ -9,8 +9,8 @@ use hyperliquid_rust_sdk::{
 async fn main() {
     env_logger::init();
 
-    let wallet = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e"
-        .parse::<LocalWallet>()
+    let wallet: LocalWallet = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e"
+        .parse()
         .unwrap();
 
     let exchange_client = ExchangeClient::new(None, wallet, Some(TESTNET_API_URL), None, None)
@@ -25,7 +25,7 @@ async fn main() {
     let (private_key, response) = exchange_client.approve_agent().await.unwrap();
     info!("Agent creation response: {response:?}");
 
-    let wallet = private_key.parse::<LocalWallet>().unwrap();
+    let wallet: LocalWallet = private_key.parse().unwrap();
 
     info!("Agent address: {:?}", wallet.address());
 

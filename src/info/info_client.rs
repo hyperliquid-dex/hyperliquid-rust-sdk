@@ -57,18 +57,21 @@ enum InfoRequest {
     },
 }
 
-pub struct InfoClient<'a> {
-    pub(crate) http_client: HttpClient<'a>,
+pub struct InfoClient {
+    pub(crate) http_client: HttpClient,
     pub(crate) ws_manager: Option<WsManager>,
 }
 
-impl<'a> InfoClient<'a> {
-    pub async fn new(client: Option<Client>, base_url: Option<&'a str>) -> Result<InfoClient> {
+impl InfoClient {
+    pub async fn new(client: Option<Client>, base_url: Option<&str>) -> Result<InfoClient> {
         let client = client.unwrap_or_else(Client::new);
         let base_url = base_url.unwrap_or(MAINNET_API_URL);
 
         Ok(InfoClient {
-            http_client: HttpClient { client, base_url },
+            http_client: HttpClient {
+                client,
+                base_url: base_url.to_string(),
+            },
             ws_manager: None,
         })
     }

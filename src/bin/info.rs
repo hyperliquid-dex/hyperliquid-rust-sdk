@@ -17,8 +17,10 @@ async fn main() {
     candles_snapshot_example(&info_client).await;
 }
 
-async fn open_orders_example(info_client: &InfoClient<'_>) {
-    let user = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8".to_string();
+async fn open_orders_example(info_client: &InfoClient) {
+    let user: String = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8"
+        .parse()
+        .unwrap();
     let user = H160::from_str(&user).unwrap();
 
     info!(
@@ -27,8 +29,10 @@ async fn open_orders_example(info_client: &InfoClient<'_>) {
     );
 }
 
-async fn user_state_example(info_client: &InfoClient<'_>) {
-    let user = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8".to_string();
+async fn user_state_example(info_client: &InfoClient) {
+    let user: String = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8"
+        .parse()
+        .unwrap();
     let user = H160::from_str(&user).unwrap();
 
     info!(
@@ -37,16 +41,18 @@ async fn user_state_example(info_client: &InfoClient<'_>) {
     );
 }
 
-async fn meta_example(info_client: &InfoClient<'_>) {
+async fn meta_example(info_client: &InfoClient) {
     info!("Metadata: {:?}", info_client.meta().await.unwrap());
 }
 
-async fn all_mids_example(info_client: &InfoClient<'_>) {
+async fn all_mids_example(info_client: &InfoClient) {
     info!("All mids: {:?}", info_client.all_mids().await.unwrap());
 }
 
-async fn user_fills_example(info_client: &InfoClient<'_>) {
-    let user = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8".to_string();
+async fn user_fills_example(info_client: &InfoClient) {
+    let user: String = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8"
+        .parse()
+        .unwrap();
     let user = H160::from_str(&user).unwrap();
 
     info!(
@@ -55,7 +61,7 @@ async fn user_fills_example(info_client: &InfoClient<'_>) {
     );
 }
 
-async fn funding_history_example(info_client: &InfoClient<'_>) {
+async fn funding_history_example(info_client: &InfoClient) {
     let coin = "ETH";
 
     let start_timestamp = 1690540602225;
@@ -66,7 +72,7 @@ async fn funding_history_example(info_client: &InfoClient<'_>) {
     );
 }
 
-async fn l2_snapshot_example(info_client: &InfoClient<'_>) {
+async fn l2_snapshot_example(info_client: &InfoClient) {
     let coin = "ETH";
 
     info!(
@@ -75,7 +81,7 @@ async fn l2_snapshot_example(info_client: &InfoClient<'_>) {
     );
 }
 
-async fn candles_snapshot_example(info_client: &InfoClient<'_>) {
+async fn candles_snapshot_example(info_client: &InfoClient) {
     let coin = "ETH";
     let start_timestamp = 1690540602225;
     let end_timestamp = 1690569402225;

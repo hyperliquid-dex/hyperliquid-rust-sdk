@@ -27,8 +27,8 @@ use reqwest::Client;
 use serde::Serialize;
 use std::collections::HashMap;
 
-pub struct ExchangeClient<'a> {
-    pub http_client: HttpClient<'a>,
+pub struct ExchangeClient {
+    pub http_client: HttpClient,
     pub wallet: LocalWallet,
     pub meta: Meta,
     pub vault_address: Option<H160>,
@@ -56,14 +56,14 @@ enum Actions {
     Connect(AgentConnect),
 }
 
-impl<'a> ExchangeClient<'a> {
+impl ExchangeClient {
     pub async fn new(
         client: Option<Client>,
         wallet: LocalWallet,
-        base_url: Option<&'a str>,
+        base_url: Option<&str>,
         meta: Option<Meta>,
         vault_address: Option<H160>,
-    ) -> Result<ExchangeClient<'a>> {
+    ) -> Result<ExchangeClient> {
         let client = client.unwrap_or_else(Client::new);
         let base_url = base_url.unwrap_or(MAINNET_API_URL);
 
@@ -83,7 +83,10 @@ impl<'a> ExchangeClient<'a> {
             wallet,
             meta,
             vault_address,
-            http_client: HttpClient { client, base_url },
+            http_client: HttpClient {
+                client,
+                base_url: base_url.to_string(),
+            },
             coin_to_asset,
         })
     }
@@ -156,7 +159,7 @@ impl<'a> ExchangeClient<'a> {
         let mut hashable_tuples = Vec::new();
         let mut transformed_orders = Vec::new();
 
-        for order in orders.into_iter() {
+        for order in orders {
             hashable_tuples.push(order.create_hashable_tuple(&self.coin_to_asset)?);
             transformed_orders.push(order.convert(&self.coin_to_asset)?);
         }

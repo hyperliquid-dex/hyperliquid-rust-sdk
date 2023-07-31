@@ -9,9 +9,9 @@ struct ErrorData {
     msg: String,
 }
 
-pub struct HttpClient<'a> {
+pub struct HttpClient {
     pub client: Client,
-    pub base_url: &'a str,
+    pub base_url: String,
 }
 
 async fn parse_response(response: Response) -> Result<String> {
@@ -53,7 +53,7 @@ async fn parse_response(response: Response) -> Result<String> {
     })
 }
 
-impl<'a> HttpClient<'a> {
+impl HttpClient {
     pub async fn post(&self, url_path: &'static str, data: String) -> Result<String> {
         let full_url = format!("{}{url_path}", self.base_url);
         let request = self
