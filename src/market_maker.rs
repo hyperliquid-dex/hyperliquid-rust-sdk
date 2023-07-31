@@ -267,6 +267,7 @@ impl MarketMaker {
             || bps_diff(upper_price, self.upper_resting.price) > self.max_bps_diff;
 
         // Consider cancelling
+        // TODO: Don't block on cancels
         if self.lower_resting.oid != 0 && self.lower_resting.position > EPSILON && lower_change {
             let cancel = self
                 .attempt_cancel(self.asset.clone(), self.lower_resting.oid)
