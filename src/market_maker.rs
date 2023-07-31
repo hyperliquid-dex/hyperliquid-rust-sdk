@@ -7,9 +7,9 @@ use log::{error, info};
 use tokio::sync::mpsc::unbounded_channel;
 
 use crate::{
-    bps_diff, truncate_float, ClientCancelRequest, ClientLimit, ClientOrder, ClientOrderRequest,
-    ExchangeClient, ExchangeDataStatus, ExchangeResponseStatus, InfoClient, Message, Subscription,
-    EPSILON, TESTNET_API_URL,
+    bps_diff, truncate_float, BaseUrl, ClientCancelRequest, ClientLimit, ClientOrder,
+    ClientOrderRequest, ExchangeClient, ExchangeDataStatus, ExchangeResponseStatus, InfoClient,
+    Message, Subscription, EPSILON,
 };
 #[derive(Debug)]
 pub struct MarketMakerRestingOrder {
@@ -48,9 +48,9 @@ impl MarketMaker {
     pub async fn new(input: MarketMakerInput) -> MarketMaker {
         let user_address = input.wallet.address();
 
-        let info_client = InfoClient::new(None, Some(TESTNET_API_URL)).await.unwrap();
+        let info_client = InfoClient::new(None, Some(BaseUrl::Testnet)).await.unwrap();
         let exchange_client =
-            ExchangeClient::new(None, input.wallet, Some(TESTNET_API_URL), None, None)
+            ExchangeClient::new(None, input.wallet, Some(BaseUrl::Testnet), None, None)
                 .await
                 .unwrap();
 

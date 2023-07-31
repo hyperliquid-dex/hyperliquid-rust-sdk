@@ -1,8 +1,4 @@
-use crate::{
-    consts::{EPSILON, INF_BPS},
-    prelude::*,
-    Error,
-};
+use crate::{consts::*, prelude::*, Error};
 use chrono::prelude::Utc;
 use rand::{thread_rng, Rng};
 
@@ -46,8 +42,25 @@ pub fn bps_diff(x: f64, y: f64) -> u16 {
 }
 
 #[derive(Copy, Clone, Debug)]
-pub(crate) enum ChainType {
+pub(crate) enum EthChain {
+    Localhost,
     Arbitrum,
-    HyperliquidMainnet,
-    HyperliquidTestnet,
+    ArbitrumGoerli,
+}
+
+#[derive(Copy, Clone)]
+pub enum BaseUrl {
+    Localhost,
+    Testnet,
+    Mainnet,
+}
+
+impl BaseUrl {
+    pub(crate) fn get_url(&self) -> String {
+        match self {
+            BaseUrl::Localhost => LOCAL_API_URL.to_string(),
+            BaseUrl::Mainnet => MAINNET_API_URL.to_string(),
+            BaseUrl::Testnet => TESTNET_API_URL.to_string(),
+        }
+    }
 }

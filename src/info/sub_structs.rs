@@ -38,7 +38,6 @@ pub struct MarginSummary {
     pub total_margin_used: String,
     pub total_ntl_pos: String,
     pub total_raw_usd: String,
-    pub withdrawable: String,
 }
 
 #[derive(Deserialize, Debug)]

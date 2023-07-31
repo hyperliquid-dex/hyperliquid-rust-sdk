@@ -1,12 +1,12 @@
 use ethers::types::H160;
-use hyperliquid_rust_sdk::{InfoClient, TESTNET_API_URL};
+use hyperliquid_rust_sdk::{BaseUrl, InfoClient};
 use log::info;
 use std::str::FromStr;
 
 #[tokio::main]
 async fn main() {
     env_logger::init();
-    let info_client = InfoClient::new(None, Some(TESTNET_API_URL)).await.unwrap();
+    let info_client = InfoClient::new(None, Some(BaseUrl::Testnet)).await.unwrap();
     open_orders_example(&info_client).await;
     user_state_example(&info_client).await;
     meta_example(&info_client).await;

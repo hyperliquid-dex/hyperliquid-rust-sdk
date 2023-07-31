@@ -1,20 +1,21 @@
 use ethers::signers::{LocalWallet, Signer};
-use hyperliquid_rust_sdk::{ExchangeClient, InfoClient, TESTNET_API_URL};
+use hyperliquid_rust_sdk::{BaseUrl, ExchangeClient, InfoClient};
 use log::info;
 
 #[tokio::main]
 async fn main() {
-    env_logger::init();
     // Example assumes you already have a position on ETH so you can update margin
+    env_logger::init();
+    // Key was randomly generated for testing and shouldn't be used with any real funds
     let wallet: LocalWallet = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e"
         .parse()
         .unwrap();
 
     let address = wallet.address();
-    let exchange_client = ExchangeClient::new(None, wallet, Some(TESTNET_API_URL), None, None)
+    let exchange_client = ExchangeClient::new(None, wallet, Some(BaseUrl::Testnet), None, None)
         .await
         .unwrap();
-    let info_client = InfoClient::new(None, Some(TESTNET_API_URL)).await.unwrap();
+    let info_client = InfoClient::new(None, Some(BaseUrl::Testnet)).await.unwrap();
 
     let response = exchange_client
         .update_leverage(5, "ETH", false)

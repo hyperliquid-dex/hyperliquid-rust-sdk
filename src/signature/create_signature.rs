@@ -11,7 +11,7 @@ use ethers::{
 };
 
 use crate::{
-    helpers::ChainType,
+    helpers::EthChain,
     prelude::*,
     proxy_digest::Sha256Proxy,
     signature::{
@@ -26,19 +26,19 @@ pub(crate) fn keccak(x: impl AbiEncode) -> H256 {
 }
 
 pub(crate) fn sign_l1_action(wallet: &LocalWallet, connection_id: H256) -> Result<Signature> {
-    sign_with_agent(wallet, ChainType::Arbitrum, "a", connection_id)
+    sign_with_agent(wallet, EthChain::Localhost, "a", connection_id)
 }
 
 pub(crate) fn sign_usd_transfer_action(
     wallet: &LocalWallet,
-    chain_type: ChainType,
+    chain_type: EthChain,
     amount: &str,
     destination: &str,
     timestamp: u64,
 ) -> Result<Signature> {
     match chain_type {
-        ChainType::Arbitrum => Err(Error::ChainNotAllowed),
-        ChainType::HyperliquidMainnet => Ok(sign_typed_data(
+        EthChain::Localhost => Err(Error::ChainNotAllowed),
+        EthChain::Arbitrum => Ok(sign_typed_data(
             &usdc_transfer::mainnet::UsdTransferSignPayload {
                 destination: destination.to_string(),
                 amount: amount.to_string(),
@@ -46,7 +46,7 @@ pub(crate) fn sign_usd_transfer_action(
             },
             wallet,
         )?),
-        ChainType::HyperliquidTestnet => Ok(sign_typed_data(
+        EthChain::ArbitrumGoerli => Ok(sign_typed_data(
             &usdc_transfer::testnet::UsdTransferSignPayload {
                 destination: destination.to_string(),
                 amount: amount.to_string(),
@@ -59,26 +59,26 @@ pub(crate) fn sign_usd_transfer_action(
 
 pub(crate) fn sign_with_agent(
     wallet: &LocalWallet,
-    chain_type: ChainType,
+    chain_type: EthChain,
     source: &str,
     connection_id: H256,
 ) -> Result<Signature> {
     match chain_type {
-        ChainType::Arbitrum => sign_typed_data(
+        EthChain::Localhost => sign_typed_data(
             &l1::Agent {
                 source: source.to_string(),
                 connection_id,
             },
             wallet,
         ),
-        ChainType::HyperliquidMainnet => sign_typed_data(
+        EthChain::Arbitrum => sign_typed_data(
             &mainnet::Agent {
                 source: source.to_string(),
                 connection_id,
             },
             wallet,
         ),
-        ChainType::HyperliquidTestnet => sign_typed_data(
+        EthChain::ArbitrumGoerli => sign_typed_data(
             &testnet::Agent {
                 source: source.to_string(),
                 connection_id,
@@ -140,7 +140,7 @@ mod tests {
     fn test_sign_usd_transfer_action() -> Result<()> {
         let wallet = get_wallet()?;
 
-        let chain_type = ChainType::HyperliquidTestnet;
+        let chain_type = EthChain::ArbitrumGoerli;
         let amount = "1";
         let destination = "0x0D1d9635D0640821d15e323ac8AdADfA9c111414";
         let timestamp = 1690393044548;

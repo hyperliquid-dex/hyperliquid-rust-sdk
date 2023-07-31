@@ -7,7 +7,7 @@ use crate::{
         cancel::CancelRequest,
         ClientCancelRequest, ClientOrderRequest,
     },
-    helpers::{generate_random_key, now_timestamp_ms, ChainType},
+    helpers::{generate_random_key, now_timestamp_ms, EthChain},
     info::info_client::InfoClient,
     meta::Meta,
     prelude::*,
@@ -16,7 +16,7 @@ use crate::{
         agent::mainnet::Agent, keccak, sign_l1_action, sign_usd_transfer_action, sign_with_agent,
         usdc_transfer::mainnet::UsdTransferSignPayload,
     },
-    Error, ExchangeResponseStatus,
+    BaseUrl, Error, ExchangeResponseStatus,
 };
 use ethers::{
     abi::AbiEncode,
@@ -60,12 +60,12 @@ impl ExchangeClient {
     pub async fn new(
         client: Option<Client>,
         wallet: LocalWallet,
-        base_url: Option<&str>,
+        base_url: Option<BaseUrl>,
         meta: Option<Meta>,
         vault_address: Option<H160>,
     ) -> Result<ExchangeClient> {
         let client = client.unwrap_or_else(Client::new);
-        let base_url = base_url.unwrap_or(MAINNET_API_URL);
+        let base_url = base_url.unwrap_or(BaseUrl::Mainnet);
 
         let meta = if let Some(meta) = meta {
             meta
@@ -85,7 +85,7 @@ impl ExchangeClient {
             vault_address,
             http_client: HttpClient {
                 client,
-                base_url: base_url.to_string(),
+                base_url: base_url.get_url(),
             },
             coin_to_asset,
         })
@@ -122,9 +122,9 @@ impl ExchangeClient {
         destination: &str,
     ) -> Result<ExchangeResponseStatus> {
         let (chain, l1_name) = if self.http_client.base_url.eq(MAINNET_API_URL) {
-            (ChainType::HyperliquidMainnet, "Arbitrum".to_string())
+            (EthChain::Arbitrum, "Arbitrum".to_string())
         } else {
-            (ChainType::HyperliquidTestnet, "ArbitrumGoerli".to_string())
+            (EthChain::ArbitrumGoerli, "ArbitrumGoerli".to_string())
         };
 
         let timestamp = now_timestamp_ms();
@@ -264,9 +264,9 @@ impl ExchangeClient {
         let connection_id = keccak(address);
 
         let (chain, l1_name) = if self.http_client.base_url.eq(MAINNET_API_URL) {
-            (ChainType::HyperliquidMainnet, "Arbitrum".to_string())
+            (EthChain::Arbitrum, "Arbitrum".to_string())
         } else {
-            (ChainType::HyperliquidTestnet, "ArbitrumGoerli".to_string())
+            (EthChain::ArbitrumGoerli, "ArbitrumGoerli".to_string())
         };
 
         let source = "https://hyperliquid.xyz".to_string();
