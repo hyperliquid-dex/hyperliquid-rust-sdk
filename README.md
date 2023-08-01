@@ -6,6 +6,10 @@ SDK for Hyperliquid API trading with Rust.
 
 See `src/bin` for examples. You can run any example with `cargo run --bin [EXAMPLE]`.
 
+## Installation
+
+`cargo add hyperliquid_rust_sdk`
+
 ## License
 
 This project is licensed under the terms of the `MIT` license. See [LICENSE](LICENSE.md) for more details.
