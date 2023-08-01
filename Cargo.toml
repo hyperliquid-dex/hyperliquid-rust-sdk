@@ -2,6 +2,12 @@
 name = "hyperliquid_rust_sdk"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+description = "Rust SDK for Hyperliquid"
+homepage = "https://hyperliquid.xyz/"
+readme = "README.md"
+documentation = "https://github.com/hyperliquid-dex/hyperliquid-rust-sdk"
+repository = "https://github.com/hyperliquid-dex/hyperliquid-rust-sdk"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
