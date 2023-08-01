@@ -831,7 +831,7 @@ dependencies = [
  "hex",
  "proc-macro2",
  "quote",
- "reqwest 0.11.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "reqwest",
  "serde",
  "serde_json",
  "syn 1.0.109",
@@ -907,7 +907,7 @@ checksum = "b279a3d00bd219caa2f9a34451b4accbfa9a1eaafc26dcda9d572591528435f0"
 dependencies = [
  "ethers-core",
  "getrandom",
- "reqwest 0.11.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "reqwest",
  "semver",
  "serde",
  "serde-aux",
@@ -931,7 +931,7 @@ dependencies = [
  "futures-locks",
  "futures-util",
  "instant",
- "reqwest 0.11.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror",
@@ -961,7 +961,7 @@ dependencies = [
  "once_cell",
  "parking_lot 0.11.2",
  "pin-project",
- "reqwest 0.11.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror",
@@ -1436,7 +1436,7 @@ dependencies = [
  "http",
  "log",
  "rand",
- "reqwest 0.11.18 (git+https://github.com/seanmonstar/reqwest.git?rev=61b1b2b)",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror",
@@ -2176,43 +2176,6 @@ dependencies = [
  "http-body",
  "hyper",
  "hyper-rustls",
- "ipnet",
- "js-sys",
- "log",
- "mime",
- "once_cell",
- "percent-encoding",
- "pin-project-lite",
- "rustls",
- "rustls-pemfile",
- "serde",
- "serde_json",
- "serde_urlencoded",
- "tokio",
- "tokio-rustls",
- "tower-service",
- "url",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
- "webpki-roots",
- "winreg 0.10.1",
-]
-
-[[package]]
-name = "reqwest"
-version = "0.11.18"
-source = "git+https://github.com/seanmonstar/reqwest.git?rev=61b1b2b#61b1b2b5e6dace3733cdba291801378dd974386a"
-dependencies = [
- "base64 0.21.2",
- "bytes",
- "encoding_rs",
- "futures-core",
- "futures-util",
- "h2",
- "http",
- "http-body",
- "hyper",
  "hyper-tls",
  "ipnet",
  "js-sys",
@@ -2222,17 +2185,21 @@ dependencies = [
  "once_cell",
  "percent-encoding",
  "pin-project-lite",
+ "rustls",
+ "rustls-pemfile",
  "serde",
  "serde_json",
  "serde_urlencoded",
  "tokio",
  "tokio-native-tls",
+ "tokio-rustls",
  "tower-service",
  "url",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
- "winreg 0.50.0",
+ "webpki-roots",
+ "winreg",
 ]
 
 [[package]]
@@ -3368,16 +3335,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80d0f4e272c85def139476380b12f9ac60926689dd2e01d4923222f40580869d"
 dependencies = [
  "winapi",
-]
-
-[[package]]
-name = "winreg"
-version = "0.50.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "524e57b2c537c0f9b1e69f1965311ec12182b4122e45035b1508cd24d2adadb1"
-dependencies = [
- "cfg-if",
- "windows-sys",
 ]
 
 [[package]]
