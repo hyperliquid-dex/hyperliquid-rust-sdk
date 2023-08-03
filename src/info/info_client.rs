@@ -33,6 +33,10 @@ pub enum InfoRequest {
     UserState {
         user: H160,
     },
+    #[serde(rename = "batchClearinghouseStates")]
+    UserStates {
+        users: Vec<H160>,
+    },
     OpenOrders {
         user: H160,
     },
@@ -117,6 +121,14 @@ impl InfoClient {
 
     pub async fn user_state(&self, address: H160) -> Result<UserStateResponse> {
         let input = InfoRequest::UserState { user: address };
+        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        let return_data = self.http_client.post("/info", data).await?;
+        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+    }
+
+    pub async fn user_states(&self, addresses: Vec<H160>) -> Result<Vec<UserStateResponse>> {
+        let input = InfoRequest::UserStates { users: addresses };
         let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         let return_data = self.http_client.post("/info", data).await?;

@@ -9,6 +9,7 @@ async fn main() {
     let info_client = InfoClient::new(None, Some(BaseUrl::Testnet)).await.unwrap();
     open_orders_example(&info_client).await;
     user_state_example(&info_client).await;
+    user_states_example(&info_client).await;
     meta_example(&info_client).await;
     all_mids_example(&info_client).await;
     user_fills_example(&info_client).await;
@@ -38,6 +39,18 @@ async fn user_state_example(info_client: &InfoClient) {
     info!(
         "User state data for {user}: {:?}",
         info_client.user_state(user).await.unwrap()
+    );
+}
+
+async fn user_states_example(info_client: &InfoClient) {
+    let user: String = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8"
+        .parse()
+        .unwrap();
+    let user = H160::from_str(&user).unwrap();
+
+    info!(
+        "User state data for {user}: {:?}",
+        info_client.user_states(vec![user]).await.unwrap()
     );
 }
 
