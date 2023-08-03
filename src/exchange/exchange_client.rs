@@ -243,7 +243,7 @@ impl ExchangeClient {
             leverage,
         }))
         .map_err(|e| Error::JsonParse(e.to_string()))?;
-        let signature = sign_l1_action(&wallet, connection_id)?;
+        let signature = sign_l1_action(wallet, connection_id)?;
 
         self.post(action, signature, timestamp).await
     }
@@ -268,7 +268,7 @@ impl ExchangeClient {
             ntli: amount,
         }))
         .map_err(|e| Error::JsonParse(e.to_string()))?;
-        let signature = sign_l1_action(&wallet, connection_id)?;
+        let signature = sign_l1_action(wallet, connection_id)?;
 
         self.post(action, signature, timestamp).await
     }
