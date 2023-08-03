@@ -64,7 +64,7 @@ pub enum InfoRequest {
 }
 
 pub struct InfoClient {
-    pub(crate) http_client: HttpClient,
+    pub http_client: HttpClient,
     pub(crate) ws_manager: Option<WsManager>,
 }
 
