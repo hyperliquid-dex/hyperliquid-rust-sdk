@@ -6,7 +6,7 @@ pub struct ClientCancelRequest {
     pub oid: u64,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CancelRequest {
     pub asset: u32,
     pub oid: u64,

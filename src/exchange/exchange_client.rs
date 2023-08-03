@@ -44,7 +44,7 @@ struct ExchangePayload {
     vault_address: Option<H160>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
 pub enum Actions {

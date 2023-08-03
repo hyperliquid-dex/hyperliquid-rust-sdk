@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tokio::sync::mpsc::UnboundedSender;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct CandleSnapshotRequest {
     coin: String,
@@ -25,7 +25,7 @@ pub struct CandleSnapshotRequest {
     end_time: u64,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
 pub enum InfoRequest {
