@@ -116,6 +116,10 @@ impl ExchangeClient {
         .map_err(|e| Error::JsonParse(e.to_string()))
     }
 
+    pub fn set_wallet(&mut self, wallet: LocalWallet) {
+        self.wallet = wallet;
+    }
+
     pub async fn usdc_transfer(
         &self,
         amount: &str,
