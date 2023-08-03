@@ -6,44 +6,44 @@ use ethers::types::H160;
 use serde::Serialize;
 
 #[derive(Serialize)]
-pub(crate) struct UsdcTransfer {
-    pub(crate) chain: String,
-    pub(crate) payload: serde_json::Value,
+pub struct UsdcTransfer {
+    pub chain: String,
+    pub payload: serde_json::Value,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct UpdateLeverage {
-    pub(crate) asset: u32,
-    pub(crate) is_cross: bool,
-    pub(crate) leverage: u32,
+pub struct UpdateLeverage {
+    pub asset: u32,
+    pub is_cross: bool,
+    pub leverage: u32,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct UpdateIsolatedMargin {
-    pub(crate) asset: u32,
-    pub(crate) is_buy: bool,
-    pub(crate) ntli: i64,
+pub struct UpdateIsolatedMargin {
+    pub asset: u32,
+    pub is_buy: bool,
+    pub ntli: i64,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct BulkOrder {
-    pub(crate) grouping: String,
-    pub(crate) orders: Vec<OrderRequest>,
+pub struct BulkOrder {
+    pub grouping: String,
+    pub orders: Vec<OrderRequest>,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct BulkCancel {
-    pub(crate) cancels: Vec<CancelRequest>,
+pub struct BulkCancel {
+    pub cancels: Vec<CancelRequest>,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct AgentConnect {
-    pub(crate) chain: String,
-    pub(crate) agent: Agent,
-    pub(crate) agent_address: H160,
+pub struct AgentConnect {
+    pub chain: String,
+    pub agent: Agent,
+    pub agent_address: H160,
 }

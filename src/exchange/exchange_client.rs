@@ -47,7 +47,7 @@ struct ExchangePayload {
 #[derive(Serialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
-enum Actions {
+pub enum Actions {
     UsdTransfer(UsdcTransfer),
     UpdateLeverage(UpdateLeverage),
     UpdateIsolatedMargin(UpdateIsolatedMargin),

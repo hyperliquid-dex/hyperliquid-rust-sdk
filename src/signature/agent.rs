@@ -31,9 +31,9 @@ pub(crate) mod mainnet {
         verifying_contract = "0x0000000000000000000000000000000000000000"
     )]
     #[serde(rename_all = "camelCase")]
-    pub(crate) struct Agent {
-        pub(crate) source: String,
-        pub(crate) connection_id: H256,
+    pub struct Agent {
+        pub source: String,
+        pub connection_id: H256,
     }
 }
 

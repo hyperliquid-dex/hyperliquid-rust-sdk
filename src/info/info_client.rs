@@ -18,7 +18,7 @@ use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct CandleSnapshotRequest {
+pub struct CandleSnapshotRequest {
     coin: String,
     interval: String,
     start_time: u64,
@@ -28,7 +28,7 @@ struct CandleSnapshotRequest {
 #[derive(Serialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
-enum InfoRequest {
+pub enum InfoRequest {
     #[serde(rename = "clearinghouseState")]
     UserState {
         user: H160,

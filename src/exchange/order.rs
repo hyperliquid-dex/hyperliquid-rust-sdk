@@ -7,34 +7,34 @@ use serde::Serialize;
 use std::collections::HashMap;
 
 #[derive(Serialize, Clone)]
-pub(crate) struct Limit {
-    pub(crate) tif: String,
+pub struct Limit {
+    pub tif: String,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct Trigger {
-    pub(crate) trigger_px: String,
-    pub(crate) is_market: bool,
-    pub(crate) tpsl: String,
+pub struct Trigger {
+    pub trigger_px: String,
+    pub is_market: bool,
+    pub tpsl: String,
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) enum Order {
+pub enum Order {
     Limit(Limit),
     Trigger(Trigger),
 }
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(crate) struct OrderRequest {
-    pub(crate) asset: u32,
-    pub(crate) is_buy: bool,
-    pub(crate) reduce_only: bool,
-    pub(crate) limit_px: String,
-    pub(crate) sz: String,
-    pub(crate) order_type: Order,
+pub struct OrderRequest {
+    pub asset: u32,
+    pub is_buy: bool,
+    pub reduce_only: bool,
+    pub limit_px: String,
+    pub sz: String,
+    pub order_type: Order,
 }
 
 pub struct ClientLimit {

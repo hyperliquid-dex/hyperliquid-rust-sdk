@@ -7,7 +7,7 @@ pub struct ClientCancelRequest {
 }
 
 #[derive(Serialize)]
-pub(crate) struct CancelRequest {
-    pub(crate) asset: u32,
-    pub(crate) oid: u64,
+pub struct CancelRequest {
+    pub asset: u32,
+    pub oid: u64,
 }
