@@ -1,7 +1,7 @@
 use crate::{
     info::{
         CandlesSnapshotResponse, FundingHistoryResponse, L2SnapshotResponse, OpenOrdersResponse,
-        UserFillsResponse, UserStateResponse,
+        RecentTradesResponse, UserFillsResponse, UserStateResponse,
     },
     meta::Meta,
     prelude::*,
@@ -52,6 +52,9 @@ pub enum InfoRequest {
         end_time: Option<u64>,
     },
     L2Book {
+        coin: String,
+    },
+    RecentTrades {
         coin: String,
     },
     #[serde(rename_all = "camelCase")]
@@ -170,6 +173,14 @@ impl InfoClient {
             start_time,
             end_time,
         };
+        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        let return_data = self.http_client.post("/info", data).await?;
+        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+    }
+
+    pub async fn recent_trades(&self, coin: String) -> Result<Vec<RecentTradesResponse>> {
+        let input = InfoRequest::RecentTrades { coin };
         let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         let return_data = self.http_client.post("/info", data).await?;

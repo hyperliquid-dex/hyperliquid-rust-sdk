@@ -10,6 +10,7 @@ async fn main() {
     open_orders_example(&info_client).await;
     user_state_example(&info_client).await;
     user_states_example(&info_client).await;
+    recent_trades(&info_client).await;
     meta_example(&info_client).await;
     all_mids_example(&info_client).await;
     user_fills_example(&info_client).await;
@@ -51,6 +52,15 @@ async fn user_states_example(info_client: &InfoClient) {
     info!(
         "User state data for {user}: {:?}",
         info_client.user_states(vec![user]).await.unwrap()
+    );
+}
+
+async fn recent_trades(info_client: &InfoClient) {
+    let coin = "ETH";
+
+    info!(
+        "Recent trades for {coin}: {:?}",
+        info_client.recent_trades(coin.to_string()).await.unwrap()
     );
 }
 

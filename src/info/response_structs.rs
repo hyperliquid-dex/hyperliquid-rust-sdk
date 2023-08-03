@@ -55,6 +55,17 @@ pub struct L2SnapshotResponse {
 }
 
 #[derive(serde::Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct RecentTradesResponse {
+    pub coin: String,
+    pub side: String,
+    pub px: String,
+    pub sz: String,
+    pub time: u64,
+    pub hash: String,
+}
+
+#[derive(serde::Deserialize, Debug)]
 pub struct CandlesSnapshotResponse {
     #[serde(rename = "t")]
     pub time_open: u64,
