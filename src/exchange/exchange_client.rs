@@ -116,15 +116,13 @@ impl ExchangeClient {
         .map_err(|e| Error::JsonParse(e.to_string()))
     }
 
-    pub fn set_wallet(&mut self, wallet: LocalWallet) {
-        self.wallet = wallet;
-    }
-
     pub async fn usdc_transfer(
         &self,
         amount: &str,
         destination: &str,
+        wallet: Option<&LocalWallet>,
     ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
         let (chain, l1_name) = if self.http_client.base_url.eq(MAINNET_API_URL) {
             (EthChain::Arbitrum, "Arbitrum".to_string())
         } else {
@@ -144,19 +142,24 @@ impl ExchangeClient {
         }))
         .map_err(|e| Error::JsonParse(e.to_string()))?;
 
-        let signature =
-            sign_usd_transfer_action(&self.wallet, chain, amount, destination, timestamp)?;
+        let signature = sign_usd_transfer_action(wallet, chain, amount, destination, timestamp)?;
         self.post(action, signature, timestamp).await
     }
 
-    pub async fn order(&self, order: ClientOrderRequest) -> Result<ExchangeResponseStatus> {
-        self.bulk_order(vec![order]).await
+    pub async fn order(
+        &self,
+        order: ClientOrderRequest,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        self.bulk_order(vec![order], wallet).await
     }
 
     pub async fn bulk_order(
         &self,
         orders: Vec<ClientOrderRequest>,
+        wallet: Option<&LocalWallet>,
     ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
         let timestamp = now_timestamp_ms();
         let vault_address = self.vault_address.unwrap_or_default();
 
@@ -174,19 +177,25 @@ impl ExchangeClient {
             orders: transformed_orders,
         }))
         .map_err(|e| Error::JsonParse(e.to_string()))?;
-        let signature = sign_l1_action(&self.wallet, connection_id)?;
+        let signature = sign_l1_action(wallet, connection_id)?;
 
         self.post(action, signature, timestamp).await
     }
 
-    pub async fn cancel(&self, cancel: ClientCancelRequest) -> Result<ExchangeResponseStatus> {
-        self.bulk_cancel(vec![cancel]).await
+    pub async fn cancel(
+        &self,
+        cancel: ClientCancelRequest,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        self.bulk_cancel(vec![cancel], wallet).await
     }
 
     pub async fn bulk_cancel(
         &self,
         cancels: Vec<ClientCancelRequest>,
+        wallet: Option<&LocalWallet>,
     ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
         let timestamp = now_timestamp_ms();
         let vault_address = self.vault_address.unwrap_or_default();
 
@@ -209,7 +218,7 @@ impl ExchangeClient {
             cancels: transformed_cancels,
         }))
         .map_err(|e| Error::JsonParse(e.to_string()))?;
-        let signature = sign_l1_action(&self.wallet, connection_id)?;
+        let signature = sign_l1_action(wallet, connection_id)?;
 
         self.post(action, signature, timestamp).await
     }
@@ -219,7 +228,10 @@ impl ExchangeClient {
         leverage: u32,
         coin: &str,
         is_cross: bool,
+        wallet: Option<&LocalWallet>,
     ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+
         let timestamp = now_timestamp_ms();
         let vault_address = self.vault_address.unwrap_or_default();
 
@@ -231,7 +243,7 @@ impl ExchangeClient {
             leverage,
         }))
         .map_err(|e| Error::JsonParse(e.to_string()))?;
-        let signature = sign_l1_action(&self.wallet, connection_id)?;
+        let signature = sign_l1_action(&wallet, connection_id)?;
 
         self.post(action, signature, timestamp).await
     }
@@ -240,7 +252,10 @@ impl ExchangeClient {
         &self,
         amount: f64,
         coin: &str,
+        wallet: Option<&LocalWallet>,
     ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+
         let amount = (amount * 1_000_000.0).round() as i64;
         let timestamp = now_timestamp_ms();
         let vault_address = self.vault_address.unwrap_or_default();
@@ -253,12 +268,16 @@ impl ExchangeClient {
             ntli: amount,
         }))
         .map_err(|e| Error::JsonParse(e.to_string()))?;
-        let signature = sign_l1_action(&self.wallet, connection_id)?;
+        let signature = sign_l1_action(&wallet, connection_id)?;
 
         self.post(action, signature, timestamp).await
     }
 
-    pub async fn approve_agent(&self) -> Result<(String, ExchangeResponseStatus)> {
+    pub async fn approve_agent(
+        &self,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<(String, ExchangeResponseStatus)> {
+        let wallet = wallet.unwrap_or(&self.wallet);
         let key = H256::from(generate_random_key()?).encode_hex()[2..].to_string();
 
         let address = key
@@ -283,7 +302,7 @@ impl ExchangeClient {
             agent_address: address,
         }))
         .map_err(|e| Error::JsonParse(e.to_string()))?;
-        let signature = sign_with_agent(&self.wallet, chain, &source, connection_id)?;
+        let signature = sign_with_agent(wallet, chain, &source, connection_id)?;
         let timestamp = now_timestamp_ms();
         Ok((key, self.post(action, signature, timestamp).await?))
     }

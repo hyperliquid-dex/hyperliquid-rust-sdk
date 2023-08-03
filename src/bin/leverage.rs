@@ -18,13 +18,13 @@ async fn main() {
     let info_client = InfoClient::new(None, Some(BaseUrl::Testnet)).await.unwrap();
 
     let response = exchange_client
-        .update_leverage(5, "ETH", false)
+        .update_leverage(5, "ETH", false, None)
         .await
         .unwrap();
     info!("Update leverage response: {response:?}");
 
     let response = exchange_client
-        .update_isolated_margin(1.0, "ETH")
+        .update_isolated_margin(1.0, "ETH", None)
         .await
         .unwrap();
 

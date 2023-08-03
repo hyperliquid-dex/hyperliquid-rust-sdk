@@ -20,7 +20,7 @@ async fn main() {
         This agent cannot transfer or withdraw funds, but can for example place orders.
     */
 
-    let (private_key, response) = exchange_client.approve_agent().await.unwrap();
+    let (private_key, response) = exchange_client.approve_agent(None).await.unwrap();
     info!("Agent creation response: {response:?}");
 
     let wallet: LocalWallet = private_key.parse().unwrap();
@@ -42,7 +42,7 @@ async fn main() {
         }),
     };
 
-    let response = exchange_client.order(order).await.unwrap();
+    let response = exchange_client.order(order, None).await.unwrap();
 
     info!("Order placed: {response:?}");
 }

@@ -18,7 +18,7 @@ async fn main() {
     let destination = "0x0D1d9635D0640821d15e323ac8AdADfA9c111414";
 
     let res = exchange_client
-        .usdc_transfer(amount, destination)
+        .usdc_transfer(amount, destination, None)
         .await
         .unwrap();
     info!("Usdc transfer result: {res:?}");

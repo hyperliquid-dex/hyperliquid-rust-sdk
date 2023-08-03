@@ -30,7 +30,7 @@ async fn main() {
         }),
     };
 
-    let response = exchange_client.order(order).await.unwrap();
+    let response = exchange_client.order(order, None).await.unwrap();
     info!("Order placed: {response:?}");
 
     let response = match response {
@@ -53,6 +53,6 @@ async fn main() {
     };
 
     // This response will return an error if order was filled (since you can't cancel a filled order), otherwise it will cancel the order
-    let response = exchange_client.cancel(cancel).await.unwrap();
+    let response = exchange_client.cancel(cancel, None).await.unwrap();
     info!("Order potentially cancelled: {response:?}");
 }
