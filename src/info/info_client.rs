@@ -12,11 +12,11 @@ use crate::{
 
 use ethers::types::H160;
 use reqwest::Client;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use tokio::sync::mpsc::UnboundedSender;
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CandleSnapshotRequest {
     coin: String,
@@ -25,7 +25,7 @@ pub struct CandleSnapshotRequest {
     end_time: u64,
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
 pub enum InfoRequest {

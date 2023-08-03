@@ -3,7 +3,7 @@ use ethers::{
     types::{transaction::eip712::Eip712, H256},
 };
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 pub(crate) mod l1 {
     use super::*;
@@ -23,7 +23,7 @@ pub(crate) mod l1 {
 pub(crate) mod mainnet {
     use super::*;
 
-    #[derive(Debug, Eip712, Clone, EthAbiType, Serialize)]
+    #[derive(Debug, Eip712, Clone, EthAbiType, Serialize, Deserialize)]
     #[eip712(
         name = "Exchange",
         version = "1",

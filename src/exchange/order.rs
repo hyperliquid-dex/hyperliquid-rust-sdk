@@ -3,15 +3,15 @@ use crate::{
     helpers::{float_to_int_for_hashing, float_to_string_for_hashing},
     prelude::*,
 };
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-#[derive(Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Limit {
     pub tif: String,
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Trigger {
     pub trigger_px: String,
@@ -19,14 +19,14 @@ pub struct Trigger {
     pub tpsl: String,
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Order {
     Limit(Limit),
     Trigger(Trigger),
 }
 
-#[derive(Serialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderRequest {
     pub asset: u32,

@@ -3,15 +3,15 @@ use crate::{
     signature::agent::mainnet::Agent,
 };
 use ethers::types::H160;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct UsdcTransfer {
     pub chain: String,
     pub payload: serde_json::Value,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateLeverage {
     pub asset: u32,
@@ -19,7 +19,7 @@ pub struct UpdateLeverage {
     pub leverage: u32,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateIsolatedMargin {
     pub asset: u32,
@@ -27,20 +27,20 @@ pub struct UpdateIsolatedMargin {
     pub ntli: i64,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BulkOrder {
     pub grouping: String,
     pub orders: Vec<OrderRequest>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BulkCancel {
     pub cancels: Vec<CancelRequest>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AgentConnect {
     pub chain: String,

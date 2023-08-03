@@ -24,7 +24,7 @@ use ethers::{
     types::{Signature, H160, H256},
 };
 use reqwest::Client;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 pub struct ExchangeClient {
@@ -35,7 +35,7 @@ pub struct ExchangeClient {
     pub coin_to_asset: HashMap<String, u32>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ExchangePayload {
     action: serde_json::Value,
@@ -44,7 +44,7 @@ struct ExchangePayload {
     vault_address: Option<H160>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
 pub enum Actions {
