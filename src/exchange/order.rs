@@ -11,7 +11,7 @@ pub struct Limit {
     pub tif: String,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Trigger {
     pub trigger_px: String,
@@ -19,14 +19,14 @@ pub struct Trigger {
     pub tpsl: String,
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum Order {
     Limit(Limit),
     Trigger(Trigger),
 }
 
-#[derive(Deserialize, Serialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderRequest {
     pub asset: u32,
