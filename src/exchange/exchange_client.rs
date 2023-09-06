@@ -177,7 +177,8 @@ impl ExchangeClient {
             orders: transformed_orders,
         }))
         .map_err(|e| Error::JsonParse(e.to_string()))?;
-        let signature = sign_l1_action(wallet, connection_id)?;
+        let is_mainnet = self.http_client.base_url == BaseUrl::Mainnet.get_url();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
         self.post(action, signature, timestamp).await
     }
@@ -218,7 +219,8 @@ impl ExchangeClient {
             cancels: transformed_cancels,
         }))
         .map_err(|e| Error::JsonParse(e.to_string()))?;
-        let signature = sign_l1_action(wallet, connection_id)?;
+        let is_mainnet = self.http_client.base_url == BaseUrl::Mainnet.get_url();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
         self.post(action, signature, timestamp).await
     }
@@ -243,7 +245,8 @@ impl ExchangeClient {
             leverage,
         }))
         .map_err(|e| Error::JsonParse(e.to_string()))?;
-        let signature = sign_l1_action(wallet, connection_id)?;
+        let is_mainnet = self.http_client.base_url == BaseUrl::Mainnet.get_url();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
         self.post(action, signature, timestamp).await
     }
@@ -268,7 +271,8 @@ impl ExchangeClient {
             ntli: amount,
         }))
         .map_err(|e| Error::JsonParse(e.to_string()))?;
-        let signature = sign_l1_action(wallet, connection_id)?;
+        let is_mainnet = self.http_client.base_url == BaseUrl::Mainnet.get_url();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
         self.post(action, signature, timestamp).await
     }

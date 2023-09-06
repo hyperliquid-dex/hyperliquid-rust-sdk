@@ -25,8 +25,8 @@ pub(crate) fn keccak(x: impl AbiEncode) -> H256 {
     keccak256(x.encode()).into()
 }
 
-pub(crate) fn sign_l1_action(wallet: &LocalWallet, connection_id: H256) -> Result<Signature> {
-    sign_with_agent(wallet, EthChain::Localhost, "a", connection_id)
+pub(crate) fn sign_l1_action(wallet: &LocalWallet, connection_id: H256, is_mainnet: bool) -> Result<Signature> {
+    sign_with_agent(wallet, EthChain::Localhost, if is_mainnet { "a" } else { "b" }, connection_id)
 }
 
 pub(crate) fn sign_usd_transfer_action(
@@ -128,10 +128,15 @@ mod tests {
             H256::from_str("0xde6c4037798a4434ca03cd05f00e3b803126221375cd1e7eaaaf041768be06eb")
                 .map_err(|e| Error::GenericParse(e.to_string()))?;
 
-        let expected_sig = "fa8a41f6a3fa728206df80801a83bcbfbab08649cd34d9c0bfba7c7b2f99340f53a00226604567b98a1492803190d65a201d6805e5831b7044f17fd530aec7841c";
+        let expected_mainnet_sig = "fa8a41f6a3fa728206df80801a83bcbfbab08649cd34d9c0bfba7c7b2f99340f53a00226604567b98a1492803190d65a201d6805e5831b7044f17fd530aec7841c";
         assert_eq!(
-            sign_l1_action(&wallet, connection_id)?.to_string(),
-            expected_sig
+            sign_l1_action(&wallet, connection_id, true)?.to_string(),
+            expected_mainnet_sig
+        );
+        let expected_testnet_sig = "1713c0fc661b792a50e8ffdd59b637b1ed172d9a3aa4d801d9d88646710fb74b33959f4d075a7ccbec9f2374a6da21ffa4448d58d0413a0d335775f680a881431c";
+        assert_eq!(
+            sign_l1_action(&wallet, connection_id, false)?.to_string(),
+            expected_testnet_sig
         );
         Ok(())
     }
