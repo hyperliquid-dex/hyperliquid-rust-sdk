@@ -51,3 +51,17 @@ pub struct TradeInfo {
 pub struct UserData {
     pub fills: Vec<TradeInfo>,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+#[allow(non_snake_case)]
+pub struct CandleData {
+    pub T: u64,
+    pub c: String,
+    pub h: String,
+    pub i: String,
+    pub l: String,
+    pub n: u64,
+    pub o: String,
+    pub s: String,
+    pub t: u64,
+}

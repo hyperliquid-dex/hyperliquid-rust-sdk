@@ -1,6 +1,6 @@
 use crate::{
     prelude::*,
-    ws::message_types::{AllMids, L2Book, Trades, User},
+    ws::message_types::{AllMids, L2Book, Trades, User, Candle},
     Error,
 };
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
@@ -39,6 +39,7 @@ pub enum Subscription {
     Trades { coin: String },
     L2Book { coin: String },
     UserEvents { user: H160 },
+    Candle { coin: String, interval: String },
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -49,6 +50,7 @@ pub enum Message {
     Trades(Trades),
     L2Book(L2Book),
     User(User),
+    Candle(Candle),
     SubscriptionResponse,
 }
 
@@ -108,6 +110,13 @@ impl WsManager {
                 coin: l2_book.data.coin.clone(),
             })
             .map_err(|e| Error::JsonParse(e.to_string())),
+            Message::Candle(candle) => {
+                serde_json::to_string(&Subscription::Candle {
+                    coin: candle.data.s.clone(),
+                    interval: candle.data.i.clone(),
+                })
+                .map_err(|e| Error::JsonParse(e.to_string()))
+            }
             Message::SubscriptionResponse => Ok(String::default()),
         }
     }
