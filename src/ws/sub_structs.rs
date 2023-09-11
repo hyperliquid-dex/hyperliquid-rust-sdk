@@ -64,4 +64,5 @@ pub struct CandleData {
     pub o: String,
     pub s: String,
     pub t: u64,
+    pub v: String
 }
