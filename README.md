@@ -8,7 +8,7 @@ See `src/bin` for examples. You can run any example with `cargo run --bin [EXAMP
 
 ## Installation
 
-`cargo add hyperliquid_rust_sdk`
+`cargo add hyperliquid_rust`
 
 ## License
 
@@ -21,7 +21,7 @@ This project is licensed under the terms of the `MIT` license. See [LICENSE](LIC
   year = {2023},
   publisher = {GitHub},
   journal = {GitHub repository},
-  howpublished = {\url{https://github.com/trophies2015/hyperliquid-rust-sdk}}
+  howpublished = {\url{https://github.com/hyperliquid-dex/hyperliquid-rust-sdk}}
 }
 ```
 
