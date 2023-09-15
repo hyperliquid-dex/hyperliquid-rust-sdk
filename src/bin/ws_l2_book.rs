@@ -1,6 +1,6 @@
 use log::info;
 
-use hyperliquid_rust_sdk::{BaseUrl, InfoClient, Message, Subscription};
+use hyperliquid_rust::{BaseUrl, InfoClient, Message, Subscription};
 use tokio::{
     spawn,
     sync::mpsc::unbounded_channel,
