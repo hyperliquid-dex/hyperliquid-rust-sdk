@@ -8,7 +8,7 @@ See `src/bin` for examples. You can run any example with `cargo run --bin [EXAMP
 
 ## Installation
 
-`cargo add hyperliquid_rust`
+`cargo add hyperliquid_rust_sdk`
 
 ## License
 

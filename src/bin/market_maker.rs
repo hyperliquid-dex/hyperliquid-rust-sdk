@@ -5,7 +5,7 @@ We subscribe to the current mid price and build a market around this price. When
 */
 use ethers::signers::LocalWallet;
 
-use hyperliquid_rust::{MarketMaker, MarketMakerInput};
+use hyperliquid_rust_sdk::{MarketMaker, MarketMakerInput};
 
 #[tokio::main]
 async fn main() {
