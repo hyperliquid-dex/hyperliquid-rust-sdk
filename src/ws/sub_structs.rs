@@ -53,16 +53,25 @@ pub struct UserData {
 }
 
 #[derive(Deserialize, Clone, Debug)]
-#[allow(non_snake_case)]
 pub struct CandleData {
-    pub T: u64,
-    pub c: String,
-    pub h: String,
-    pub i: String,
-    pub l: String,
-    pub n: u64,
-    pub o: String,
-    pub s: String,
-    pub t: u64,
-    pub v: String
+    #[serde(rename = "T")]
+    pub time_close: u64,
+    #[serde(rename = "c")]
+    pub close: String,
+    #[serde(rename = "h")]
+    pub high: String,
+    #[serde(rename = "i")]
+    pub interval: String,
+    #[serde(rename = "l")]
+    pub low: String,
+    #[serde(rename = "n")]
+    pub num_trades: u64,
+    #[serde(rename = "o")]
+    pub open: String,
+    #[serde(rename = "s")]
+    pub coin: String,
+    #[serde(rename = "t")]
+    pub time_open: u64,
+    #[serde(rename = "v")]
+    pub volume: String,
 }

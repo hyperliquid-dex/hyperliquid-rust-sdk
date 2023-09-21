@@ -112,8 +112,8 @@ impl WsManager {
             .map_err(|e| Error::JsonParse(e.to_string())),
             Message::Candle(candle) => {
                 serde_json::to_string(&Subscription::Candle {
-                    coin: candle.data.s.clone(),
-                    interval: candle.data.i.clone(),
+                    coin: candle.data.coin.clone(),
+                    interval: candle.data.interval.clone(),
                 })
                 .map_err(|e| Error::JsonParse(e.to_string()))
             }

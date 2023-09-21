@@ -25,13 +25,13 @@ async fn main() {
         .unwrap();
 
     spawn(async move {
-        sleep(Duration::from_secs(60)).await;
+        sleep(Duration::from_secs(300)).await;
         info!("Unsubscribing from candle data");
         info_client.unsubscribe(subscription_id).await.unwrap()
     });
 
     // This loop ends when we unsubscribe
     while let Some(Message::Candle(candle)) = receiver.recv().await {
-        info!("Received candle data: {:?}", candle);
+        info!("Received candle data: {candle:?}");
     }
 }
