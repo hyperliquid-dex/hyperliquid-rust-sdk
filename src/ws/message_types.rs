@@ -20,3 +20,8 @@ pub struct AllMids {
 pub struct User {
     pub data: UserData,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct Candle {
+    pub data: CandleData
+}

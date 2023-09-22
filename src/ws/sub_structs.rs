@@ -51,3 +51,27 @@ pub struct TradeInfo {
 pub struct UserData {
     pub fills: Vec<TradeInfo>,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct CandleData {
+    #[serde(rename = "T")]
+    pub time_close: u64,
+    #[serde(rename = "c")]
+    pub close: String,
+    #[serde(rename = "h")]
+    pub high: String,
+    #[serde(rename = "i")]
+    pub interval: String,
+    #[serde(rename = "l")]
+    pub low: String,
+    #[serde(rename = "n")]
+    pub num_trades: u64,
+    #[serde(rename = "o")]
+    pub open: String,
+    #[serde(rename = "s")]
+    pub coin: String,
+    #[serde(rename = "t")]
+    pub time_open: u64,
+    #[serde(rename = "v")]
+    pub volume: String,
+}
