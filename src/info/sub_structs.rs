@@ -17,7 +17,6 @@ pub struct PositionData {
     pub leverage: Leverage,
     pub liquidation_px: Option<String>,
     pub margin_used: String,
-    pub max_trade_szs: Vec<String>,
     pub position_value: String,
     pub return_on_equity: String,
     pub szi: String,
