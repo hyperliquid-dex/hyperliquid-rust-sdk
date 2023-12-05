@@ -226,6 +226,31 @@ impl ExchangeClient {
         self.post(action, signature, timestamp).await
     }
 
+    pub async fn modify_order(
+        &self,
+        oid: u64,
+        order: ClientOrderRequest,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let timestamp = now_timestamp_ms();
+        let vault_address = self.vault_address.unwrap_or_default();
+
+        let hashable_tuples = order.create_hashable_tuple(&self.coin_to_asset)?;
+        let transformed_order = order.convert(&self.coin_to_asset)?;
+
+        let connection_id = keccak((hashable_tuples, oid, vault_address, timestamp));
+        let action = serde_json::to_value(Actions::Modify(ModifyOrder {
+            oid,
+            order: transformed_order,
+        }))
+        .map_err(|e| Error::JsonParse(e.to_string()))?;
+        let is_mainnet = self.http_client.base_url == BaseUrl::Mainnet.get_url();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+        self.post(action, signature, timestamp).await
+    }
+
     pub async fn update_leverage(
         &self,
         leverage: u32,
