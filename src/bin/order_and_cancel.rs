@@ -44,6 +44,25 @@ async fn main() {
         _ => panic!("Error: {status:?}"),
     };
 
+    // So you can see the order before it's modified
+    sleep(Duration::from_secs(5));
+
+    let order = ClientOrderRequest {
+        asset: "ETH".to_string(),
+        is_buy: true,
+        reduce_only: false,
+        limit_px: 1800.0,
+        sz: 0.02,
+        order_type: ClientOrder::Limit(ClientLimit {
+            tif: "Gtc".to_string(),
+        }),
+    };
+
+    let response = exchange_client.modify_order(oid, order, None).await.unwrap();
+    println!("Order potentially modified: {response:?}");
+
+
+
     // So you can see the order before it's cancelled
     sleep(Duration::from_secs(10));
 

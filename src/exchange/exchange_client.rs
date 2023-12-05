@@ -239,7 +239,7 @@ impl ExchangeClient {
         let hashable_tuples = order.create_hashable_tuple(&self.coin_to_asset)?;
         let transformed_order = order.convert(&self.coin_to_asset)?;
 
-        let connection_id = keccak((hashable_tuples, oid, vault_address, timestamp));
+        let connection_id = keccak((oid, hashable_tuples, vault_address, timestamp));
         let action = serde_json::to_value(Actions::Modify(ModifyOrder {
             oid,
             order: transformed_order,
