@@ -2,7 +2,7 @@ use crate::{
     consts::MAINNET_API_URL,
     exchange::{
         actions::{
-            AgentConnect, BulkCancel, BulkOrder, UpdateIsolatedMargin, UpdateLeverage, UsdcTransfer,
+            AgentConnect, BulkCancel, BulkOrder, UpdateIsolatedMargin, UpdateLeverage, UsdcTransfer, ModifyOrder
         },
         cancel::CancelRequest,
         ClientCancelRequest, ClientOrderRequest,
@@ -54,6 +54,7 @@ pub enum Actions {
     Order(BulkOrder),
     Cancel(BulkCancel),
     Connect(AgentConnect),
+    Modify(ModifyOrder)
 }
 
 impl ExchangeClient {
