@@ -25,7 +25,7 @@ use ethers::{
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, hash};
+use std::collections::HashMap;
 
 pub struct ExchangeClient {
     pub http_client: HttpClient,
