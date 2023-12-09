@@ -199,6 +199,7 @@ impl MarketMaker {
                     order_type: ClientOrder::Limit(ClientLimit {
                         tif: "Gtc".to_string(),
                     }),
+                    cloid: None,
                 },
                 None,
             )

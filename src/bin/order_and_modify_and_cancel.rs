@@ -28,10 +28,11 @@ async fn main() {
         order_type: ClientOrder::Limit(ClientLimit {
             tif: "Gtc".to_string(),
         }),
+        cloid: Some("0x1234567890abcdef1234567890abcdef".to_string()),
     };
 
     let response = exchange_client.order(order, None).await.unwrap();
-    info!("Order placed: {response:?}");
+    println!("Order placed: {response:?}");
 
     let response = match response {
         ExchangeResponseStatus::Ok(exchange_response) => exchange_response,
@@ -56,9 +57,13 @@ async fn main() {
         order_type: ClientOrder::Limit(ClientLimit {
             tif: "Gtc".to_string(),
         }),
+        cloid: None,
     };
 
-    let response = exchange_client.modify_order(oid, order, None).await.unwrap();
+    let response = exchange_client.modify_order(oid, order, None)
+        .await
+        .unwrap();
+        
     println!("Order potentially modified: {response:?}");
 
 

@@ -40,6 +40,7 @@ async fn main() {
         order_type: ClientOrder::Limit(ClientLimit {
             tif: "Gtc".to_string(),
         }),
+        cloid: None,
     };
 
     let response = exchange_client.order(order, None).await.unwrap();

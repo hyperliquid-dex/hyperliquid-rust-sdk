@@ -25,7 +25,7 @@ use ethers::{
 };
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::{collections::HashMap, hash};
 
 pub struct ExchangeClient {
     pub http_client: HttpClient,
@@ -164,15 +164,32 @@ impl ExchangeClient {
         let timestamp = now_timestamp_ms();
         let vault_address = self.vault_address.unwrap_or_default();
 
-        let mut hashable_tuples = Vec::new();
+        // let mut hashable_tuples = Vec::new();
         let mut transformed_orders = Vec::new();
 
-        for order in orders {
-            hashable_tuples.push(order.create_hashable_tuple(&self.coin_to_asset)?);
-            transformed_orders.push(order.convert(&self.coin_to_asset)?);
-        }
+        let mut hashable_tuples_cloid = Vec::new();
+        let mut hashable_tuples = Vec::new();
 
-        let connection_id = keccak((hashable_tuples, 0, vault_address, timestamp));
+        match orders.iter().any(|order| order.cloid.is_none()) {
+            true => {
+
+                for order in orders {
+                    hashable_tuples.push(order.create_hashable_tuple(&self.coin_to_asset)?);
+                    transformed_orders.push(order.convert(&self.coin_to_asset)?);
+                }
+            },
+            false => {
+                for order in orders {
+                    hashable_tuples_cloid.push(order.create_hashable_tuple_with_cloid(&self.coin_to_asset)?);
+                    transformed_orders.push(order.convert(&self.coin_to_asset)?);
+                }
+            }
+        };
+        let connection_id = match hashable_tuples_cloid.len() {
+            0 => keccak((hashable_tuples, 0, vault_address, timestamp)),
+            _ => keccak((hashable_tuples_cloid, 0, vault_address, timestamp))
+        };
+
         let action = serde_json::to_value(Actions::Order(BulkOrder {
             grouping: "na".to_string(),
             orders: transformed_orders,
@@ -183,6 +200,7 @@ impl ExchangeClient {
 
         self.post(action, signature, timestamp).await
     }
+
 
     pub async fn cancel(
         &self,
@@ -216,6 +234,7 @@ impl ExchangeClient {
         }
 
         let connection_id = keccak((hashable_tuples, vault_address, timestamp));
+        println!("connection_id: {:?}", connection_id);
         let action = serde_json::to_value(Actions::Cancel(BulkCancel {
             cancels: transformed_cancels,
         }))
