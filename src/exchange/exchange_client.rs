@@ -166,27 +166,23 @@ impl ExchangeClient {
 
         let mut transformed_orders = Vec::new();
 
-        let mut hashable_tuples_cloid = Vec::new();
-        let mut hashable_tuples = Vec::new();
 
-        match orders.iter().any(|order| order.cloid.is_none()) {
-            true => {
+        let connection_id = if orders.iter().any(|order| order.cloid.is_none()) {
+            let mut hashable_tuples = Vec::new();
 
-                for order in orders {
-                    hashable_tuples.push(order.create_hashable_tuple(&self.coin_to_asset)?);
-                    transformed_orders.push(order.convert(&self.coin_to_asset)?);
-                }
-            },
-            false => {
-                for order in orders {
-                    hashable_tuples_cloid.push(order.create_hashable_tuple_with_cloid(&self.coin_to_asset)?);
-                    transformed_orders.push(order.convert(&self.coin_to_asset)?);
-                }
+            for order in orders {
+                hashable_tuples.push(order.create_hashable_tuple(&self.coin_to_asset)?);
+                transformed_orders.push(order.convert(&self.coin_to_asset)?);
             }
-        };
-        let connection_id = match hashable_tuples_cloid.len() {
-            0 => keccak((hashable_tuples, 0, vault_address, timestamp)),
-            _ => keccak((hashable_tuples_cloid, 0, vault_address, timestamp))
+            keccak((hashable_tuples, 0, vault_address, timestamp))
+        } else {
+            let mut hashable_tuples_cloid = Vec::new();
+
+            for order in orders {
+                hashable_tuples_cloid.push(order.create_hashable_tuple_with_cloid(&self.coin_to_asset)?);
+                transformed_orders.push(order.convert(&self.coin_to_asset)?);
+            }
+            keccak((hashable_tuples_cloid, 0, vault_address, timestamp))
         };
 
         let action = serde_json::to_value(Actions::Order(BulkOrder {
