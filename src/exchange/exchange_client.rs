@@ -164,7 +164,6 @@ impl ExchangeClient {
         let timestamp = now_timestamp_ms();
         let vault_address = self.vault_address.unwrap_or_default();
 
-        // let mut hashable_tuples = Vec::new();
         let mut transformed_orders = Vec::new();
 
         let mut hashable_tuples_cloid = Vec::new();
@@ -234,7 +233,6 @@ impl ExchangeClient {
         }
 
         let connection_id = keccak((hashable_tuples, vault_address, timestamp));
-        println!("connection_id: {:?}", connection_id);
         let action = serde_json::to_value(Actions::Cancel(BulkCancel {
             cancels: transformed_cancels,
         }))
