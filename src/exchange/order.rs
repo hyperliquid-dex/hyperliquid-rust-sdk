@@ -4,7 +4,6 @@ use crate::{
     prelude::*,
 };
 use serde::{Deserialize, Serialize};
-use core::panic;
 use std::collections::HashMap;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
@@ -124,9 +123,9 @@ impl ClientOrderRequest {
                 hashed_cloid,
             ))
         } else {
-            panic!("cloid is None")
+            Err(Error::NoCloid)
         }
-        
+
 
     }
 }
