@@ -196,7 +196,6 @@ impl ExchangeClient {
         self.post(action, signature, timestamp).await
     }
 
-
     pub async fn cancel(
         &self,
         cancel: ClientCancelRequest,
