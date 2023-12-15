@@ -350,10 +350,7 @@ impl ExchangeClient {
 
         self.post(action, signature, timestamp).await
     }
-
-
-
-
+    
     pub async fn update_leverage(
         &self,
         leverage: u32,
