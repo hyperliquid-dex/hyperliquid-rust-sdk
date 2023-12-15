@@ -27,7 +27,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
-use super::order::OrderRequest;
+use super::{order::OrderRequest, modify::ModifyRequest};
 
 pub struct ExchangeClient {
     pub http_client: HttpClient,
@@ -150,32 +150,29 @@ impl ExchangeClient {
         self.post(action, signature, timestamp).await
     }
 
-    pub fn create_connection_id(
+    pub fn create_connection_order_id(
         &self,
         orders: Vec<ClientOrderRequest>,
         transformed_orders: &mut Vec<OrderRequest>,
         vault_address: H160,
         timestamp: u64,
     ) -> Result<H256> {
+        if orders.iter().any(|order| order.cloid.is_none()) {
+            let mut hashable_tuples = Vec::new();
 
-        match orders.iter().any(|order| order.cloid.is_none()) {
-            true => {
-                let mut hashable_tuples = Vec::new();
-                for order in orders {
-                    hashable_tuples.push(order.create_hashable_tuple(&self.coin_to_asset)?);
-                    transformed_orders.push(order.convert(&self.coin_to_asset)?);
-                }
-                Ok(keccak((hashable_tuples, 0, vault_address, timestamp)))
-            },
-            false => {
-                let mut hashable_tuples_cloid = Vec::new();
-
-                for order in orders {
-                    hashable_tuples_cloid.push(order.create_hashable_tuple_with_cloid(&self.coin_to_asset)?);
-                    transformed_orders.push(order.convert(&self.coin_to_asset)?);
-                }
-                Ok(keccak((hashable_tuples_cloid, 0, vault_address, timestamp)))
+            for order in orders {
+                hashable_tuples.push(order.create_hashable_tuple(&self.coin_to_asset)?);
+                transformed_orders.push(order.convert(&self.coin_to_asset)?);
             }
+            Ok(keccak((hashable_tuples, 0, vault_address, timestamp)))
+        } else {
+            let mut hashable_tuples_cloid = Vec::new();
+
+            for order in orders {
+                hashable_tuples_cloid.push(order.create_hashable_tuple_with_cloid(&self.coin_to_asset)?);
+                transformed_orders.push(order.convert(&self.coin_to_asset)?);
+            }
+            Ok(keccak((hashable_tuples_cloid, 0, vault_address, timestamp)))
         }
     }
 
@@ -198,24 +195,7 @@ impl ExchangeClient {
 
         let mut transformed_orders = Vec::new();
 
-
-        let connection_id = if orders.iter().any(|order| order.cloid.is_none()) {
-            let mut hashable_tuples = Vec::new();
-
-            for order in orders {
-                hashable_tuples.push(order.create_hashable_tuple(&self.coin_to_asset)?);
-                transformed_orders.push(order.convert(&self.coin_to_asset)?);
-            }
-            keccak((hashable_tuples, 0, vault_address, timestamp))
-        } else {
-            let mut hashable_tuples_cloid = Vec::new();
-
-            for order in orders {
-                hashable_tuples_cloid.push(order.create_hashable_tuple_with_cloid(&self.coin_to_asset)?);
-                transformed_orders.push(order.convert(&self.coin_to_asset)?);
-            }
-            keccak((hashable_tuples_cloid, 0, vault_address, timestamp))
-        };
+        let connection_id = self.create_connection_order_id(orders, &mut transformed_orders, vault_address, timestamp)?;
 
         let action = serde_json::to_value(Actions::Order(BulkOrder {
             grouping: "na".to_string(),
@@ -316,17 +296,28 @@ impl ExchangeClient {
         self.post(action, signature, timestamp).await
     }
 
-
-    pub fn create_connection_id_modify_cloid(
+    pub fn create_connection_modify_id(
         &self,
-        oid: u64,
-        order: &ClientOrderRequest,
+        modify: Vec<ClientModifyRequest>,
+        transformed_orders: &mut Vec<ModifyRequest>,
         vault_address: H160,
         timestamp: u64,
     ) -> Result<H256> {
-        let hashable_tuples = order.create_hashable_tuple_with_cloid(&self.coin_to_asset)?;
-
-        Ok(keccak((oid, hashable_tuples, vault_address, timestamp)))
+        if modify.iter().any(|order_modified| order_modified.order.cloid.is_none()) {
+            let mut hashable_tuples = Vec::new();
+            for order_modified in modify {
+                hashable_tuples.push(order_modified.create_hashable_tuple(&self.coin_to_asset)?);
+                transformed_orders.push(order_modified.convert(&self.coin_to_asset)?);
+            }
+            Ok(keccak((hashable_tuples, vault_address, timestamp)))
+        } else {
+            let mut hashable_tuples_cloid = Vec::new();
+            for order_modified in modify {
+                hashable_tuples_cloid.push(order_modified.create_hashable_tuple_with_cloid(&self.coin_to_asset)?);
+                transformed_orders.push(order_modified.convert(&self.coin_to_asset)?);
+            }
+            Ok(keccak((hashable_tuples_cloid, vault_address, timestamp)))
+        }
     }
 
     pub async fn modify_order(
@@ -348,21 +339,7 @@ impl ExchangeClient {
 
         let mut transformed_orders = Vec::new();
 
-        let connection_id = if modify.iter().any(|order_modified| order_modified.order.cloid.is_none()) {
-            let mut hashable_tuples = Vec::new();
-            for order_modified in modify {
-                hashable_tuples.push(order_modified.create_hashable_tuple(&self.coin_to_asset)?);
-                transformed_orders.push(order_modified.convert(&self.coin_to_asset)?);
-            }
-            keccak((hashable_tuples, vault_address, timestamp))
-        } else {
-            let mut hashable_tuples_cloid = Vec::new();
-            for order_modified in modify {
-                hashable_tuples_cloid.push(order_modified.create_hashable_tuple_with_cloid(&self.coin_to_asset)?);
-                transformed_orders.push(order_modified.convert(&self.coin_to_asset)?);
-            }
-            keccak((hashable_tuples_cloid, vault_address, timestamp))
-        };
+        let connection_id = self.create_connection_modify_id(modify, &mut transformed_orders, vault_address, timestamp)?;
 
         let action = serde_json::to_value(Actions::BatchModify(BulkModify {
             modifies: transformed_orders,
