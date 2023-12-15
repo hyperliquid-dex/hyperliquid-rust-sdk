@@ -13,6 +13,7 @@ pub struct UserStateResponse {
 #[derive(serde::Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenOrdersResponse {
+    pub cloid: Option<String>,
     pub coin: String,
     pub limit_px: String,
     pub oid: u64,

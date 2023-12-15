@@ -38,20 +38,25 @@ pub struct OrderRequest {
     pub cloid: Option<String>,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ClientLimit {
     pub tif: String,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ClientTrigger {
     pub trigger_px: f64,
     pub is_market: bool,
     pub tpsl: String,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum ClientOrder {
     Limit(ClientLimit),
     Trigger(ClientTrigger),
 }
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ClientOrderRequest {
     pub asset: String,
     pub is_buy: bool,

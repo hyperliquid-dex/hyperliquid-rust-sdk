@@ -4,7 +4,7 @@ use crate::{
         actions::{
             AgentConnect, BulkCancel, BulkOrder, UpdateIsolatedMargin, UpdateLeverage, UsdcTransfer, ModifyOrder
         },
-        cancel::CancelRequest,
+        cancel::{CancelRequest, CancelRequestCloid},
         ClientCancelRequest, ClientOrderRequest,
     },
     helpers::{generate_random_key, now_timestamp_ms, EthChain},
@@ -16,7 +16,7 @@ use crate::{
         agent::mainnet::Agent, keccak, sign_l1_action, sign_usd_transfer_action, sign_with_agent,
         usdc_transfer::mainnet::UsdTransferSignPayload,
     },
-    BaseUrl, Error, ExchangeResponseStatus,
+    BaseUrl, Error, ExchangeResponseStatus, ClientCancelRequestCloid, BulkCancelCoid,
 };
 use ethers::{
     abi::AbiEncode,
@@ -26,6 +26,8 @@ use ethers::{
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+use super::order::OrderRequest;
 
 pub struct ExchangeClient {
     pub http_client: HttpClient,
@@ -53,6 +55,7 @@ pub enum Actions {
     UpdateIsolatedMargin(UpdateIsolatedMargin),
     Order(BulkOrder),
     Cancel(BulkCancel),
+    CancelByCloid(BulkCancelCoid),
     Connect(AgentConnect),
     Modify(ModifyOrder)
 }
@@ -147,6 +150,35 @@ impl ExchangeClient {
         self.post(action, signature, timestamp).await
     }
 
+    pub fn create_connection_id(
+        &self,
+        orders: Vec<ClientOrderRequest>,
+        transformed_orders: &mut Vec<OrderRequest>,
+        vault_address: H160,
+        timestamp: u64,
+    ) -> Result<H256> {
+
+        match orders.iter().any(|order| order.cloid.is_none()) {
+            true => {
+                let mut hashable_tuples = Vec::new();
+                for order in orders {
+                    hashable_tuples.push(order.create_hashable_tuple(&self.coin_to_asset)?);
+                    transformed_orders.push(order.convert(&self.coin_to_asset)?);
+                }
+                Ok(keccak((hashable_tuples, 0, vault_address, timestamp)))
+            },
+            false => {
+                let mut hashable_tuples_cloid = Vec::new();
+
+                for order in orders {
+                    hashable_tuples_cloid.push(order.create_hashable_tuple_with_cloid(&self.coin_to_asset)?);
+                    transformed_orders.push(order.convert(&self.coin_to_asset)?);
+                }
+                Ok(keccak((hashable_tuples_cloid, 0, vault_address, timestamp)))
+            }
+        }
+    }
+
     pub async fn order(
         &self,
         order: ClientOrderRequest,
@@ -167,29 +199,8 @@ impl ExchangeClient {
         // let mut hashable_tuples = Vec::new();
         let mut transformed_orders = Vec::new();
 
-        let mut hashable_tuples_cloid = Vec::new();
-        let mut hashable_tuples = Vec::new();
-
-        match orders.iter().any(|order| order.cloid.is_none()) {
-            true => {
-
-                for order in orders {
-                    hashable_tuples.push(order.create_hashable_tuple(&self.coin_to_asset)?);
-                    transformed_orders.push(order.convert(&self.coin_to_asset)?);
-                }
-            },
-            false => {
-                for order in orders {
-                    hashable_tuples_cloid.push(order.create_hashable_tuple_with_cloid(&self.coin_to_asset)?);
-                    transformed_orders.push(order.convert(&self.coin_to_asset)?);
-                }
-            }
-        };
-        let connection_id = match hashable_tuples_cloid.len() {
-            0 => keccak((hashable_tuples, 0, vault_address, timestamp)),
-            _ => keccak((hashable_tuples_cloid, 0, vault_address, timestamp))
-        };
-
+        let connection_id = self.create_connection_id(orders, &mut transformed_orders, vault_address, timestamp)?;
+        
         let action = serde_json::to_value(Actions::Order(BulkOrder {
             grouping: "na".to_string(),
             orders: transformed_orders,
@@ -215,12 +226,13 @@ impl ExchangeClient {
         cancels: Vec<ClientCancelRequest>,
         wallet: Option<&LocalWallet>,
     ) -> Result<ExchangeResponseStatus> {
+
         let wallet = wallet.unwrap_or(&self.wallet);
         let timestamp = now_timestamp_ms();
         let vault_address = self.vault_address.unwrap_or_default();
 
         let mut hashable_tuples = Vec::new();
-        let mut transformed_cancels = Vec::new();
+        let mut transformed_cancels: Vec<CancelRequest> = Vec::new();
         for cancel in cancels.into_iter() {
             let &asset = self
                 .coin_to_asset
@@ -234,7 +246,6 @@ impl ExchangeClient {
         }
 
         let connection_id = keccak((hashable_tuples, vault_address, timestamp));
-        println!("connection_id: {:?}", connection_id);
         let action = serde_json::to_value(Actions::Cancel(BulkCancel {
             cancels: transformed_cancels,
         }))
@@ -243,6 +254,64 @@ impl ExchangeClient {
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
         self.post(action, signature, timestamp).await
+    }
+
+    pub async fn cancel_by_cloid(
+        &self,
+        cancel: ClientCancelRequestCloid,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        self.bulk_cancel_by_cloid(vec![cancel], wallet).await
+    }
+
+    pub async fn bulk_cancel_by_cloid(
+        &self,
+        cancels: Vec<ClientCancelRequestCloid>,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let timestamp = now_timestamp_ms();
+        let vault_address = self.vault_address.unwrap_or_default();
+
+        let mut hashable_tuples = Vec::new();
+        let mut transformed_cancels: Vec<CancelRequestCloid> = Vec::new();
+        for cancel in cancels.into_iter() {
+            let &asset = self
+                .coin_to_asset
+                .get(&cancel.asset)
+                .ok_or(Error::AssetNotFound)?;
+            transformed_cancels.push(CancelRequestCloid {
+                asset,
+                cloid: cancel.cloid.clone(),
+            });
+            let hashed_cloid: [u8;16] = u128::from_str_radix(&cancel.cloid[2..], 16).unwrap().to_be_bytes();
+
+            hashable_tuples.push((asset, hashed_cloid));
+        }
+
+        let connection_id = keccak((hashable_tuples, vault_address, timestamp));
+        let action = serde_json::to_value(Actions::CancelByCloid(BulkCancelCoid {
+            cancels: transformed_cancels,
+        }))
+        .map_err(|e| Error::JsonParse(e.to_string()))?;
+        let is_mainnet = self.http_client.base_url == BaseUrl::Mainnet.get_url();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+        self.post(action, signature, timestamp).await
+    }
+
+
+    pub fn create_connection_id_modify_cloid(
+        &self,
+        oid: u64,
+        order: &ClientOrderRequest,
+        vault_address: H160,
+        timestamp: u64,
+    ) -> Result<H256> {
+        let hashable_tuples = order.create_hashable_tuple_with_cloid(&self.coin_to_asset)?;
+
+        Ok(keccak((oid, hashable_tuples, vault_address, timestamp)))
     }
 
     pub async fn modify_order(
@@ -255,10 +324,16 @@ impl ExchangeClient {
         let timestamp = now_timestamp_ms();
         let vault_address = self.vault_address.unwrap_or_default();
 
-        let hashable_tuples = order.create_hashable_tuple(&self.coin_to_asset)?;
-        let transformed_order = order.convert(&self.coin_to_asset)?;
 
-        let connection_id = keccak((oid, hashable_tuples, vault_address, timestamp));
+        let connection_id = match order.cloid {
+            Some(_) => self.create_connection_id_modify_cloid(oid, &order, vault_address, timestamp)?,
+            None => {
+                let hashable_tuples = order.create_hashable_tuple(&self.coin_to_asset)?;
+                keccak((oid, hashable_tuples, vault_address, timestamp))
+            }
+        };
+
+        let transformed_order = order.convert(&self.coin_to_asset)?;
         let action = serde_json::to_value(Actions::Modify(ModifyOrder {
             oid,
             order: transformed_order,
