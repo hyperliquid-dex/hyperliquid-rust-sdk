@@ -115,23 +115,23 @@ impl ClientOrderRequest {
         let &asset = coin_to_asset.get(&self.asset).ok_or(Error::AssetNotFound)?;
         
         // cloid is Some("0x1234567890abcdef1234567890abcdef".to_string()) is a 128 hex string
-        match &self.cloid {
-            Some(cloid) => {
-                let hashed_cloid: [u8;16] = u128::from_str_radix(&cloid[2..], 16).unwrap().to_be_bytes();
-                Ok((
-                    asset,
-                    self.is_buy,
-                    float_to_int_for_hashing(self.limit_px),
-                    float_to_int_for_hashing(self.sz),
-                    self.reduce_only,
-                    hashed_order_type.0,
-                    hashed_order_type.1,
-                    hashed_cloid,
-                ))
-            },
-            None => panic!("cloid is None")
+        if let Some(cloid) = &self.cloid {
+            let hashed_cloid: [u8;16] = u128::from_str_radix(&cloid[2..], 16).unwrap().to_be_bytes();
+            Ok((
+                asset,
+                self.is_buy,
+                float_to_int_for_hashing(self.limit_px),
+                float_to_int_for_hashing(self.sz),
+                self.reduce_only,
+                hashed_order_type.0,
+                hashed_order_type.1,
+                hashed_cloid,
+            ))
+        } else {
+            Err(Error::NoCloid)
         }
-        
+
+
     }
 }
 

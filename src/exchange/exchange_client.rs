@@ -196,11 +196,27 @@ impl ExchangeClient {
         let timestamp = now_timestamp_ms();
         let vault_address = self.vault_address.unwrap_or_default();
 
-        // let mut hashable_tuples = Vec::new();
         let mut transformed_orders = Vec::new();
 
-        let connection_id = self.create_connection_id(orders, &mut transformed_orders, vault_address, timestamp)?;
-        
+
+        let connection_id = if orders.iter().any(|order| order.cloid.is_none()) {
+            let mut hashable_tuples = Vec::new();
+
+            for order in orders {
+                hashable_tuples.push(order.create_hashable_tuple(&self.coin_to_asset)?);
+                transformed_orders.push(order.convert(&self.coin_to_asset)?);
+            }
+            keccak((hashable_tuples, 0, vault_address, timestamp))
+        } else {
+            let mut hashable_tuples_cloid = Vec::new();
+
+            for order in orders {
+                hashable_tuples_cloid.push(order.create_hashable_tuple_with_cloid(&self.coin_to_asset)?);
+                transformed_orders.push(order.convert(&self.coin_to_asset)?);
+            }
+            keccak((hashable_tuples_cloid, 0, vault_address, timestamp))
+        };
+
         let action = serde_json::to_value(Actions::Order(BulkOrder {
             grouping: "na".to_string(),
             orders: transformed_orders,
@@ -211,7 +227,6 @@ impl ExchangeClient {
 
         self.post(action, signature, timestamp).await
     }
-
 
     pub async fn cancel(
         &self,
