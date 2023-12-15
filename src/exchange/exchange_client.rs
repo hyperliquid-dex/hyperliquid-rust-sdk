@@ -2,7 +2,7 @@ use crate::{
     consts::MAINNET_API_URL,
     exchange::{
         actions::{
-            AgentConnect, BulkCancel, BulkOrder, UpdateIsolatedMargin, UpdateLeverage, UsdcTransfer, ModifyOrder
+            AgentConnect, BulkCancel, BulkOrder, UpdateIsolatedMargin, UpdateLeverage, UsdcTransfer
         },
         cancel::{CancelRequest, CancelRequestCloid},
         ClientCancelRequest, ClientOrderRequest,
@@ -16,7 +16,7 @@ use crate::{
         agent::mainnet::Agent, keccak, sign_l1_action, sign_usd_transfer_action, sign_with_agent,
         usdc_transfer::mainnet::UsdTransferSignPayload,
     },
-    BaseUrl, Error, ExchangeResponseStatus, ClientCancelRequestCloid, BulkCancelCoid,
+    BaseUrl, Error, ExchangeResponseStatus, ClientCancelRequestCloid, BulkCancelCoid, ClientModifyRequest, BulkModify,
 };
 use ethers::{
     abi::AbiEncode,
@@ -57,7 +57,7 @@ pub enum Actions {
     Cancel(BulkCancel),
     CancelByCloid(BulkCancelCoid),
     Connect(AgentConnect),
-    Modify(ModifyOrder)
+    BatchModify(BulkModify)
 }
 
 impl ExchangeClient {
@@ -331,27 +331,65 @@ impl ExchangeClient {
 
     pub async fn modify_order(
         &self,
-        oid: u64,
-        order: ClientOrderRequest,
+        modify: ClientModifyRequest,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        // let wallet = wallet.unwrap_or(&self.wallet);
+        // let timestamp = now_timestamp_ms();
+        // let vault_address = self.vault_address.unwrap_or_default();
+
+
+        // let connection_id = match order.cloid {
+        //     Some(_) => self.create_connection_id_modify_cloid(oid, &order, vault_address, timestamp)?,
+        //     None => {
+        //         let hashable_tuples = order.create_hashable_tuple(&self.coin_to_asset)?;
+        //         keccak((oid, hashable_tuples, vault_address, timestamp))
+        //     }
+        // };
+
+        // let transformed_order = order.convert(&self.coin_to_asset)?;
+        // let action = serde_json::to_value(Actions::Modify(ModifyOrder {
+        //     oid,
+        //     order: transformed_order,
+        // }))
+        // .map_err(|e| Error::JsonParse(e.to_string()))?;
+        // let is_mainnet = self.http_client.base_url == BaseUrl::Mainnet.get_url();
+        // let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+        // self.post(action, signature, timestamp).await
+
+        self.bulk_modify(vec![modify], wallet).await
+    }
+
+    pub async fn bulk_modify(
+        &self, 
+        modify: Vec<ClientModifyRequest>,
         wallet: Option<&LocalWallet>,
     ) -> Result<ExchangeResponseStatus> {
         let wallet = wallet.unwrap_or(&self.wallet);
         let timestamp = now_timestamp_ms();
         let vault_address = self.vault_address.unwrap_or_default();
 
+        let mut transformed_orders = Vec::new();
 
-        let connection_id = match order.cloid {
-            Some(_) => self.create_connection_id_modify_cloid(oid, &order, vault_address, timestamp)?,
-            None => {
-                let hashable_tuples = order.create_hashable_tuple(&self.coin_to_asset)?;
-                keccak((oid, hashable_tuples, vault_address, timestamp))
+        let connection_id = if modify.iter().any(|order_modified| order_modified.order.cloid.is_none()) {
+            let mut hashable_tuples = Vec::new();
+            for order_modified in modify {
+                hashable_tuples.push(order_modified.create_hashable_tuple(&self.coin_to_asset)?);
+                transformed_orders.push(order_modified.convert(&self.coin_to_asset)?);
             }
+            keccak((hashable_tuples, vault_address, timestamp))
+        } else {
+            let mut hashable_tuples_cloid = Vec::new();
+            for order_modified in modify {
+                hashable_tuples_cloid.push(order_modified.create_hashable_tuple_with_cloid(&self.coin_to_asset)?);
+                transformed_orders.push(order_modified.convert(&self.coin_to_asset)?);
+            }
+            keccak((hashable_tuples_cloid, vault_address, timestamp))
         };
 
-        let transformed_order = order.convert(&self.coin_to_asset)?;
-        let action = serde_json::to_value(Actions::Modify(ModifyOrder {
-            oid,
-            order: transformed_order,
+        let action = serde_json::to_value(Actions::BatchModify(BulkModify {
+            modifies: transformed_orders,
         }))
         .map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.base_url == BaseUrl::Mainnet.get_url();
@@ -359,6 +397,9 @@ impl ExchangeClient {
 
         self.post(action, signature, timestamp).await
     }
+
+
+
 
     pub async fn update_leverage(
         &self,

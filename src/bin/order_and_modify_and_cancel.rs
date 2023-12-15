@@ -3,7 +3,7 @@ use log::info;
 
 use hyperliquid_rust_sdk::{
     BaseUrl, ClientLimit, ClientOrder, ClientOrderRequest, ExchangeClient,
-    ExchangeDataStatus, ExchangeResponseStatus, ClientCancelRequestCloid,
+    ExchangeDataStatus, ExchangeResponseStatus, ClientCancelRequestCloid, ClientModifyRequest,
 };
 use std::{thread::sleep, time::Duration};
 
@@ -33,7 +33,7 @@ async fn main() {
 
     let response = exchange_client.order(order, None).await.unwrap();
     info!("Order placed: {response:?}");
-
+    
     let response = match response {
         ExchangeResponseStatus::Ok(exchange_response) => exchange_response,
         ExchangeResponseStatus::Err(e) => panic!("error with exchange response: {e}"),
@@ -48,19 +48,22 @@ async fn main() {
     // So you can see the order before it's modified
     sleep(Duration::from_secs(3));
 
-    let order = ClientOrderRequest {
-        asset: "ETH".to_string(),
-        is_buy: true,
-        reduce_only: false,
-        limit_px: 1800.0,
-        sz: 0.02,
-        order_type: ClientOrder::Limit(ClientLimit {
-            tif: "Gtc".to_string(),
-        }),
-        cloid: Some("0x1234567890abcdef1234567890abcdee".to_string()),
+    let order = ClientModifyRequest {
+        oid: oid,
+        order :ClientOrderRequest {
+            asset: "ETH".to_string(),
+            is_buy: true,
+            reduce_only: false,
+            limit_px: 1800.0,
+            sz: 0.02,
+            order_type: ClientOrder::Limit(ClientLimit {
+                tif: "Gtc".to_string(),
+            }),
+            cloid: Some("0x1234567890abcdef1234567890abcdee".to_string()),
+        }
     };
 
-    let response = exchange_client.modify_order(oid, order, None)
+    let response = exchange_client.modify_order(order, None)
         .await
         .unwrap();
         
@@ -78,5 +81,5 @@ async fn main() {
 
     // This response will return an error if order was filled (since you can't cancel a filled order), otherwise it will cancel the order
     let response = exchange_client.cancel_by_cloid(cancel, None).await.unwrap();
-    println!("Order potentially cancelled: {response:?}");
+    info!("Order potentially cancelled: {response:?}");
 }

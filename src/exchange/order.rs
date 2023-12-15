@@ -130,8 +130,6 @@ impl ClientOrderRequest {
         } else {
             Err(Error::NoCloid)
         }
-
-
     }
 }
 
