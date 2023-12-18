@@ -35,22 +35,28 @@ pub struct OrderRequest {
     pub limit_px: String,
     pub sz: String,
     pub order_type: Order,
+    pub cloid: Option<String>,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ClientLimit {
     pub tif: String,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ClientTrigger {
     pub trigger_px: f64,
     pub is_market: bool,
     pub tpsl: String,
 }
 
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub enum ClientOrder {
     Limit(ClientLimit),
     Trigger(ClientTrigger),
 }
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct ClientOrderRequest {
     pub asset: String,
     pub is_buy: bool,
@@ -58,6 +64,7 @@ pub struct ClientOrderRequest {
     pub limit_px: f64,
     pub sz: f64,
     pub order_type: ClientOrder,
+    pub cloid: Option<String>,
 }
 
 impl ClientOrderRequest {
@@ -79,6 +86,7 @@ impl ClientOrderRequest {
             limit_px: float_to_string_for_hashing(self.limit_px),
             sz: float_to_string_for_hashing(self.sz),
             order_type,
+            cloid: self.cloid,
         })
     }
     pub(crate) fn create_hashable_tuple(
@@ -96,6 +104,32 @@ impl ClientOrderRequest {
             hashed_order_type.0,
             hashed_order_type.1,
         ))
+        
+    }
+
+    pub(crate) fn create_hashable_tuple_with_cloid(
+        &self,
+        coin_to_asset: &HashMap<String, u32>,
+    ) -> Result<(u32, bool, u64, u64, bool, u8, u64, [u8;16])> {
+        let hashed_order_type = self.order_type.get_type()?;
+        let &asset = coin_to_asset.get(&self.asset).ok_or(Error::AssetNotFound)?;
+        
+        // cloid is Some("0x1234567890abcdef1234567890abcdef".to_string()) is a 128 hex string
+        if let Some(cloid) = &self.cloid {
+            let hashed_cloid: [u8;16] = u128::from_str_radix(&cloid[2..], 16).unwrap().to_be_bytes();
+            Ok((
+                asset,
+                self.is_buy,
+                float_to_int_for_hashing(self.limit_px),
+                float_to_int_for_hashing(self.sz),
+                self.reduce_only,
+                hashed_order_type.0,
+                hashed_order_type.1,
+                hashed_cloid,
+            ))
+        } else {
+            Err(Error::NoCloid)
+        }
     }
 }
 

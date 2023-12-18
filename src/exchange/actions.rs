@@ -5,6 +5,8 @@ use crate::{
 use ethers::types::H160;
 use serde::{Deserialize, Serialize};
 
+use super::{cancel::CancelRequestCloid, modify::ModifyRequest};
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UsdcTransfer {
     pub chain: String,
@@ -42,8 +44,20 @@ pub struct BulkCancel {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct BulkCancelCoid {
+    pub cancels: Vec<CancelRequestCloid>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct AgentConnect {
     pub chain: String,
     pub agent: Agent,
     pub agent_address: H160,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BulkModify {
+    pub modifies: Vec<ModifyRequest>,
 }

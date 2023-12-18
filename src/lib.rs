@@ -8,7 +8,7 @@ mod market_maker;
 mod meta;
 mod prelude;
 mod proxy_digest;
-mod req;
+pub mod req;
 mod signature;
 mod ws;
 pub use consts::{EPSILON, LOCAL_API_URL, MAINNET_API_URL, TESTNET_API_URL};
