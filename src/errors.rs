@@ -53,6 +53,4 @@ pub enum Error {
     PrivateKeyParse(String),
     #[error("Cannot subscribe to multiple user events")]
     UserEvents,
-    #[error("No Cloid found in order request")]
-    NoCloid,
 }

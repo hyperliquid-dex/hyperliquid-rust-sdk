@@ -149,7 +149,7 @@ impl MarketMaker {
     async fn attempt_cancel(&self, asset: String, oid: u64) -> bool {
         let cancel = self
             .exchange_client
-            .cancel(ClientCancelRequest { asset, oid}, None)
+            .cancel(ClientCancelRequest { asset, oid }, None)
             .await;
 
         match cancel {
@@ -199,7 +199,6 @@ impl MarketMaker {
                     order_type: ClientOrder::Limit(ClientLimit {
                         tif: "Gtc".to_string(),
                     }),
-                    cloid: None,
                 },
                 None,
             )
