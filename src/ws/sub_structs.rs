@@ -75,3 +75,24 @@ pub struct CandleData {
     #[serde(rename = "v")]
     pub volume: String,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderUpdate {
+    pub order: BasicOrder,
+    pub status: String,
+    pub status_timestamp: u64,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct BasicOrder {
+  pub coin: String,
+  pub side: String,
+  pub limit_px: String,
+  pub sz: String,
+  pub oid: u64,
+  pub timestamp: u64,
+  pub orig_sz: String,
+  pub cloid: Option<String>,
+}
