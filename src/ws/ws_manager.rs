@@ -1,6 +1,6 @@
 use crate::{
     prelude::*,
-    ws::message_types::{AllMids, L2Book, Trades, User, Candle},
+    ws::message_types::{AllMids, Candle, L2Book, OrderUpdates, Trades, User},
     Error,
 };
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
@@ -20,6 +20,7 @@ use tokio_tungstenite::{
 
 use ethers::types::H160;
 
+#[derive(Debug)]
 struct SubscriptionData {
     sending_channel: UnboundedSender<Message>,
     subscription_id: u32,
@@ -40,6 +41,7 @@ pub enum Subscription {
     L2Book { coin: String },
     UserEvents { user: H160 },
     Candle { coin: String, interval: String },
+    OrderUpdates { user: H160 },
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -52,6 +54,7 @@ pub enum Message {
     User(User),
     Candle(Candle),
     SubscriptionResponse,
+    OrderUpdates(OrderUpdates),
 }
 
 #[derive(Serialize)]
@@ -110,13 +113,12 @@ impl WsManager {
                 coin: l2_book.data.coin.clone(),
             })
             .map_err(|e| Error::JsonParse(e.to_string())),
-            Message::Candle(candle) => {
-                serde_json::to_string(&Subscription::Candle {
-                    coin: candle.data.coin.clone(),
-                    interval: candle.data.interval.clone(),
-                })
-                .map_err(|e| Error::JsonParse(e.to_string()))
-            }
+            Message::Candle(candle) => serde_json::to_string(&Subscription::Candle {
+                coin: candle.data.coin.clone(),
+                interval: candle.data.interval.clone(),
+            })
+            .map_err(|e| Error::JsonParse(e.to_string())),
+            Message::OrderUpdates(_) => Ok("orderUpdates".to_string()),
             Message::SubscriptionResponse => Ok(String::default()),
         }
     }
@@ -130,14 +132,11 @@ impl WsManager {
             .map_err(|e| Error::GenericReader(e.to_string()))?
             .into_text()
             .map_err(|e| Error::ReaderTextConversion(e.to_string()))?;
-
         if !data.starts_with('{') {
             return Ok(());
         }
-
         let message =
             serde_json::from_str::<Message>(&data).map_err(|e| Error::JsonParse(e.to_string()))?;
-
         let identifier = WsManager::get_identifier(&message)?;
         if identifier.is_empty() {
             return Ok(());
@@ -171,10 +170,14 @@ impl WsManager {
                 .map_err(|e| Error::JsonParse(e.to_string()))?
         {
             "userEvents".to_string()
+        } else if let Subscription::OrderUpdates { user: _ } =
+            serde_json::from_str::<Subscription>(&identifier)
+                .map_err(|e| Error::JsonParse(e.to_string()))?
+        {
+            "orderUpdates".to_string()
         } else {
             identifier.clone()
         };
-
         let subscriptions = subscriptions
             .entry(identifier_entry.clone())
             .or_insert(Vec::new());
@@ -206,7 +209,6 @@ impl WsManager {
         });
 
         self.subscription_id += 1;
-
         Ok(subscription_id)
     }
 
@@ -222,6 +224,11 @@ impl WsManager {
                 .map_err(|e| Error::JsonParse(e.to_string()))?
         {
             "userEvents".to_string()
+        } else if let Subscription::OrderUpdates { user: _ } =
+            serde_json::from_str::<Subscription>(&identifier)
+                .map_err(|e| Error::JsonParse(e.to_string()))?
+        {
+            "orderUpdates".to_string()
         } else {
             identifier.clone()
         };
