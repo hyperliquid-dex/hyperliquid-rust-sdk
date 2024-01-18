@@ -5,6 +5,8 @@ use crate::{
 use ethers::types::H160;
 use serde::{Deserialize, Serialize};
 
+use super::cancel::CancelRequestCloid;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct UsdcTransfer {
     pub chain: String,
@@ -38,6 +40,12 @@ pub struct BulkOrder {
 #[serde(rename_all = "camelCase")]
 pub struct BulkCancel {
     pub cancels: Vec<CancelRequest>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BulkCancelCloid {
+    pub cancels: Vec<CancelRequestCloid>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

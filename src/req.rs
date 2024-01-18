@@ -2,7 +2,7 @@ use crate::{prelude::*, Error};
 use reqwest::{Client, Response};
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 struct ErrorData {
     data: String,
     code: u16,
@@ -26,7 +26,6 @@ async fn parse_response(response: Response) -> Result<String> {
         return Ok(text);
     }
     let error_data = serde_json::from_str::<ErrorData>(&text);
-
     if status_code >= 400 && status_code < 500 {
         let client_error = match error_data {
             Ok(error_data) => Error::ClientRequest {

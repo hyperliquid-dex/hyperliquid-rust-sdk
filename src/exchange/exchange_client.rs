@@ -4,10 +4,10 @@ use crate::{
         actions::{
             AgentConnect, BulkCancel, BulkOrder, UpdateIsolatedMargin, UpdateLeverage, UsdcTransfer,
         },
-        cancel::CancelRequest,
+        cancel::{CancelRequest, CancelRequestCloid},
         ClientCancelRequest, ClientOrderRequest,
     },
-    helpers::{generate_random_key, EthChain, next_nonce},
+    helpers::{generate_random_key, next_nonce,now_timestamp_ms, uuid_to_hex_string, EthChain},
     info::info_client::InfoClient,
     meta::Meta,
     prelude::*,
@@ -16,7 +16,7 @@ use crate::{
         agent::mainnet::Agent, keccak, sign_l1_action, sign_usd_transfer_action, sign_with_agent,
         usdc_transfer::mainnet::UsdTransferSignPayload,
     },
-    BaseUrl, Error, ExchangeResponseStatus,
+    BaseUrl, BulkCancelCloid, Error, ExchangeResponseStatus,
 };
 use ethers::{
     abi::AbiEncode,
@@ -26,6 +26,8 @@ use ethers::{
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+use super::{cancel::ClientCancelRequestCloid, order::OrderRequest};
 
 pub struct ExchangeClient {
     pub http_client: HttpClient,
@@ -53,6 +55,7 @@ pub enum Actions {
     UpdateIsolatedMargin(UpdateIsolatedMargin),
     Order(BulkOrder),
     Cancel(BulkCancel),
+    CancelByCloid(BulkCancelCloid),
     Connect(AgentConnect),
 }
 
@@ -183,16 +186,53 @@ impl ExchangeClient {
         }
 
         let action = Actions::Order(BulkOrder {
+        // let timestamp = now_timestamp_ms();
+        // let vault_address = self.vault_address.unwrap_or_default();
+        // let mut transformed_orders = Vec::new();
+        // let connection_id = self.create_connection_order_id(
+        //     orders,
+        //     &mut transformed_orders,
+        //     vault_address,
+        //     timestamp,
+        // )?;
+        // let action = serde_json::to_value(Actions::Order(BulkOrder {
+        //     grouping: "na".to_string(),
             orders: transformed_orders,
             grouping: "na".to_string(),
         });
         let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-        
+
         let is_mainnet = self.http_client.base_url == BaseUrl::Mainnet.get_url();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
-
         self.post(action, signature, timestamp).await
+    }
+
+    fn create_connection_order_id(
+        &self,
+        orders: Vec<ClientOrderRequest>,
+        transformed_orders: &mut Vec<OrderRequest>,
+        vault_address: H160,
+        timestamp: u64,
+    ) -> Result<H256> {
+        if orders.iter().all(|order| order.cloid.is_none()) {
+            let mut hashable_tuples = Vec::new();
+
+            for order in orders {
+                hashable_tuples.push(order.create_hashable_tuple(&self.coin_to_asset)?);
+                transformed_orders.push(order.convert(&self.coin_to_asset)?);
+            }
+            Ok(keccak((hashable_tuples, 0, vault_address, timestamp)))
+        } else {
+            let mut hashable_tuples_cloid = Vec::new();
+
+            for order in orders {
+                hashable_tuples_cloid
+                    .push(order.create_hashable_tuple_with_cloid(&self.coin_to_asset)?);
+                transformed_orders.push(order.convert(&self.coin_to_asset)?);
+            }
+            Ok(keccak((hashable_tuples_cloid, 0, vault_address, timestamp)))
+        }
     }
 
     pub async fn cancel(
@@ -229,6 +269,50 @@ impl ExchangeClient {
         let connection_id = action.hash(timestamp, self.vault_address)?;
 
         let action = serde_json::to_value(&action)
+        .map_err(|e| Error::JsonParse(e.to_string()))?;
+        let is_mainnet = self.http_client.base_url == BaseUrl::Mainnet.get_url();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+        self.post(action, signature, timestamp).await
+    }
+
+    pub async fn cancel_by_cloid(
+        &self,
+        cancel: ClientCancelRequestCloid,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        self.bulk_cancel_by_cloid(vec![cancel], wallet).await
+    }
+
+    pub async fn bulk_cancel_by_cloid(
+        &self,
+        cancels: Vec<ClientCancelRequestCloid>,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let timestamp = now_timestamp_ms();
+        let vault_address = self.vault_address.unwrap_or_default();
+
+        let mut hashable_tuples = Vec::new();
+        let mut transformed_cancels: Vec<CancelRequestCloid> = Vec::new();
+        for cancel in cancels.into_iter() {
+            let &asset = self
+                .coin_to_asset
+                .get(&cancel.asset)
+                .ok_or(Error::AssetNotFound)?;
+            transformed_cancels.push(CancelRequestCloid {
+                asset,
+                cloid: uuid_to_hex_string(cancel.cloid),
+            });
+            let hashed_cloid: [u8; 16] = cancel.cloid.as_bytes().clone();
+
+            hashable_tuples.push((asset, hashed_cloid));
+        }
+
+        let connection_id = keccak((hashable_tuples, vault_address, timestamp));
+        let action = serde_json::to_value(Actions::CancelByCloid(BulkCancelCloid {
+            cancels: transformed_cancels,
+        }))
         .map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.base_url == BaseUrl::Mainnet.get_url();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
