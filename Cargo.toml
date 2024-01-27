@@ -13,7 +13,7 @@ repository = "https://github.com/hyperliquid-dex/hyperliquid-rust-sdk"
 
 [dependencies]
 chrono = "0.4.26"
-env_logger = "0.10.0"
+env_logger = { version = "0.11.1", default-features = false }
 ethers = { version = "2.0.11", features = ["eip712", "abigen"] }
 futures-util = "0.3.28"
 hex = "0.4.3"
