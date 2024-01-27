@@ -100,15 +100,12 @@ fn sign_typed_data<T: Eip712>(payload: &T, wallet: &LocalWallet) -> Result<Signa
     let encoded = payload
         .encode_eip712()
         .map_err(|e| Error::Eip712(e.to_string()))?;
-    let signature = sign_hash(H256::from(encoded), wallet)?;
+    let signature: Signature = sign_hash(H256::from(encoded), &wallet)?;
 
     Ok(signature)
 }
 
-fn sign_hash<D>(hash: H256, wallet: &Wallet<D>) -> Result<Signature>
-where
-    D: PrehashSigner<(RecoverableSignature, RecoveryId)>,
-{
+fn sign_hash(hash: H256, wallet: &LocalWallet) -> Result<Signature> {
     let (recoverable_sig, recovery_id) = wallet
         .signer()
         .sign_prehash(hash.as_ref())
