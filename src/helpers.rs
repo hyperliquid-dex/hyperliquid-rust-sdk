@@ -1,19 +1,43 @@
 use crate::{consts::*, prelude::*, Error};
 use chrono::prelude::Utc;
+use lazy_static::lazy_static;
+use log::info;
 use rand::{thread_rng, Rng};
+use std::sync::atomic::{AtomicU64, Ordering};
 
-pub(crate) fn now_timestamp_ms() -> u64 {
+fn now_timestamp_ms() -> u64 {
     let now = Utc::now();
     now.timestamp_millis() as u64
 }
 
-pub(crate) fn float_to_int_for_hashing(num: f64) -> u64 {
-    (num * 100_000_000.0).round() as u64
+pub(crate) fn next_nonce() -> u64 {
+    let nonce = CUR_NONCE.fetch_add(1, Ordering::Relaxed);
+    let now_ms = now_timestamp_ms();
+    if nonce > now_ms + 1000 {
+        info!("nonce progressed too far ahead {nonce} {now_ms}");
+    }
+    // more than 300 seconds behind
+    if nonce + 300000 < now_ms {
+        CUR_NONCE.fetch_max(now_ms, Ordering::Relaxed);
+    }
+    nonce
 }
 
-pub(crate) fn float_to_string_for_hashing(num: f64) -> String {
-    let num = format!("{:0>9}", float_to_int_for_hashing(num).to_string());
-    format!("{}.{}", &num[..num.len() - 8], &num[num.len() - 8..])
+pub(crate) const WIRE_DECIMALS: u8 = 8;
+
+pub(crate) fn float_to_string_for_hashing(x: f64) -> String {
+    let mut x = format!("{:.*}", WIRE_DECIMALS.into(), x);
+    while x.ends_with('0') {
+        x.pop();
+    }
+    if x.ends_with('.') {
+        x.pop();
+    }
+    if x == "-0" {
+        "0".to_string()
+    } else {
+        x
+    }
 }
 
 pub(crate) fn generate_random_key() -> Result<[u8; 32]> {
@@ -63,4 +87,9 @@ impl BaseUrl {
             BaseUrl::Testnet => TESTNET_API_URL.to_string(),
         }
     }
+}
+
+lazy_static! {
+    static ref CUR_NONCE: AtomicU64 =
+        AtomicU64::new(now_timestamp_ms());
 }

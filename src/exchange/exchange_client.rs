@@ -7,7 +7,7 @@ use crate::{
         cancel::CancelRequest,
         ClientCancelRequest, ClientOrderRequest,
     },
-    helpers::{generate_random_key, now_timestamp_ms, EthChain},
+    helpers::{generate_random_key, EthChain, next_nonce},
     info::info_client::InfoClient,
     meta::Meta,
     prelude::*,
@@ -56,6 +56,20 @@ pub enum Actions {
     Connect(AgentConnect),
 }
 
+impl Actions {
+    fn hash(&self, timestamp: u64, vault_address: Option<H160>) -> Result<H256> {
+        let mut bytes = rmp_serde::to_vec_named(self).map_err(|e| Error::RmpParse(e.to_string()))?;
+        bytes.extend(timestamp.to_be_bytes());
+        if let Some(vault_address) = vault_address {
+            bytes.push(1);
+            bytes.extend(vault_address.to_fixed_bytes());
+        } else {
+            bytes.push(0);
+        }
+        Ok(H256(ethers::utils::keccak256(bytes)))
+    }
+}
+
 impl ExchangeClient {
     pub async fn new(
         client: Option<Client>,
@@ -64,7 +78,7 @@ impl ExchangeClient {
         meta: Option<Meta>,
         vault_address: Option<H160>,
     ) -> Result<ExchangeClient> {
-        let client = client.unwrap_or_else(Client::new);
+        let client = client.unwrap_or_default();
         let base_url = base_url.unwrap_or(BaseUrl::Mainnet);
 
         let meta = if let Some(meta) = meta {
@@ -129,7 +143,7 @@ impl ExchangeClient {
             (EthChain::ArbitrumGoerli, "ArbitrumGoerli".to_string())
         };
 
-        let timestamp = now_timestamp_ms();
+        let timestamp = next_nonce();
         let payload = serde_json::to_value(UsdTransferSignPayload {
             destination: destination.to_string(),
             amount: amount.to_string(),
@@ -160,23 +174,21 @@ impl ExchangeClient {
         wallet: Option<&LocalWallet>,
     ) -> Result<ExchangeResponseStatus> {
         let wallet = wallet.unwrap_or(&self.wallet);
-        let timestamp = now_timestamp_ms();
-        let vault_address = self.vault_address.unwrap_or_default();
+        let timestamp = next_nonce();
 
-        let mut hashable_tuples = Vec::new();
         let mut transformed_orders = Vec::new();
 
         for order in orders {
-            hashable_tuples.push(order.create_hashable_tuple(&self.coin_to_asset)?);
             transformed_orders.push(order.convert(&self.coin_to_asset)?);
         }
 
-        let connection_id = keccak((hashable_tuples, 0, vault_address, timestamp));
-        let action = serde_json::to_value(Actions::Order(BulkOrder {
-            grouping: "na".to_string(),
+        let action = Actions::Order(BulkOrder {
             orders: transformed_orders,
-        }))
-        .map_err(|e| Error::JsonParse(e.to_string()))?;
+            grouping: "na".to_string(),
+        });
+        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+        
         let is_mainnet = self.http_client.base_url == BaseUrl::Mainnet.get_url();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
@@ -197,10 +209,8 @@ impl ExchangeClient {
         wallet: Option<&LocalWallet>,
     ) -> Result<ExchangeResponseStatus> {
         let wallet = wallet.unwrap_or(&self.wallet);
-        let timestamp = now_timestamp_ms();
-        let vault_address = self.vault_address.unwrap_or_default();
+        let timestamp = next_nonce();
 
-        let mut hashable_tuples = Vec::new();
         let mut transformed_cancels = Vec::new();
         for cancel in cancels.into_iter() {
             let &asset = self
@@ -211,13 +221,14 @@ impl ExchangeClient {
                 asset,
                 oid: cancel.oid,
             });
-            hashable_tuples.push((asset, cancel.oid));
         }
 
-        let connection_id = keccak((hashable_tuples, vault_address, timestamp));
-        let action = serde_json::to_value(Actions::Cancel(BulkCancel {
+        let action = Actions::Cancel(BulkCancel {
             cancels: transformed_cancels,
-        }))
+        });
+        let connection_id = action.hash(timestamp, self.vault_address)?;
+
+        let action = serde_json::to_value(&action)
         .map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.base_url == BaseUrl::Mainnet.get_url();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
@@ -234,17 +245,16 @@ impl ExchangeClient {
     ) -> Result<ExchangeResponseStatus> {
         let wallet = wallet.unwrap_or(&self.wallet);
 
-        let timestamp = now_timestamp_ms();
-        let vault_address = self.vault_address.unwrap_or_default();
+        let timestamp = next_nonce();
 
         let &asset_index = self.coin_to_asset.get(coin).ok_or(Error::AssetNotFound)?;
-        let connection_id = keccak((asset_index, is_cross, leverage, vault_address, timestamp));
-        let action = serde_json::to_value(Actions::UpdateLeverage(UpdateLeverage {
+        let action = Actions::UpdateLeverage(UpdateLeverage {
             asset: asset_index,
             is_cross,
             leverage,
-        }))
-        .map_err(|e| Error::JsonParse(e.to_string()))?;
+        });
+        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.base_url == BaseUrl::Mainnet.get_url();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
@@ -260,17 +270,16 @@ impl ExchangeClient {
         let wallet = wallet.unwrap_or(&self.wallet);
 
         let amount = (amount * 1_000_000.0).round() as i64;
-        let timestamp = now_timestamp_ms();
-        let vault_address = self.vault_address.unwrap_or_default();
+        let timestamp = next_nonce();
 
         let &asset_index = self.coin_to_asset.get(coin).ok_or(Error::AssetNotFound)?;
-        let connection_id = keccak((asset_index, true, amount, vault_address, timestamp));
-        let action = serde_json::to_value(Actions::UpdateIsolatedMargin(UpdateIsolatedMargin {
+        let action = Actions::UpdateIsolatedMargin(UpdateIsolatedMargin {
             asset: asset_index,
             is_buy: true,
             ntli: amount,
-        }))
-        .map_err(|e| Error::JsonParse(e.to_string()))?;
+        });
+        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.base_url == BaseUrl::Mainnet.get_url();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
@@ -307,7 +316,7 @@ impl ExchangeClient {
         }))
         .map_err(|e| Error::JsonParse(e.to_string()))?;
         let signature = sign_with_agent(wallet, chain, &source, connection_id)?;
-        let timestamp = now_timestamp_ms();
+        let timestamp = next_nonce();
         Ok((key, self.post(action, signature, timestamp).await?))
     }
 }
