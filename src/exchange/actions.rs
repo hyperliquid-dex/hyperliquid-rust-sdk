@@ -30,8 +30,8 @@ pub struct UpdateIsolatedMargin {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct BulkOrder {
-    pub grouping: String,
     pub orders: Vec<OrderRequest>,
+    pub grouping: String,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

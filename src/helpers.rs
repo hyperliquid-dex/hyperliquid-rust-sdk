@@ -7,13 +7,21 @@ pub(crate) fn now_timestamp_ms() -> u64 {
     now.timestamp_millis() as u64
 }
 
-pub(crate) fn float_to_int_for_hashing(num: f64) -> u64 {
-    (num * 100_000_000.0).round() as u64
-}
+pub(crate) const WIRE_DECIMALS: u8 = 8;
 
-pub(crate) fn float_to_string_for_hashing(num: f64) -> String {
-    let num = format!("{:0>9}", float_to_int_for_hashing(num).to_string());
-    format!("{}.{}", &num[..num.len() - 8], &num[num.len() - 8..])
+pub(crate) fn float_to_string_for_hashing(x: f64) -> String {
+    let mut x = format!("{:.*}", WIRE_DECIMALS.into(), x);
+    while x.ends_with('0') {
+        x.pop();
+    }
+    if x.ends_with('.') {
+        x.pop();
+    }
+    if x == "-0" {
+        "0".to_string()
+    } else {
+        x
+    }
 }
 
 pub(crate) fn generate_random_key() -> Result<[u8; 32]> {

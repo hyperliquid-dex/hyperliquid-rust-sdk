@@ -27,7 +27,7 @@ async fn parse_response(response: Response) -> Result<String> {
     }
     let error_data = serde_json::from_str::<ErrorData>(&text);
 
-    if status_code >= 400 && status_code < 500 {
+    if (400..500).contains(&status_code) {
         let client_error = match error_data {
             Ok(error_data) => Error::ClientRequest {
                 status_code,
