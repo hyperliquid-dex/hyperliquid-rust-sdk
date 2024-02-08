@@ -1,10 +1,26 @@
 use crate::{consts::*, prelude::*, Error};
 use chrono::prelude::Utc;
+use lazy_static::lazy_static;
+use log::info;
 use rand::{thread_rng, Rng};
+use std::sync::atomic::{AtomicU64, Ordering};
 
-pub(crate) fn now_timestamp_ms() -> u64 {
+fn now_timestamp_ms() -> u64 {
     let now = Utc::now();
     now.timestamp_millis() as u64
+}
+
+pub(crate) fn next_nonce() -> u64 {
+    let nonce = CUR_NONCE.fetch_add(1, Ordering::Relaxed);
+    let now_ms = now_timestamp_ms();
+    if nonce > now_ms + 1000 {
+        info!("nonce progressed too far ahead {nonce} {now_ms}");
+    }
+    // more than 300 seconds behind
+    if nonce + 300000 < now_ms {
+        CUR_NONCE.fetch_max(now_ms, Ordering::Relaxed);
+    }
+    nonce
 }
 
 pub(crate) const WIRE_DECIMALS: u8 = 8;
@@ -71,4 +87,9 @@ impl BaseUrl {
             BaseUrl::Testnet => TESTNET_API_URL.to_string(),
         }
     }
+}
+
+lazy_static! {
+    static ref CUR_NONCE: AtomicU64 =
+        AtomicU64::new(now_timestamp_ms());
 }

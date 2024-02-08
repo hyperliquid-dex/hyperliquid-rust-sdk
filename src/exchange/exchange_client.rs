@@ -7,7 +7,7 @@ use crate::{
         cancel::CancelRequest,
         ClientCancelRequest, ClientOrderRequest,
     },
-    helpers::{generate_random_key, now_timestamp_ms, EthChain},
+    helpers::{generate_random_key, EthChain, next_nonce},
     info::info_client::InfoClient,
     meta::Meta,
     prelude::*,
@@ -143,7 +143,7 @@ impl ExchangeClient {
             (EthChain::ArbitrumGoerli, "ArbitrumGoerli".to_string())
         };
 
-        let timestamp = now_timestamp_ms();
+        let timestamp = next_nonce();
         let payload = serde_json::to_value(UsdTransferSignPayload {
             destination: destination.to_string(),
             amount: amount.to_string(),
@@ -174,7 +174,7 @@ impl ExchangeClient {
         wallet: Option<&LocalWallet>,
     ) -> Result<ExchangeResponseStatus> {
         let wallet = wallet.unwrap_or(&self.wallet);
-        let timestamp = now_timestamp_ms();
+        let timestamp = next_nonce();
 
         let mut transformed_orders = Vec::new();
 
@@ -209,7 +209,7 @@ impl ExchangeClient {
         wallet: Option<&LocalWallet>,
     ) -> Result<ExchangeResponseStatus> {
         let wallet = wallet.unwrap_or(&self.wallet);
-        let timestamp = now_timestamp_ms();
+        let timestamp = next_nonce();
 
         let mut transformed_cancels = Vec::new();
         for cancel in cancels.into_iter() {
@@ -245,7 +245,7 @@ impl ExchangeClient {
     ) -> Result<ExchangeResponseStatus> {
         let wallet = wallet.unwrap_or(&self.wallet);
 
-        let timestamp = now_timestamp_ms();
+        let timestamp = next_nonce();
 
         let &asset_index = self.coin_to_asset.get(coin).ok_or(Error::AssetNotFound)?;
         let action = Actions::UpdateLeverage(UpdateLeverage {
@@ -270,7 +270,7 @@ impl ExchangeClient {
         let wallet = wallet.unwrap_or(&self.wallet);
 
         let amount = (amount * 1_000_000.0).round() as i64;
-        let timestamp = now_timestamp_ms();
+        let timestamp = next_nonce();
 
         let &asset_index = self.coin_to_asset.get(coin).ok_or(Error::AssetNotFound)?;
         let action = Actions::UpdateIsolatedMargin(UpdateIsolatedMargin {
@@ -316,7 +316,7 @@ impl ExchangeClient {
         }))
         .map_err(|e| Error::JsonParse(e.to_string()))?;
         let signature = sign_with_agent(wallet, chain, &source, connection_id)?;
-        let timestamp = now_timestamp_ms();
+        let timestamp = next_nonce();
         Ok((key, self.post(action, signature, timestamp).await?))
     }
 }
