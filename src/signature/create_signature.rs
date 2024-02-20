@@ -121,6 +121,7 @@ mod tests {
             .parse::<LocalWallet>()
             .map_err(|e| Error::Wallet(e.to_string()))
     }
+
     #[test]
     fn test_sign_l1_action() -> Result<()> {
         let wallet = get_wallet()?;
