@@ -362,3 +362,111 @@ impl ExchangeClient {
         Ok((key, self.post(action, signature, timestamp).await?))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::{Order, exchange::order::{Limit, OrderRequest, Trigger}};
+    use super::*;
+
+    fn get_wallet() -> Result<LocalWallet> {
+        let priv_key = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e";
+        priv_key
+            .parse::<LocalWallet>()
+            .map_err(|e| Error::Wallet(e.to_string()))
+    }
+
+    #[test]
+    fn test_limit_order_action_hashing() -> Result<()> {
+        let wallet = get_wallet()?;
+        let action = Actions::Order(BulkOrder {
+            orders: vec![
+                OrderRequest {
+                    asset: 1,
+                    is_buy: true,
+                    limit_px: "2000.0".to_string(),
+                    sz: "3.5".to_string(),
+                    reduce_only: false,
+                    order_type: Order::Limit(Limit {
+                        tif: "Ioc".to_string()
+                    }),
+                }
+            ],
+            grouping: "na".to_string(),
+        });
+        let connection_id = action.hash(1583838, None)?;
+
+        let signature = sign_l1_action(&wallet, connection_id, true)?;
+        assert_eq!(signature.to_string(), "77957e58e70f43b6b68581f2dc42011fc384538a2e5b7bf42d5b936f19fbb67360721a8598727230f67080efee48c812a6a4442013fd3b0eed509171bef9f23f1c");
+
+        let signature = sign_l1_action(&wallet, connection_id, false)?;
+        assert_eq!(signature.to_string(), "cd0925372ff1ed499e54883e9a6205ecfadec748f80ec463fe2f84f1209648776377961965cb7b12414186b1ea291e95fd512722427efcbcfb3b0b2bcd4d79d01c");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_tpsl_order_action_hashing() -> Result<()> {
+
+        for (tpsl, mainnet_signature, testnet_signature) in [
+            (
+                "tp",
+                "e844cafedb695abbc28b3178b136d262327a72bba1012152f3b5b675147e98312d42de83976b05becf768ad882f6f6a1bfa65afadc71f945c2a98473317097ee1b",
+                "f360f6173c1d9a8ff2d8677e1fc4cb787122542985129c42e8bce47c5d58f6910ee42b10fd69af0bff0dd484e2cb8d3fa8fecfec13bde5e31f5d3d47d1e5a73f1b"
+            ),
+            (
+                "sl",
+                "d10f92a81428c0b57fb619f206bca34ad0cb668be8305306804b27491b4f9c257a87dbd87ad5b6e2bce2ae466b004f7572c5080672ed58cdcb3ffaedcd9de9111c",
+                "51b70df3ee8afcdf192390ee79a18b54a8ec92c86653e8ef80b0c90a7cf9850500c6653c4aa2317e7312dfc9b2aeba515d801d7e8af66567539861a6d5eb2d2b1c"
+            )
+        ] {
+            let wallet = get_wallet()?;
+            let action = Actions::Order(BulkOrder {
+                orders: vec![
+                    OrderRequest {
+                        asset: 1,
+                        is_buy: true,
+                        limit_px: "2000.0".to_string(),
+                        sz: "3.5".to_string(),
+                        reduce_only: false,
+                        order_type: Order::Trigger(Trigger {
+                            trigger_px: "2000.0".to_string(),
+                            is_market: true,
+                            tpsl: tpsl.to_string(),
+                        }),
+                    }
+                ],
+                grouping: "na".to_string(),
+            });
+            let connection_id = action.hash(1583838, None)?;
+
+            let signature = sign_l1_action(&wallet, connection_id, true)?;
+            assert_eq!(signature.to_string(), mainnet_signature);
+
+            let signature = sign_l1_action(&wallet, connection_id, false)?;
+            assert_eq!(signature.to_string(), testnet_signature);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn test_cancel_action_hashing() -> Result<()> {
+        let wallet = get_wallet()?;
+        let action = Actions::Cancel(BulkCancel {
+            cancels: vec![
+                CancelRequest {
+                    asset: 1,
+                    oid: 82382,
+                },
+            ],
+        });
+        let connection_id = action.hash(1583838, None)?;
+
+        let signature = sign_l1_action(&wallet, connection_id, true)?;
+        assert_eq!(signature.to_string(), "02f76cc5b16e0810152fa0e14e7b219f49c361e3325f771544c6f54e157bf9fa17ed0afc11a98596be85d5cd9f86600aad515337318f7ab346e5ccc1b03425d51b");
+
+        let signature = sign_l1_action(&wallet, connection_id, false)?;
+        assert_eq!(signature.to_string(), "6ffebadfd48067663390962539fbde76cfa36f53be65abe2ab72c9db6d0db44457720db9d7c4860f142a484f070c84eb4b9694c3a617c83f0d698a27e55fd5e01c");
+
+        Ok(())
+    }
+}

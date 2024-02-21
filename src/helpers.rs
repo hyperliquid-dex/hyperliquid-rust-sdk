@@ -103,3 +103,28 @@ lazy_static! {
     static ref CUR_NONCE: AtomicU64 =
         AtomicU64::new(now_timestamp_ms());
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn float_to_string_for_hashing_test() {
+        assert_eq!(float_to_string_for_hashing(0.), "0".to_string()); 
+        assert_eq!(float_to_string_for_hashing(-0.), "0".to_string());
+        assert_eq!(float_to_string_for_hashing(-0.0000), "0".to_string());
+        assert_eq!(float_to_string_for_hashing(0.00076000), "0.00076".to_string());
+        assert_eq!(float_to_string_for_hashing(0.00000001), "0.00000001".to_string());
+        assert_eq!(float_to_string_for_hashing(0.12345678), "0.12345678".to_string());
+        assert_eq!(
+            float_to_string_for_hashing(87654321.12345678),
+            "87654321.12345678".to_string()
+        );
+        assert_eq!(float_to_string_for_hashing(987654321.00000000), "987654321".to_string());
+        assert_eq!(float_to_string_for_hashing(87654321.1234), "87654321.1234".to_string());
+        assert_eq!(float_to_string_for_hashing(0.000760), "0.00076".to_string());
+        assert_eq!(float_to_string_for_hashing(0.00076), "0.00076".to_string());
+        assert_eq!(float_to_string_for_hashing(987654321.0), "987654321".to_string());
+        assert_eq!(float_to_string_for_hashing(987654321.), "987654321".to_string());
+    }
+}
