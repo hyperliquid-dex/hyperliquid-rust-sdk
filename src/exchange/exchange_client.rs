@@ -365,8 +365,13 @@ impl ExchangeClient {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Order, exchange::order::{Limit, OrderRequest, Trigger}};
+    use std::str::FromStr;
+
     use super::*;
+    use crate::{
+        exchange::order::{Limit, OrderRequest, Trigger},
+        Order,
+    };
 
     fn get_wallet() -> Result<LocalWallet> {
         let priv_key = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e";
@@ -379,18 +384,17 @@ mod tests {
     fn test_limit_order_action_hashing() -> Result<()> {
         let wallet = get_wallet()?;
         let action = Actions::Order(BulkOrder {
-            orders: vec![
-                OrderRequest {
-                    asset: 1,
-                    is_buy: true,
-                    limit_px: "2000.0".to_string(),
-                    sz: "3.5".to_string(),
-                    reduce_only: false,
-                    order_type: Order::Limit(Limit {
-                        tif: "Ioc".to_string()
-                    }),
-                }
-            ],
+            orders: vec![OrderRequest {
+                asset: 1,
+                is_buy: true,
+                limit_px: "2000.0".to_string(),
+                sz: "3.5".to_string(),
+                reduce_only: false,
+                order_type: Order::Limit(Limit {
+                    tif: "Ioc".to_string(),
+                }),
+                cloid: None,
+            }],
             grouping: "na".to_string(),
         });
         let connection_id = action.hash(1583838, None)?;
@@ -405,8 +409,37 @@ mod tests {
     }
 
     #[test]
-    fn test_tpsl_order_action_hashing() -> Result<()> {
+    fn test_limit_order_action_hashing_with_cloid() -> Result<()> {
+        let cloid = uuid::Uuid::from_str("1e60610f-0b3d-4205-97c8-8c1fed2ad5ee")
+            .map_err(|_e| uuid::Uuid::new_v4());
+        let wallet = get_wallet()?;
+        let action = Actions::Order(BulkOrder {
+            orders: vec![OrderRequest {
+                asset: 1,
+                is_buy: true,
+                limit_px: "2000.0".to_string(),
+                sz: "3.5".to_string(),
+                reduce_only: false,
+                order_type: Order::Limit(Limit {
+                    tif: "Ioc".to_string(),
+                }),
+                cloid: Some(uuid_to_hex_string(cloid.unwrap())),
+            }],
+            grouping: "na".to_string(),
+        });
+        let connection_id = action.hash(1583838, None)?;
 
+        let signature = sign_l1_action(&wallet, connection_id, true)?;
+        assert_eq!(signature.to_string(), "d3e894092eb27098077145714630a77bbe3836120ee29df7d935d8510b03a08f456de5ec1be82aa65fc6ecda9ef928b0445e212517a98858cfaa251c4cd7552b1c");
+
+        let signature = sign_l1_action(&wallet, connection_id, false)?;
+        assert_eq!(signature.to_string(), "3768349dbb22a7fd770fc9fc50c7b5124a7da342ea579b309f58002ceae49b4357badc7909770919c45d850aabb08474ff2b7b3204ae5b66d9f7375582981f111c");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_tpsl_order_action_hashing() -> Result<()> {
         for (tpsl, mainnet_signature, testnet_signature) in [
             (
                 "tp",
@@ -433,6 +466,7 @@ mod tests {
                             is_market: true,
                             tpsl: tpsl.to_string(),
                         }),
+                        cloid: None,
                     }
                 ],
                 grouping: "na".to_string(),
@@ -452,12 +486,10 @@ mod tests {
     fn test_cancel_action_hashing() -> Result<()> {
         let wallet = get_wallet()?;
         let action = Actions::Cancel(BulkCancel {
-            cancels: vec![
-                CancelRequest {
-                    asset: 1,
-                    oid: 82382,
-                },
-            ],
+            cancels: vec![CancelRequest {
+                asset: 1,
+                oid: 82382,
+            }],
         });
         let connection_id = action.hash(1583838, None)?;
 
