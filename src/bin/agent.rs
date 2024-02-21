@@ -37,6 +37,7 @@ async fn main() {
         reduce_only: false,
         limit_px: 1795.0,
         sz: 0.01,
+        cloid: None,
         order_type: ClientOrder::Limit(ClientLimit {
             tif: "Gtc".to_string(),
         }),

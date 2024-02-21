@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use log::info;
 use rand::{thread_rng, Rng};
 use std::sync::atomic::{AtomicU64, Ordering};
+use uuid::Uuid;
 
 fn now_timestamp_ms() -> u64 {
     let now = Utc::now();
@@ -38,6 +39,15 @@ pub(crate) fn float_to_string_for_hashing(x: f64) -> String {
     } else {
         x
     }
+}
+
+pub(crate) fn uuid_to_hex_string(uuid: Uuid) -> String {
+    let hex_string = uuid.as_bytes()
+        .iter()
+        .map(|byte| format!("{:02x}", byte))
+        .collect::<Vec<String>>()
+        .join("");
+    format!("0x{}", hex_string)
 }
 
 pub(crate) fn generate_random_key() -> Result<[u8; 32]> {

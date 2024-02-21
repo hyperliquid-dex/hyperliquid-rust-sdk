@@ -57,4 +57,6 @@ pub enum Error {
     RmpParse(String),
     #[error("Invalid input number")]
     FloatStringParse,
+    #[error("No cloid found in order request when expected")]
+    NoCloid,
 }

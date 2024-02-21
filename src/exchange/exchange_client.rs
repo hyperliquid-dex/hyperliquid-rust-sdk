@@ -4,10 +4,10 @@ use crate::{
         actions::{
             AgentConnect, BulkCancel, BulkOrder, UpdateIsolatedMargin, UpdateLeverage, UsdcTransfer,
         },
-        cancel::CancelRequest,
+        cancel::{CancelRequest, CancelRequestCloid},
         ClientCancelRequest, ClientOrderRequest,
     },
-    helpers::{generate_random_key, EthChain, next_nonce},
+    helpers::{generate_random_key, next_nonce, uuid_to_hex_string, EthChain},
     info::info_client::InfoClient,
     meta::Meta,
     prelude::*,
@@ -16,7 +16,7 @@ use crate::{
         agent::mainnet::Agent, keccak, sign_l1_action, sign_usd_transfer_action, sign_with_agent,
         usdc_transfer::mainnet::UsdTransferSignPayload,
     },
-    BaseUrl, Error, ExchangeResponseStatus,
+    BaseUrl, BulkCancelCloid, Error, ExchangeResponseStatus,
 };
 use ethers::{
     abi::AbiEncode,
@@ -26,6 +26,8 @@ use ethers::{
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+use super::cancel::ClientCancelRequestCloid;
 
 pub struct ExchangeClient {
     pub http_client: HttpClient,
@@ -53,12 +55,14 @@ pub enum Actions {
     UpdateIsolatedMargin(UpdateIsolatedMargin),
     Order(BulkOrder),
     Cancel(BulkCancel),
+    CancelByCloid(BulkCancelCloid),
     Connect(AgentConnect),
 }
 
 impl Actions {
     fn hash(&self, timestamp: u64, vault_address: Option<H160>) -> Result<H256> {
-        let mut bytes = rmp_serde::to_vec_named(self).map_err(|e| Error::RmpParse(e.to_string()))?;
+        let mut bytes =
+            rmp_serde::to_vec_named(self).map_err(|e| Error::RmpParse(e.to_string()))?;
         bytes.extend(timestamp.to_be_bytes());
         if let Some(vault_address) = vault_address {
             bytes.push(1);
@@ -188,10 +192,9 @@ impl ExchangeClient {
         });
         let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-        
+
         let is_mainnet = self.http_client.base_url == BaseUrl::Mainnet.get_url();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
-
         self.post(action, signature, timestamp).await
     }
 
@@ -228,8 +231,47 @@ impl ExchangeClient {
         });
         let connection_id = action.hash(timestamp, self.vault_address)?;
 
-        let action = serde_json::to_value(&action)
-        .map_err(|e| Error::JsonParse(e.to_string()))?;
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+        let is_mainnet = self.http_client.base_url == BaseUrl::Mainnet.get_url();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+        self.post(action, signature, timestamp).await
+    }
+
+    pub async fn cancel_by_cloid(
+        &self,
+        cancel: ClientCancelRequestCloid,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        self.bulk_cancel_by_cloid(vec![cancel], wallet).await
+    }
+
+    pub async fn bulk_cancel_by_cloid(
+        &self,
+        cancels: Vec<ClientCancelRequestCloid>,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let timestamp = next_nonce();
+
+        let mut transformed_cancels: Vec<CancelRequestCloid> = Vec::new();
+        for cancel in cancels.into_iter() {
+            let &asset = self
+                .coin_to_asset
+                .get(&cancel.asset)
+                .ok_or(Error::AssetNotFound)?;
+            transformed_cancels.push(CancelRequestCloid {
+                asset,
+                cloid: uuid_to_hex_string(cancel.cloid),
+            });
+        }
+
+        let action = Actions::CancelByCloid(BulkCancelCloid {
+            cancels: transformed_cancels,
+        });
+
+        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.base_url == BaseUrl::Mainnet.get_url();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
@@ -323,8 +365,13 @@ impl ExchangeClient {
 
 #[cfg(test)]
 mod tests {
-    use crate::{Order, exchange::order::{Limit, OrderRequest, Trigger}};
+    use std::str::FromStr;
+
     use super::*;
+    use crate::{
+        exchange::order::{Limit, OrderRequest, Trigger},
+        Order,
+    };
 
     fn get_wallet() -> Result<LocalWallet> {
         let priv_key = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e";
@@ -337,18 +384,17 @@ mod tests {
     fn test_limit_order_action_hashing() -> Result<()> {
         let wallet = get_wallet()?;
         let action = Actions::Order(BulkOrder {
-            orders: vec![
-                OrderRequest {
-                    asset: 1,
-                    is_buy: true,
-                    limit_px: "2000.0".to_string(),
-                    sz: "3.5".to_string(),
-                    reduce_only: false,
-                    order_type: Order::Limit(Limit {
-                        tif: "Ioc".to_string()
-                    }),
-                }
-            ],
+            orders: vec![OrderRequest {
+                asset: 1,
+                is_buy: true,
+                limit_px: "2000.0".to_string(),
+                sz: "3.5".to_string(),
+                reduce_only: false,
+                order_type: Order::Limit(Limit {
+                    tif: "Ioc".to_string(),
+                }),
+                cloid: None,
+            }],
             grouping: "na".to_string(),
         });
         let connection_id = action.hash(1583838, None)?;
@@ -363,8 +409,37 @@ mod tests {
     }
 
     #[test]
-    fn test_tpsl_order_action_hashing() -> Result<()> {
+    fn test_limit_order_action_hashing_with_cloid() -> Result<()> {
+        let cloid = uuid::Uuid::from_str("1e60610f-0b3d-4205-97c8-8c1fed2ad5ee")
+            .map_err(|_e| uuid::Uuid::new_v4());
+        let wallet = get_wallet()?;
+        let action = Actions::Order(BulkOrder {
+            orders: vec![OrderRequest {
+                asset: 1,
+                is_buy: true,
+                limit_px: "2000.0".to_string(),
+                sz: "3.5".to_string(),
+                reduce_only: false,
+                order_type: Order::Limit(Limit {
+                    tif: "Ioc".to_string(),
+                }),
+                cloid: Some(uuid_to_hex_string(cloid.unwrap())),
+            }],
+            grouping: "na".to_string(),
+        });
+        let connection_id = action.hash(1583838, None)?;
 
+        let signature = sign_l1_action(&wallet, connection_id, true)?;
+        assert_eq!(signature.to_string(), "d3e894092eb27098077145714630a77bbe3836120ee29df7d935d8510b03a08f456de5ec1be82aa65fc6ecda9ef928b0445e212517a98858cfaa251c4cd7552b1c");
+
+        let signature = sign_l1_action(&wallet, connection_id, false)?;
+        assert_eq!(signature.to_string(), "3768349dbb22a7fd770fc9fc50c7b5124a7da342ea579b309f58002ceae49b4357badc7909770919c45d850aabb08474ff2b7b3204ae5b66d9f7375582981f111c");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_tpsl_order_action_hashing() -> Result<()> {
         for (tpsl, mainnet_signature, testnet_signature) in [
             (
                 "tp",
@@ -391,6 +466,7 @@ mod tests {
                             is_market: true,
                             tpsl: tpsl.to_string(),
                         }),
+                        cloid: None,
                     }
                 ],
                 grouping: "na".to_string(),
@@ -410,12 +486,10 @@ mod tests {
     fn test_cancel_action_hashing() -> Result<()> {
         let wallet = get_wallet()?;
         let action = Actions::Cancel(BulkCancel {
-            cancels: vec![
-                CancelRequest {
-                    asset: 1,
-                    oid: 82382,
-                },
-            ],
+            cancels: vec![CancelRequest {
+                asset: 1,
+                oid: 82382,
+            }],
         });
         let connection_id = action.hash(1583838, None)?;
 

@@ -1,10 +1,11 @@
 use crate::{
     errors::Error,
-    helpers::float_to_string_for_hashing,
+    helpers::{float_to_string_for_hashing, uuid_to_hex_string},
     prelude::*,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use uuid::Uuid;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Limit {
@@ -41,6 +42,8 @@ pub struct OrderRequest {
     pub reduce_only: bool,
     #[serde(rename = "t", alias = "orderType")]
     pub order_type: Order,
+    #[serde(rename = "c", alias = "cloid", skip_serializing_if = "Option::is_none")]
+    pub cloid: Option<String>,
 }
 
 pub struct ClientLimit {
@@ -63,6 +66,7 @@ pub struct ClientOrderRequest {
     pub reduce_only: bool,
     pub limit_px: f64,
     pub sz: f64,
+    pub cloid: Option<Uuid>,
     pub order_type: ClientOrder,
 }
 
@@ -78,6 +82,8 @@ impl ClientOrderRequest {
         };
         let &asset = coin_to_asset.get(&self.asset).ok_or(Error::AssetNotFound)?;
 
+        let cloid = self.cloid.map(uuid_to_hex_string);
+
         Ok(OrderRequest {
             asset,
             is_buy: self.is_buy,
@@ -85,6 +91,7 @@ impl ClientOrderRequest {
             limit_px: float_to_string_for_hashing(self.limit_px),
             sz: float_to_string_for_hashing(self.sz),
             order_type,
+            cloid,
         })
     }
 }
