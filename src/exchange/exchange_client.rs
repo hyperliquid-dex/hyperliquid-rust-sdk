@@ -7,7 +7,7 @@ use crate::{
         cancel::{CancelRequest, CancelRequestCloid},
         ClientCancelRequest, ClientOrderRequest,
     },
-    helpers::{generate_random_key, next_nonce, uuid_to_hex_string, EthChain},
+    helpers::{generate_random_key, next_nonce, EthChain},
     info::info_client::InfoClient,
     meta::Meta,
     prelude::*,
@@ -262,7 +262,7 @@ impl ExchangeClient {
                 .ok_or(Error::AssetNotFound)?;
             transformed_cancels.push(CancelRequestCloid {
                 asset,
-                cloid: uuid_to_hex_string(cancel.cloid),
+                cloid: cancel.cloid,
             });
         }
 
@@ -423,7 +423,7 @@ mod tests {
                 order_type: Order::Limit(Limit {
                     tif: "Ioc".to_string(),
                 }),
-                cloid: Some(uuid_to_hex_string(cloid.unwrap())),
+                cloid: Some(cloid.unwrap()),
             }],
             grouping: "na".to_string(),
         });
