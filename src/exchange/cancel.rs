@@ -1,3 +1,4 @@
+use crate::helpers::as_hex;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -22,5 +23,6 @@ pub struct ClientCancelRequestCloid {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CancelRequestCloid {
     pub asset: u32,
-    pub cloid: String,
+    #[serde(serialize_with = "as_hex")]
+    pub cloid: Uuid,
 }
