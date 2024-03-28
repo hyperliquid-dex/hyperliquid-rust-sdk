@@ -1,3 +1,4 @@
+use ethers::types::H160;
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -43,8 +44,15 @@ pub struct TradeInfo {
     pub dir: String,
     pub closed_pnl: String,
     pub oid: u64,
+    pub cloid: Option<String>,
     pub crossed: bool,
     pub fee: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct UserFillsData {
+    pub user: H160,
+    pub fills: Vec<TradeInfo>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -87,12 +95,12 @@ pub struct OrderUpdate {
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct BasicOrder {
-  pub coin: String,
-  pub side: String,
-  pub limit_px: String,
-  pub sz: String,
-  pub oid: u64,
-  pub timestamp: u64,
-  pub orig_sz: String,
-  pub cloid: Option<String>,
+    pub coin: String,
+    pub side: String,
+    pub limit_px: String,
+    pub sz: String,
+    pub oid: u64,
+    pub timestamp: u64,
+    pub orig_sz: String,
+    pub cloid: Option<String>,
 }
