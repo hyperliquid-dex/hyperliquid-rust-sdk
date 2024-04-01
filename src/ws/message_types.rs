@@ -22,11 +22,16 @@ pub struct User {
 }
 
 #[derive(Deserialize, Clone, Debug)]
+pub struct UserFills {
+    pub data: UserFillsData,
+}
+
+#[derive(Deserialize, Clone, Debug)]
 pub struct Candle {
-    pub data: CandleData
+    pub data: CandleData,
 }
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct OrderUpdates {
-    pub data: Vec<OrderUpdate>
+    pub data: Vec<OrderUpdate>,
 }
