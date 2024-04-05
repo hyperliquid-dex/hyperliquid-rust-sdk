@@ -540,10 +540,10 @@ async fn main() -> Result<()> {
     tracing::subscriber::set_global_default(subscriber)?;
 
     // A lightweight CLI for parsing arguments, flags, and environment variables
-    let matches = Command::new("Mercator")
+    let matches = Command::new("market_maker")
         .author("0xAlcibiades")
         .version("0.0.1")
-        .about("Mecator is Guéant-Lehalle-Fernandez-Tapia style market maker with grid trading for Hyperliquid.")
+        .about("An example market maker for Hyperliquid.")
         .arg(Arg::new("private_key")
             .env("PRIVATE_KEY")
             .required(true)
