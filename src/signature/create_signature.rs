@@ -92,7 +92,7 @@ mod tests {
             time: 1690393044548,
         };
 
-        let expected_sig = "78f879e7ae6fbc3184dc304317e602507ac562b49ad9a5db120a41ac181b96ba2e8bd7022526a1827cf4b0ba96384d40ec3a5ed4239499c328081f3d0b394bb61b";
+        let expected_sig = "214d507bbdaebba52fa60928f904a8b2df73673e3baba6133d66fe846c7ef70451e82453a6d8db124e7ed6e60fa00d4b7c46e4d96cb2bd61fd81b6e8953cc9d21b";
         assert_eq!(
             sign_typed_data(&usd_send, &wallet)?.to_string(),
             expected_sig
