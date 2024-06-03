@@ -104,3 +104,21 @@ pub struct BasicOrder {
     pub orig_sz: String,
     pub cloid: Option<String>,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UserFundingsData {
+    pub is_snapshot: Option<bool>,
+    pub user: H160,
+    pub fundings: Vec<UserFunding>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UserFunding {
+    pub time: u64,
+    pub coin: String,
+    pub usdc: String,
+    pub szi: String,
+    pub funding_rate: String,
+}
