@@ -41,7 +41,6 @@ pub enum InfoRequest {
         user: H160,
     },
     Meta,
-    #[serde(rename = "spotMeta")]
     SpotMeta,
     AllMids,
     UserFills {
