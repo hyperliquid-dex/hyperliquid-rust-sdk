@@ -15,16 +15,16 @@ async fn main() {
         .parse()
         .unwrap();
 
-    let exchange_client = ExchangeClient::new(None, wallet, Some(BaseUrl::Testnet), None, None)
+    let exchange_client = ExchangeClient::new(None, wallet, Some(BaseUrl::Testnet), None, None, None)
         .await
         .unwrap();
 
     let order = ClientOrderRequest {
-        asset: "ETH".to_string(),
+        asset: "PURR/USDC".to_string(),
         is_buy: true,
         reduce_only: false,
-        limit_px: 1800.0,
-        sz: 0.01,
+        limit_px: 78.4,
+        sz: 10.0,
         cloid: None,
         order_type: ClientOrder::Limit(ClientLimit {
             tif: "Gtc".to_string(),
@@ -32,7 +32,7 @@ async fn main() {
     };
 
     let response = exchange_client.order(order, None).await.unwrap();
-    info!("Order placed: {response:?}");
+    println!("Order placed: {response:?}");
 
     let response = match response {
         ExchangeResponseStatus::Ok(exchange_response) => exchange_response,
@@ -49,11 +49,11 @@ async fn main() {
     sleep(Duration::from_secs(10));
 
     let cancel = ClientCancelRequest {
-        asset: "ETH".to_string(),
+        asset: "PURR/USDC".to_string(),
         oid,
     };
 
     // This response will return an error if order was filled (since you can't cancel a filled order), otherwise it will cancel the order
     let response = exchange_client.cancel(cancel, None).await.unwrap();
-    info!("Order potentially cancelled: {response:?}");
+    println!("Order potentially cancelled: {response:?}");
 }

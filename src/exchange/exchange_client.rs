@@ -1,3 +1,4 @@
+use crate::meta::SpotMeta;
 use crate::signature::sign_typed_data;
 use crate::{
     consts::MAINNET_API_URL,
@@ -79,6 +80,7 @@ impl ExchangeClient {
         wallet: LocalWallet,
         base_url: Option<BaseUrl>,
         meta: Option<Meta>,
+        spot_meta: Option<SpotMeta>,
         vault_address: Option<H160>,
     ) -> Result<ExchangeClient> {
         let client = client.unwrap_or_default();
@@ -91,9 +93,32 @@ impl ExchangeClient {
             info.meta().await?
         };
 
+        let spot_meta = if let Some(spot_meta) = spot_meta {
+            spot_meta
+        } else {
+            let info = InfoClient::new(None, Some(base_url)).await?;
+            info.spot_meta().await?
+        };
+
         let mut coin_to_asset = HashMap::new();
         for (asset_ind, asset) in meta.universe.iter().enumerate() {
             coin_to_asset.insert(asset.name.clone(), asset_ind as u32);
+        }
+
+        let parse_spot_name_to_u32 = |name: &str| {
+            name.replacen('@', "", 1).parse::<u32>().unwrap()
+        };
+
+        for (ind, asset) in spot_meta.universe.iter().enumerate() {
+            let mut spot_ind: u32 = ind as u32;
+
+            if let Some(0) = asset.name.find('@') {
+                spot_ind = 10000 + parse_spot_name_to_u32(&asset.name);
+            } else if asset.name == "PURR/USDC" {
+                spot_ind = 10000;
+            }
+
+            coin_to_asset.insert(asset.name.clone(), spot_ind);
         }
 
         Ok(ExchangeClient {

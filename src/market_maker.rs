@@ -50,7 +50,7 @@ impl MarketMaker {
 
         let info_client = InfoClient::new(None, Some(BaseUrl::Testnet)).await.unwrap();
         let exchange_client =
-            ExchangeClient::new(None, input.wallet, Some(BaseUrl::Testnet), None, None)
+            ExchangeClient::new(None, input.wallet, Some(BaseUrl::Testnet), None, None, None)
                 .await
                 .unwrap();
 
