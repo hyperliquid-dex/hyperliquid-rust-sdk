@@ -85,14 +85,13 @@ impl ExchangeClient {
         let client = client.unwrap_or_default();
         let base_url = base_url.unwrap_or(BaseUrl::Mainnet);
 
+        let info = InfoClient::new(None, Some(base_url)).await?;
         let meta = if let Some(meta) = meta {
             meta
         } else {
-            let info = InfoClient::new(None, Some(base_url)).await?;
             info.meta().await?
         };
 
-        let info = InfoClient::new(None, Some(base_url)).await?;
         let spot_meta: SpotMeta = info.spot_meta().await?;
 
         let mut coin_to_asset = HashMap::new();
