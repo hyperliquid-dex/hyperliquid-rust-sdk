@@ -15,8 +15,8 @@ pub struct Limit {
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Trigger {
-    pub trigger_px: String,
     pub is_market: bool,
+    pub trigger_px: String,
     pub tpsl: String,
 }
 
@@ -51,8 +51,8 @@ pub struct ClientLimit {
 }
 
 pub struct ClientTrigger {
-    pub trigger_px: f64,
     pub is_market: bool,
+    pub trigger_px: f64,
     pub tpsl: String,
 }
 
