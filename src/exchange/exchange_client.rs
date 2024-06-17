@@ -101,7 +101,7 @@ impl ExchangeClient {
 
         for asset in spot_meta.universe.into_iter() {
             let spot_ind: u32 = 10000 + asset.index as u32;
-            coin_to_asset.insert(asset.name.clone(), spot_ind);
+            coin_to_asset.insert(asset.name, spot_ind);
         }
 
         Ok(ExchangeClient {
