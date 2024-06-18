@@ -1,3 +1,4 @@
+use crate::meta::SpotMeta;
 use crate::signature::sign_typed_data;
 use crate::{
     consts::MAINNET_API_URL,
@@ -84,16 +85,23 @@ impl ExchangeClient {
         let client = client.unwrap_or_default();
         let base_url = base_url.unwrap_or(BaseUrl::Mainnet);
 
+        let info = InfoClient::new(None, Some(base_url)).await?;
         let meta = if let Some(meta) = meta {
             meta
         } else {
-            let info = InfoClient::new(None, Some(base_url)).await?;
             info.meta().await?
         };
+
+        let spot_meta: SpotMeta = info.spot_meta().await?;
 
         let mut coin_to_asset = HashMap::new();
         for (asset_ind, asset) in meta.universe.iter().enumerate() {
             coin_to_asset.insert(asset.name.clone(), asset_ind as u32);
+        }
+
+        for asset in spot_meta.universe.into_iter() {
+            let spot_ind: u32 = 10000 + asset.index as u32;
+            coin_to_asset.insert(asset.name, spot_ind);
         }
 
         Ok(ExchangeClient {

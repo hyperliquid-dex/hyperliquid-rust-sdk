@@ -3,7 +3,7 @@ use crate::{
         CandlesSnapshotResponse, FundingHistoryResponse, L2SnapshotResponse, OpenOrdersResponse,
         RecentTradesResponse, UserFillsResponse, UserStateResponse,
     },
-    meta::Meta,
+    meta::{Meta, SpotMeta},
     prelude::*,
     req::HttpClient,
     ws::{Subscription, WsManager},
@@ -41,6 +41,7 @@ pub enum InfoRequest {
         user: H160,
     },
     Meta,
+    SpotMeta,
     AllMids,
     UserFills {
         user: H160,
@@ -140,6 +141,14 @@ impl InfoClient {
 
     pub async fn meta(&self) -> Result<Meta> {
         let input = InfoRequest::Meta;
+        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        let return_data = self.http_client.post("/info", data).await?;
+        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+    }
+
+    pub async fn spot_meta(&self) -> Result<SpotMeta> {
+        let input = InfoRequest::SpotMeta;
         let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         let return_data = self.http_client.post("/info", data).await?;
