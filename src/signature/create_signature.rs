@@ -50,7 +50,7 @@ fn sign_hash(hash: H256, wallet: &LocalWallet) -> Signature {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::UsdSend;
+    use crate::{UsdSend, Withdraw3};
     use std::str::FromStr;
 
     fn get_wallet() -> Result<LocalWallet> {
@@ -93,6 +93,26 @@ mod tests {
         };
 
         let expected_sig = "214d507bbdaebba52fa60928f904a8b2df73673e3baba6133d66fe846c7ef70451e82453a6d8db124e7ed6e60fa00d4b7c46e4d96cb2bd61fd81b6e8953cc9d21b";
+        assert_eq!(
+            sign_typed_data(&usd_send, &wallet)?.to_string(),
+            expected_sig
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_sign_withdraw_from_bridge_action() -> Result<()> {
+        let wallet = get_wallet()?;
+
+        let usd_send = Withdraw3 {
+            signature_chain_id: 421614.into(),
+            hyperliquid_chain: "Testnet".to_string(),
+            destination: "0x0D1d9635D0640821d15e323ac8AdADfA9c111414".to_string(),
+            amount: "1".to_string(),
+            time: 1690393044548,
+        };
+
+        let expected_sig = "4730612ff4e060724b3c9c25df155fedebfc010c3e0e20242ee98577e18ab6e6699b9f3e9e63b8c698e23a40ccde0e4a06283710ad57929797bdaaeb3d5dbe111b";
         assert_eq!(
             sign_typed_data(&usd_send, &wallet)?.to_string(),
             expected_sig
