@@ -1,4 +1,4 @@
-use crate::info::{AssetPosition, Level, MarginSummary};
+use crate::{info::{AssetPosition, Level, MarginSummary},meta::Meta};
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
@@ -87,4 +87,17 @@ pub struct CandlesSnapshotResponse {
     pub vlm: String,
     #[serde(rename = "n")]
     pub num_trades: u64,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum MetaAndAssetContexts {
+    Meta(Meta),
+    Context(Vec<AssetContext>),
+}
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct AssetContext {
+    pub mark_px: String,
+    pub oracle_px: String,
 }
