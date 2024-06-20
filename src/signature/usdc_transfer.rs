@@ -1,7 +1,4 @@
-use ethers::{
-    contract::{Eip712, EthAbiType},
-    types::transaction::eip712::Eip712,
-};
+use ethers::contract::{Eip712, EthAbiType};
 use serde::Serialize;
 
 pub(crate) mod mainnet {

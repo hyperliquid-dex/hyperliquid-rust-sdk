@@ -1,6 +1,6 @@
 use ethers::{
     contract::{Eip712, EthAbiType},
-    types::{transaction::eip712::Eip712, H256},
+    types::H256,
 };
 
 pub(crate) mod l1 {

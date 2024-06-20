@@ -165,7 +165,7 @@ impl ExchangeClient {
             amount: amount.to_string(),
             time: timestamp,
         };
-        let signature = sign_typed_data(&usd_send, &wallet)?;
+        let signature = sign_typed_data(&usd_send, wallet)?;
         let action = serde_json::to_value(Actions::UsdSend(usd_send))
             .map_err(|e| Error::JsonParse(e.to_string()))?;
 
@@ -362,7 +362,7 @@ impl ExchangeClient {
             agent_name: None,
             nonce,
         };
-        let signature = sign_typed_data(&approve_agent, &wallet)?;
+        let signature = sign_typed_data(&approve_agent, wallet)?;
         let action = serde_json::to_value(Actions::ApproveAgent(approve_agent))
             .map_err(|e| Error::JsonParse(e.to_string()))?;
         Ok((key, self.post(action, signature, nonce).await?))
