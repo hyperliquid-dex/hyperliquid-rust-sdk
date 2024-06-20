@@ -40,3 +40,8 @@ pub struct OrderUpdates {
 pub struct UserFundings {
     pub data: UserFundingsData,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct UserNonFundingLedgerUpdates {
+    pub data: UserNonFundingLedgerUpdatesData,
+}
