@@ -122,3 +122,126 @@ pub struct UserFunding {
     pub szi: String,
     pub funding_rate: String,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UserNonFundingLedgerUpdatesData {
+    pub is_snapshot: Option<bool>,
+    pub user: H160,
+    pub non_funding_ledger_updates: Vec<LedgerUpdateData>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct LedgerUpdateData {
+    pub time: u64,
+    pub hash: String,
+    pub delta: LedgerUpdate,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "type")]
+pub enum LedgerUpdate {
+    Deposit(Deposit),
+    Withdraw(Withdraw),
+    InternalTransfer(InternalTransfer),
+    SubAccountTransfer(SubAccountTransfer),
+    LedgerLiquidation(LedgerLiquidation),
+    VaultDeposit(VaultDelta),
+    VaultCreate(VaultDelta),
+    VaultDistribution(VaultDelta),
+    VaultWithdraw(VaultWithdraw),
+    VaultLeaderCommission(VaultLeaderCommission),
+    AccountClassTransfer(AccountClassTransfer),
+    SpotTransfer(SpotTransfer),
+    SpotGenesis(SpotGenesis),
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct Deposit {
+    pub usdc: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct Withdraw {
+    pub usdc: String,
+    pub nonce: u64,
+    pub fee: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct InternalTransfer {
+    pub usdc: String,
+    pub user: H160,
+    pub destination: H160,
+    pub fee: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct SubAccountTransfer {
+    pub usdc: String,
+    pub user: H160,
+    pub destination: H160,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct LedgerLiquidation {
+    pub account_value: u64,
+    pub leverage_type: String,
+    pub liquidated_positions: Vec<LiquidatedPosition>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct LiquidatedPosition {
+    pub coin: String,
+    pub szi: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct VaultDelta {
+    pub vault: H160,
+    pub usdc: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct VaultWithdraw {
+    pub vault: H160,
+    pub user: H160,
+    pub requested_usd: String,
+    pub commission: String,
+    pub closing_cost: String,
+    pub basis: String,
+    pub net_withdrawn_usd: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct VaultLeaderCommission {
+    pub user: H160,
+    pub usdc: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountClassTransfer {
+    pub usdc: String,
+    pub to_perp: bool,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SpotTransfer {
+    pub token: String,
+    pub amount: String,
+    pub usdc_value: String,
+    pub user: H160,
+    pub destination: H160,
+    pub fee: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct SpotGenesis {
+    pub token: String,
+    pub amount: String,
+}
