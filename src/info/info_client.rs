@@ -7,7 +7,7 @@ use crate::{
     prelude::*,
     req::HttpClient,
     ws::{Subscription, WsManager},
-    BaseUrl, Error, Message,
+    BaseUrl, Error, Message, PerpetualsAssetContextsResponse,
 };
 
 use ethers::types::H160;
@@ -29,6 +29,8 @@ pub struct CandleSnapshotRequest {
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
 pub enum InfoRequest {
+    #[serde(rename = "metaAndAssetCtxs")]
+    PerpetualsMetaAndAssetCtxs,
     #[serde(rename = "clearinghouseState")]
     UserState {
         user: H160,
@@ -113,6 +115,15 @@ impl InfoClient {
             .ok_or(Error::WsManagerNotFound)?
             .remove_subscription(subscription_id)
             .await
+    }
+
+    /// Retrieve perpetuals asset contexts (includes mark price, current funding, open interest, etc).
+    pub async fn perpetuals_meta_and_asset_ctxs(&self) -> Result<PerpetualsAssetContextsResponse> {
+        let input = InfoRequest::PerpetualsMetaAndAssetCtxs;
+        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        let return_data = self.http_client.post("/info", data).await?;
+        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
     }
 
     pub async fn open_orders(&self, address: H160) -> Result<Vec<OpenOrdersResponse>> {
@@ -223,5 +234,46 @@ impl InfoClient {
 
         let return_data = self.http_client.post("/info", data).await?;
         serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn test_perpetuals_meta_and_asset_ctxs() {
+        let info_client = InfoClient::new(None, None).await.unwrap();
+        let result = info_client.perpetuals_meta_and_asset_ctxs().await.unwrap();
+        dbg!(result.into_universe_and_asset_contexts());
+    }
+
+    #[tokio::test]
+    async fn test_all_mids() {
+        let info_client = InfoClient::new(None, None).await.unwrap();
+        let result = info_client.all_mids().await;
+        dbg!(result);
+    }
+
+    #[tokio::test]
+    async fn test_l2_snapshot() {
+        let info_client = InfoClient::new(None, None).await.unwrap();
+        let result = info_client.l2_snapshot("ETH".to_string()).await;
+        dbg!(result);
+    }
+
+    #[tokio::test]
+    async fn test_candles_snapshot() {
+        let info_client = InfoClient::new(None, None).await.unwrap();
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let result = info_client
+            .candles_snapshot("ETH".to_string(), "1m".to_string(), now, now)
+            .await;
+        dbg!(result);
     }
 }
