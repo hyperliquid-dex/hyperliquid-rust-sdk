@@ -45,3 +45,8 @@ pub struct UserFundings {
 pub struct UserNonFundingLedgerUpdates {
     pub data: UserNonFundingLedgerUpdatesData,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct Notification {
+    pub data: NotificationData,
+}
