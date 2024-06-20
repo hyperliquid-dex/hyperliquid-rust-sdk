@@ -1,4 +1,4 @@
-use crate::{prelude::*, Error};
+use crate::{prelude::*, BaseUrl, Error};
 use reqwest::{Client, Response};
 use serde::Deserialize;
 
@@ -68,5 +68,9 @@ impl HttpClient {
             .await
             .map_err(|e| Error::GenericRequest(e.to_string()))?;
         parse_response(result).await
+    }
+
+    pub fn is_mainnet(&self) -> bool {
+        self.base_url == BaseUrl::Mainnet.get_url()
     }
 }
