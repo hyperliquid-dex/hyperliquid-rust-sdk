@@ -35,3 +35,8 @@ pub struct Candle {
 pub struct OrderUpdates {
     pub data: Vec<OrderUpdate>,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct UserFundings {
+    pub data: UserFundingsData,
+}
