@@ -98,6 +98,10 @@ pub enum MetaAndAssetContexts {
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AssetContext {
+    pub day_ntl_vlm: String,
+    pub funding: String,
     pub mark_px: String,
+    pub open_interest: String,
     pub oracle_px: String,
+    pub prev_day_px: String,
 }
