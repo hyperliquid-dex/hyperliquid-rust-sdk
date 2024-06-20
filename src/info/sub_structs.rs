@@ -10,26 +10,26 @@ pub struct Universe {
 #[serde(rename_all = "camelCase")]
 pub struct UniverseItem {
     pub name: String,
-    sz_decimals: u32,
-    max_leverage: u32,
-    only_isolated: bool,
+    pub sz_decimals: u32,
+    pub max_leverage: u32,
+    pub only_isolated: bool,
 }
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PerpetualAssetContext {
-    day_ntl_vlm: String,
-    funding: String,
+    pub day_ntl_vlm: String,
+    pub funding: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    impact_pxs: Option<Vec<String>>,
-    mark_px: String,
+    pub impact_pxs: Option<Vec<String>>,
+    pub mark_px: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    mid_px: Option<String>,
-    open_interest: String,
-    oracle_px: String,
+    pub mid_px: Option<String>,
+    pub open_interest: String,
+    pub oracle_px: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    premium: Option<String>,
-    prev_day_px: String,
+    pub premium: Option<String>,
+    pub prev_day_px: String,
 }
 
 #[derive(Deserialize, Debug)]
