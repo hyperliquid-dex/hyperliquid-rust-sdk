@@ -59,4 +59,6 @@ pub enum Error {
     FloatStringParse,
     #[error("No cloid found in order request when expected")]
     NoCloid,
+    #[error("ECDSA signature failed: {0:?}")]
+    SignatureFailure(String),
 }
