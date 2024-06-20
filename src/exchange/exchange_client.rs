@@ -1,5 +1,6 @@
 use crate::meta::SpotMeta;
 use crate::signature::sign_typed_data;
+use crate::Withdraw3;
 use crate::{
     consts::MAINNET_API_URL,
     exchange::{
@@ -57,6 +58,7 @@ pub enum Actions {
     Cancel(BulkCancel),
     CancelByCloid(BulkCancelCloid),
     ApproveAgent(ApproveAgent),
+    Withdraw3(Withdraw3),
 }
 
 impl Actions {
@@ -364,6 +366,34 @@ impl ExchangeClient {
         let action = serde_json::to_value(Actions::ApproveAgent(approve_agent))
             .map_err(|e| Error::JsonParse(e.to_string()))?;
         Ok((key, self.post(action, signature, nonce).await?))
+    }
+
+    pub async fn withdraw_from_bridge(
+        &self,
+        amount: &str,
+        destination: &str,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let hyperliquid_chain = if self.http_client.base_url.eq(MAINNET_API_URL) {
+            "Mainnet".to_string()
+        } else {
+            "Testnet".to_string()
+        };
+
+        let timestamp = next_nonce();
+        let withdraw = Withdraw3 {
+            signature_chain_id: 421614.into(),
+            hyperliquid_chain,
+            destination: destination.to_string(),
+            amount: amount.to_string(),
+            time: timestamp,
+        };
+        let signature = sign_typed_data(&withdraw, wallet)?;
+        let action = serde_json::to_value(Actions::Withdraw3(withdraw))
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        self.post(action, signature, timestamp).await
     }
 }
 

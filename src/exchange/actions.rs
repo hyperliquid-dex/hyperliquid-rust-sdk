@@ -160,3 +160,51 @@ impl Eip712 for ApproveAgent {
         Ok(keccak256(encode(&items)))
     }
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Withdraw3 {
+    pub hyperliquid_chain: String,
+    pub signature_chain_id: U256,
+    pub amount: String,
+    pub time: u64,
+    pub destination: String,
+}
+
+impl Eip712 for Withdraw3 {
+    type Error = Eip712Error;
+
+    fn domain(&self) -> Result<EIP712Domain, Self::Error> {
+        Ok(eip_712_domain(self.signature_chain_id))
+    }
+
+    fn type_hash() -> Result<[u8; 32], Self::Error> {
+        Ok(eip712::make_type_hash(
+            format!("{HYPERLIQUID_EIP_PREFIX}Withdraw"),
+            &[
+                ("hyperliquidChain".to_string(), ParamType::String),
+                ("destination".to_string(), ParamType::String),
+                ("amount".to_string(), ParamType::String),
+                ("time".to_string(), ParamType::Uint(64)),
+            ],
+        ))
+    }
+
+    fn struct_hash(&self) -> Result<[u8; 32], Self::Error> {
+        let Self {
+            signature_chain_id: _,
+            hyperliquid_chain,
+            amount,
+            time,
+            destination,
+        } = self;
+        let items = vec![
+            ethers::abi::Token::Uint(Self::type_hash()?.into()),
+            encode_eip712_type(hyperliquid_chain.clone().into_token()),
+            encode_eip712_type(destination.clone().into_token()),
+            encode_eip712_type(amount.clone().into_token()),
+            encode_eip712_type(time.into_token()),
+        ];
+        Ok(keccak256(encode(&items)))
+    }
+}
