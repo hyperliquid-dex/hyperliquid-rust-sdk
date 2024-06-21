@@ -1,7 +1,8 @@
 use ethers::types::H160;
 use hyperliquid_rust_sdk::{BaseUrl, InfoClient};
 use log::info;
-use std::str::FromStr;
+
+const ADDRESS: &str = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8";
 
 #[tokio::main]
 async fn main() {
@@ -17,13 +18,17 @@ async fn main() {
     funding_history_example(&info_client).await;
     l2_snapshot_example(&info_client).await;
     candles_snapshot_example(&info_client).await;
+    user_token_balances_example(&info_client).await;
+    user_fees_example(&info_client).await;
+    user_funding_example(&info_client).await;
+    spot_meta_example(&info_client).await;
+    spot_meta_and_asset_contexts_example(&info_client).await;
+    query_order_by_oid_example(&info_client).await;
+    query_referral_state_example(&info_client).await;
 }
 
 async fn open_orders_example(info_client: &InfoClient) {
-    let user: String = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8"
-        .parse()
-        .unwrap();
-    let user = H160::from_str(&user).unwrap();
+    let user = ADDRESS.to_owned().parse::<H160>().unwrap();
 
     info!(
         "Open order data for {user}: {:?}",
@@ -32,10 +37,7 @@ async fn open_orders_example(info_client: &InfoClient) {
 }
 
 async fn user_state_example(info_client: &InfoClient) {
-    let user: String = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8"
-        .parse()
-        .unwrap();
-    let user = H160::from_str(&user).unwrap();
+    let user = ADDRESS.to_owned().parse::<H160>().unwrap();
 
     info!(
         "User state data for {user}: {:?}",
@@ -44,14 +46,29 @@ async fn user_state_example(info_client: &InfoClient) {
 }
 
 async fn user_states_example(info_client: &InfoClient) {
-    let user: String = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8"
-        .parse()
-        .unwrap();
-    let user = H160::from_str(&user).unwrap();
+    let user = ADDRESS.to_owned().parse::<H160>().unwrap();
 
     info!(
         "User state data for {user}: {:?}",
         info_client.user_states(vec![user]).await.unwrap()
+    );
+}
+
+async fn user_token_balances_example(info_client: &InfoClient) {
+    let user = ADDRESS.to_owned().parse::<H160>().unwrap();
+
+    info!(
+        "User token balances data for {user}: {:?}",
+        info_client.user_token_balances(user).await.unwrap()
+    );
+}
+
+async fn user_fees_example(info_client: &InfoClient) {
+    let user = ADDRESS.to_owned().parse::<H160>().unwrap();
+
+    info!(
+        "User fees data for {user}: {:?}",
+        info_client.user_fees(user).await.unwrap()
     );
 }
 
@@ -73,10 +90,7 @@ async fn all_mids_example(info_client: &InfoClient) {
 }
 
 async fn user_fills_example(info_client: &InfoClient) {
-    let user: String = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8"
-        .parse()
-        .unwrap();
-    let user = H160::from_str(&user).unwrap();
+    let user = ADDRESS.to_owned().parse::<H160>().unwrap();
 
     info!(
         "User fills data for {user}: {:?}",
@@ -116,5 +130,43 @@ async fn candles_snapshot_example(info_client: &InfoClient) {
             .candles_snapshot(coin.to_string(), interval.to_string(), start_timestamp, end_timestamp)
             .await
             .unwrap()
+    );
+}
+
+async fn user_funding_example(info_client: &InfoClient) {
+    let user = ADDRESS.to_owned().parse::<H160>().unwrap();
+    let start_timestamp = 1690540602225;
+    let end_timestamp = 1690569402225;
+    info!(
+        "Funding data history for {user} between timestamps {start_timestamp} and {end_timestamp}: {:?}",
+        info_client.user_funding_history(user, start_timestamp, Some(end_timestamp)).await.unwrap()
+    );
+}
+
+async fn spot_meta_example(info_client: &InfoClient) {
+    info!("SpotMeta: {:?}", info_client.spot_meta().await.unwrap());
+}
+
+async fn spot_meta_and_asset_contexts_example(info_client: &InfoClient) {
+    info!(
+        "SpotMetaAndAssetContexts: {:?}",
+        info_client.spot_meta_and_asset_contexts().await.unwrap()
+    );
+}
+
+async fn query_order_by_oid_example(info_client: &InfoClient) {
+    let user = ADDRESS.to_owned().parse::<H160>().unwrap();
+    let oid = 26342632321;
+    info!(
+        "Order status for {user} for oid {oid}: {:?}",
+        info_client.query_order_by_oid(user, oid).await.unwrap()
+    );
+}
+
+async fn query_referral_state_example(info_client: &InfoClient) {
+    let user = ADDRESS.to_owned().parse::<H160>().unwrap();
+    info!(
+        "Referral state for {user}: {:?}",
+        info_client.query_referral_state(user).await.unwrap()
     );
 }
