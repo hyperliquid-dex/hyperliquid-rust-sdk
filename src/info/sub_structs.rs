@@ -1,5 +1,37 @@
 use serde::Deserialize;
 
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Universe {
+    pub universe: Vec<UniverseItem>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UniverseItem {
+    pub name: String,
+    pub sz_decimals: u32,
+    pub max_leverage: u32,
+    pub only_isolated: bool,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PerpetualAssetContext {
+    pub day_ntl_vlm: String,
+    pub funding: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub impact_pxs: Option<Vec<String>>,
+    pub mark_px: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub mid_px: Option<String>,
+    pub open_interest: String,
+    pub oracle_px: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub premium: Option<String>,
+    pub prev_day_px: String,
+}
+
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Leverage {
