@@ -10,6 +10,7 @@ pub struct Trade {
     pub sz: String,
     pub time: u64,
     pub hash: String,
+    pub tid: u64,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -47,6 +48,7 @@ pub struct TradeInfo {
     pub cloid: Option<String>,
     pub crossed: bool,
     pub fee: String,
+    pub tid: u64,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -56,8 +58,27 @@ pub struct UserFillsData {
 }
 
 #[derive(Deserialize, Clone, Debug)]
-pub struct UserData {
-    pub fills: Vec<TradeInfo>,
+#[serde(rename_all = "camelCase")]
+pub enum UserData {
+    Fills(Vec<TradeInfo>),
+    Funding(UserFunding),
+    Liquidation(Liquidation),
+    NonUserCancel(Vec<NonUserCancel>),
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct Liquidation {
+    pub lid: u64,
+    pub liquidator: String,
+    pub liquidated_user: String,
+    pub liquidated_ntl_pos: String,
+    pub liquidated_account_value: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct NonUserCancel {
+    pub coin: String,
+    pub oid: u64,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -244,4 +265,9 @@ pub struct SpotTransfer {
 pub struct SpotGenesis {
     pub token: String,
     pub amount: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct NotificationData {
+    pub notification: String,
 }

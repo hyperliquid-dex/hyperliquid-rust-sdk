@@ -1,7 +1,7 @@
 use crate::{
     prelude::*,
     ws::message_types::{AllMids, Candle, L2Book, OrderUpdates, Trades, User},
-    Error, UserFills, UserFundings, UserNonFundingLedgerUpdates,
+    Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
 };
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
 use log::error;
@@ -46,6 +46,7 @@ pub enum Subscription {
     OrderUpdates { user: H160 },
     UserFundings { user: H160 },
     UserNonFundingLedgerUpdates { user: H160 },
+    Notification { user: H160 },
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -62,6 +63,7 @@ pub enum Message {
     OrderUpdates(OrderUpdates),
     UserFundings(UserFundings),
     UserNonFundingLedgerUpdates(UserNonFundingLedgerUpdates),
+    Notification(Notification),
     Pong,
 }
 
@@ -162,6 +164,7 @@ impl WsManager {
                 })
                 .map_err(|e| Error::JsonParse(e.to_string()))
             }
+            Message::Notification(_) => Ok("notification".to_string()),
             Message::SubscriptionResponse | Message::Pong => Ok(String::default()),
         }
     }
