@@ -100,8 +100,11 @@ pub enum MetaAndAssetContexts {
 pub struct AssetContext {
     pub day_ntl_vlm: String,
     pub funding: String,
+    pub impact_pxs: Option<Vec<String>>,
     pub mark_px: String,
+    pub mid_px: Option<String>,
     pub open_interest: String,
     pub oracle_px: String,
+    pub premium: Option<String>,
     pub prev_day_px: String,
 }
