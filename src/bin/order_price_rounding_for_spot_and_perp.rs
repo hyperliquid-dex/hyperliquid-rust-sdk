@@ -89,10 +89,6 @@ fn round_price(num: f64, significant_digits: i32, max_decimal_places: i32) -> f6
     }
 
     let order_of_magnitude = num.abs().log10().floor() as i32;
-    let significant_digits = 5;
-
-    // Determine the maximum number of decimal places allowed
-    let max_decimal_places = 6;
 
     // Calculate needed decimal places to maintain 5 significant digits
     let needed_decimal_places = significant_digits - order_of_magnitude - 1;
