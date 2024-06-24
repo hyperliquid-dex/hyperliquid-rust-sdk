@@ -24,7 +24,7 @@ async fn main() {
         is_buy: true,
         reduce_only: false,
         // Replace this with round_perp() when making a order of a perp asset
-        limit_px: round_spot(78.2323232322332), // This will be rounded to 78.232
+        limit_px: round_spot(78.2323232322332, 0), // This will be rounded to 78.232
         sz: 10.0,
         cloid: None,
         order_type: ClientOrder::Limit(ClientLimit {
@@ -65,8 +65,8 @@ async fn main() {
 ///
 /// For spot price, when placing the order, the price should contain 5 significant digits and at
 /// most 8 decimal places. Refer to: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/tick-and-lot-size
-fn round_spot(num: f64) -> f64 {
-    round_price(num, 5, 8)
+fn round_spot(num: f64, sz_decimals: u16) -> f64 {
+    round_price(num, 5, (8 - sz_decimals) as i32)
 }
 
 /// 
@@ -74,8 +74,8 @@ fn round_spot(num: f64) -> f64 {
 ///
 /// For perp price, when placing the order, the price should contain 5 significant digits and at
 /// most 6 decimal places. Refer to: https://hyperliquid.gitbook.io/hyperliquid-docs/for-developers/api/tick-and-lot-size
-fn round_perp(num: f64) -> f64 {
-    round_price(num, 5, 6)
+fn round_perp(num: f64, sz_decimals: u16) -> f64 {
+    round_price(num, 5, (6 - sz_decimals) as i32)
 }
 
 /// .
