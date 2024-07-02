@@ -3,11 +3,12 @@ use crate::{
         CandlesSnapshotResponse, FundingHistoryResponse, L2SnapshotResponse, OpenOrdersResponse,
         RecentTradesResponse, UserFillsResponse, UserStateResponse,
     },
-    meta::{Meta, SpotMeta},
+    meta::{Meta, SpotMeta, SpotMetaAndAssetCtxs},
     prelude::*,
     req::HttpClient,
     ws::{Subscription, WsManager},
-    BaseUrl, Error, Message,
+    BaseUrl, Error, Message, OrderStatusResponse, ReferralResponse, UserFeesResponse,
+    UserFundingResponse, UserTokenBalanceResponse,
 };
 
 use ethers::types::H160;
@@ -37,11 +38,23 @@ pub enum InfoRequest {
     UserStates {
         users: Vec<H160>,
     },
+    #[serde(rename = "spotClearinghouseState")]
+    UserTokenBalances {
+        user: H160,
+    },
+    UserFees {
+        user: H160,
+    },
     OpenOrders {
         user: H160,
     },
+    OrderStatus {
+        user: H160,
+        oid: u64,
+    },
     Meta,
     SpotMeta,
+    SpotMetaAndAssetCtxs,
     AllMids,
     UserFills {
         user: H160,
@@ -49,6 +62,12 @@ pub enum InfoRequest {
     #[serde(rename_all = "camelCase")]
     FundingHistory {
         coin: String,
+        start_time: u64,
+        end_time: Option<u64>,
+    },
+    #[serde(rename_all = "camelCase")]
+    UserFunding {
+        user: H160,
         start_time: u64,
         end_time: Option<u64>,
     },
@@ -61,6 +80,9 @@ pub enum InfoRequest {
     #[serde(rename_all = "camelCase")]
     CandleSnapshot {
         req: CandleSnapshotRequest,
+    },
+    Referral {
+        user: H160,
     },
 }
 
@@ -115,60 +137,65 @@ impl InfoClient {
             .await
     }
 
-    pub async fn open_orders(&self, address: H160) -> Result<Vec<OpenOrdersResponse>> {
-        let input = InfoRequest::OpenOrders { user: address };
-        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
+    async fn send_info_request<T: for<'a> Deserialize<'a>>(
+        &self,
+        info_request: InfoRequest,
+    ) -> Result<T> {
+        let data =
+            serde_json::to_string(&info_request).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         let return_data = self.http_client.post("/info", data).await?;
         serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+    }
+
+    pub async fn open_orders(&self, address: H160) -> Result<Vec<OpenOrdersResponse>> {
+        let input = InfoRequest::OpenOrders { user: address };
+        self.send_info_request(input).await
     }
 
     pub async fn user_state(&self, address: H160) -> Result<UserStateResponse> {
         let input = InfoRequest::UserState { user: address };
-        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        let return_data = self.http_client.post("/info", data).await?;
-        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+        self.send_info_request(input).await
     }
 
     pub async fn user_states(&self, addresses: Vec<H160>) -> Result<Vec<UserStateResponse>> {
         let input = InfoRequest::UserStates { users: addresses };
-        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
+        self.send_info_request(input).await
+    }
 
-        let return_data = self.http_client.post("/info", data).await?;
-        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+    pub async fn user_token_balances(&self, address: H160) -> Result<UserTokenBalanceResponse> {
+        let input = InfoRequest::UserTokenBalances { user: address };
+        self.send_info_request(input).await
+    }
+
+    pub async fn user_fees(&self, address: H160) -> Result<UserFeesResponse> {
+        let input = InfoRequest::UserFees { user: address };
+        self.send_info_request(input).await
     }
 
     pub async fn meta(&self) -> Result<Meta> {
         let input = InfoRequest::Meta;
-        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        let return_data = self.http_client.post("/info", data).await?;
-        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+        self.send_info_request(input).await
     }
 
     pub async fn spot_meta(&self) -> Result<SpotMeta> {
         let input = InfoRequest::SpotMeta;
-        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
+        self.send_info_request(input).await
+    }
 
-        let return_data = self.http_client.post("/info", data).await?;
-        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+    pub async fn spot_meta_and_asset_contexts(&self) -> Result<Vec<SpotMetaAndAssetCtxs>> {
+        let input = InfoRequest::SpotMetaAndAssetCtxs;
+        self.send_info_request(input).await
     }
 
     pub async fn all_mids(&self) -> Result<HashMap<String, String>> {
         let input = InfoRequest::AllMids;
-        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        let return_data = self.http_client.post("/info", data).await?;
-        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+        self.send_info_request(input).await
     }
 
     pub async fn user_fills(&self, address: H160) -> Result<Vec<UserFillsResponse>> {
         let input = InfoRequest::UserFills { user: address };
-        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        let return_data = self.http_client.post("/info", data).await?;
-        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+        self.send_info_request(input).await
     }
 
     pub async fn funding_history(
@@ -182,26 +209,31 @@ impl InfoClient {
             start_time,
             end_time,
         };
-        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
+        self.send_info_request(input).await
+    }
 
-        let return_data = self.http_client.post("/info", data).await?;
-        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+    pub async fn user_funding_history(
+        &self,
+        user: H160,
+        start_time: u64,
+        end_time: Option<u64>,
+    ) -> Result<Vec<UserFundingResponse>> {
+        let input = InfoRequest::UserFunding {
+            user,
+            start_time,
+            end_time,
+        };
+        self.send_info_request(input).await
     }
 
     pub async fn recent_trades(&self, coin: String) -> Result<Vec<RecentTradesResponse>> {
         let input = InfoRequest::RecentTrades { coin };
-        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        let return_data = self.http_client.post("/info", data).await?;
-        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+        self.send_info_request(input).await
     }
 
     pub async fn l2_snapshot(&self, coin: String) -> Result<L2SnapshotResponse> {
         let input = InfoRequest::L2Book { coin };
-        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        let return_data = self.http_client.post("/info", data).await?;
-        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+        self.send_info_request(input).await
     }
 
     pub async fn candles_snapshot(
@@ -219,9 +251,16 @@ impl InfoClient {
                 end_time,
             },
         };
-        let data = serde_json::to_string(&input).map_err(|e| Error::JsonParse(e.to_string()))?;
+        self.send_info_request(input).await
+    }
 
-        let return_data = self.http_client.post("/info", data).await?;
-        serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
+    pub async fn query_order_by_oid(&self, address: H160, oid: u64) -> Result<OrderStatusResponse> {
+        let input = InfoRequest::OrderStatus { user: address, oid };
+        self.send_info_request(input).await
+    }
+
+    pub async fn query_referral_state(&self, address: H160) -> Result<ReferralResponse> {
+        let input = InfoRequest::Referral { user: address };
+        self.send_info_request(input).await
     }
 }

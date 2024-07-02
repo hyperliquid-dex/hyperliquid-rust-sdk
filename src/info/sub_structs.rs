@@ -1,3 +1,4 @@
+use ethers::types::H160;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
@@ -45,4 +46,109 @@ pub struct Level {
     pub n: u64,
     pub px: String,
     pub sz: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Delta {
+    #[serde(rename = "type")]
+    pub type_string: String,
+    pub coin: String,
+    pub usdc: String,
+    pub szi: String,
+    pub funding_rate: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct DailyUserVlm {
+    pub date: String,
+    pub exchange: String,
+    pub user_add: String,
+    pub user_cross: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct FeeSchedule {
+    pub add: String,
+    pub cross: String,
+    pub referral_discount: String,
+    pub tiers: Tiers,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct Tiers {
+    pub mm: Vec<Mm>,
+    pub vip: Vec<Vip>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Mm {
+    pub add: String,
+    pub maker_fraction_cutoff: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Vip {
+    pub add: String,
+    pub cross: String,
+    pub ntl_cutoff: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct UserTokenBalance {
+    pub coin: String,
+    pub hold: String,
+    pub total: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct OrderInfo {
+    pub order: BasicOrderInfo,
+    pub status: String,
+    pub status_timestamp: u64,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct BasicOrderInfo {
+    pub coin: String,
+    pub side: String,
+    pub limit_px: String,
+    pub sz: String,
+    pub oid: u64,
+    pub timestamp: u64,
+    pub trigger_condition: String,
+    pub is_trigger: bool,
+    pub trigger_px: String,
+    pub is_position_tpsl: bool,
+    pub reduce_only: bool,
+    pub order_type: String,
+    pub orig_sz: String,
+    pub tif: String,
+    pub cloid: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Referrer {
+    pub referrer: H160,
+    pub code: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ReferrerState {
+    pub stage: String,
+    pub data: ReferrerData,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ReferrerData {
+    pub required: String,
 }
