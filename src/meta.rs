@@ -13,6 +13,24 @@ pub struct SpotMeta {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum SpotMetaAndAssetCtxs {
+    SpotMeta(SpotMeta),
+    Context(Vec<SpotAssetContext>),
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SpotAssetContext {
+    pub day_ntl_vlm: String,
+    pub mark_px: String,
+    pub mid_px: Option<String>,
+    pub prev_day_px: String,
+    pub circulating_supply: String,
+    pub coin: String,
+}
+
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AssetMeta {
     pub name: String,
