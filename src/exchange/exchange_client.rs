@@ -1,4 +1,3 @@
-use crate::meta::SpotMeta;
 use crate::signature::sign_typed_data;
 use crate::{
     exchange::{
@@ -96,17 +95,15 @@ impl ExchangeClient {
             info.meta().await?
         };
 
-        let spot_meta: SpotMeta = info.spot_meta().await?;
-
         let mut coin_to_asset = HashMap::new();
         for (asset_ind, asset) in meta.universe.iter().enumerate() {
             coin_to_asset.insert(asset.name.clone(), asset_ind as u32);
         }
 
-        for asset in spot_meta.universe.into_iter() {
-            let spot_ind: u32 = 10000 + asset.index as u32;
-            coin_to_asset.insert(asset.name, spot_ind);
-        }
+        coin_to_asset = info
+            .spot_meta()
+            .await?
+            .add_pair_and_name_to_index_map(coin_to_asset);
 
         Ok(ExchangeClient {
             wallet,

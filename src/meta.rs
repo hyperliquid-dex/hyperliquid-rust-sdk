@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use ethers::abi::ethereum_types::H128;
 use serde::Deserialize;
 
@@ -10,6 +12,40 @@ pub struct Meta {
 pub struct SpotMeta {
     pub universe: Vec<SpotAssetMeta>,
     pub tokens: Vec<TokenInfo>,
+}
+
+impl SpotMeta {
+    pub fn add_pair_and_name_to_index_map(
+        &self,
+        mut coin_to_asset: HashMap<String, u32>,
+    ) -> HashMap<String, u32> {
+        let index_to_name: HashMap<usize, &str> = self
+            .tokens
+            .iter()
+            .map(|info| (info.index, info.name.as_str()))
+            .collect();
+
+        for asset in self.universe.iter() {
+            let spot_ind: u32 = 10000 + asset.index as u32;
+            let name_to_ind = (asset.name.clone(), spot_ind);
+
+            let token_1_name = if let Some(name) = index_to_name.get(asset.tokens.get(0).unwrap()) {
+                name
+            } else {
+                "" // Keeping these empty because the user won't be able to match then so no harm
+            };
+            let token_2_name = if let Some(name) = index_to_name.get(asset.tokens.get(1).unwrap()) {
+                name
+            } else {
+                ""
+            };
+
+            coin_to_asset.insert(format!("{}/{}", token_1_name, token_2_name), spot_ind);
+            coin_to_asset.insert(name_to_ind.0, name_to_ind.1);
+        }
+
+        coin_to_asset
+    }
 }
 
 #[derive(Deserialize, Debug, Clone)]
