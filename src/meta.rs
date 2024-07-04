@@ -29,12 +29,12 @@ impl SpotMeta {
             let spot_ind: u32 = 10000 + asset.index as u32;
             let name_to_ind = (asset.name.clone(), spot_ind);
 
-            let token_1_name = if let Some(name) = index_to_name.get(asset.tokens.get(0).unwrap()) {
+            let token_1_name = if let Some(name) = index_to_name.get(&asset.tokens[0]) {
                 name
             } else {
                 "" // Keeping these empty because the user won't be able to match then so no harm
             };
-            let token_2_name = if let Some(name) = index_to_name.get(asset.tokens.get(1).unwrap()) {
+            let token_2_name = if let Some(name) = index_to_name.get(&asset.tokens[1]) {
                 name
             } else {
                 ""
