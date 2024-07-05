@@ -29,15 +29,12 @@ impl SpotMeta {
             let spot_ind: u32 = 10000 + asset.index as u32;
             let name_to_ind = (asset.name.clone(), spot_ind);
 
-            let token_1_name = if let Some(name) = index_to_name.get(&asset.tokens[0]) {
-                name
-            } else {
-                "" // Keeping these empty because the user won't be able to match then so no harm
+            let Some(token_1_name) = index_to_name.get(&asset.tokens[0]) else {
+                continue;
             };
-            let token_2_name = if let Some(name) = index_to_name.get(&asset.tokens[1]) {
-                name
-            } else {
-                ""
+
+            let Some(token_2_name) = index_to_name.get(&asset.tokens[1]) else {
+                continue;
             };
 
             coin_to_asset.insert(format!("{}/{}", token_1_name, token_2_name), spot_ind);
