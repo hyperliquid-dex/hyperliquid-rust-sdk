@@ -20,11 +20,11 @@ async fn main() {
         .unwrap();
 
     let order = ClientOrderRequest {
-        asset: "PURR/USDC".to_string(),
+        asset: "XYZTWO/USDC".to_string(),
         is_buy: true,
         reduce_only: false,
-        limit_px: 78.4,
-        sz: 10.0,
+        limit_px: 0.00002378,
+        sz: 1000000.0,
         cloid: None,
         order_type: ClientOrder::Limit(ClientLimit {
             tif: "Gtc".to_string(),
@@ -49,7 +49,7 @@ async fn main() {
     sleep(Duration::from_secs(10));
 
     let cancel = ClientCancelRequest {
-        asset: "PURR/USDC".to_string(),
+        asset: "HFUN/USDC".to_string(),
         oid,
     };
 
