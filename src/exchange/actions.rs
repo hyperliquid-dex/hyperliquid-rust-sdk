@@ -281,3 +281,9 @@ pub struct VaultTransfer {
     pub is_deposit: bool,
     pub usd: String,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SetReferrer {
+    pub code: String,
+}
