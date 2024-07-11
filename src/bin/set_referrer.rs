@@ -22,8 +22,8 @@ async fn main() {
     let res = ex.set_referrer(code, None).await;
 
     if let Ok(res) = res {
-        println!("Exchange response: {res:#?}");
+        info!("Exchange response: {res:#?}");
     } else {
-        println!("Got error: {:#?}", res.err().unwrap());
+        info!("Got error: {:#?}", res.err().unwrap());
     }
 }
