@@ -4,6 +4,7 @@ This is an example of setting a refferal code for a wallet.
 use ethers::signers::LocalWallet;
 
 use hyperliquid_rust_sdk::{BaseUrl, ExchangeClient};
+use log::info;
 
 #[tokio::main]
 async fn main() {
