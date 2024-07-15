@@ -2,7 +2,8 @@ use crate::signature::sign_typed_data;
 use crate::{
     exchange::{
         actions::{
-            ApproveAgent, BulkCancel, BulkOrder, UpdateIsolatedMargin, UpdateLeverage, UsdSend,
+            ApproveAgent, BulkCancel, BulkOrder, SetReferrer, UpdateIsolatedMargin, UpdateLeverage,
+            UsdSend,
         },
         cancel::{CancelRequest, CancelRequestCloid},
         ClientCancelRequest, ClientOrderRequest,
@@ -60,6 +61,7 @@ pub enum Actions {
     SpotUser(SpotUser),
     VaultTransfer(VaultTransfer),
     SpotSend(SpotSend),
+    SetReferrer(SetReferrer),
 }
 
 impl Actions {
@@ -473,6 +475,24 @@ impl ExchangeClient {
         let action = serde_json::to_value(Actions::SpotSend(spot_send))
             .map_err(|e| Error::JsonParse(e.to_string()))?;
 
+        self.post(action, signature, timestamp).await
+    }
+
+    pub async fn set_referrer(
+        &self,
+        code: String,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let timestamp = next_nonce();
+
+        let action = Actions::SetReferrer(SetReferrer { code });
+
+        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        let is_mainnet = self.http_client.is_mainnet();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
         self.post(action, signature, timestamp).await
     }
 }
