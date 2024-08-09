@@ -208,13 +208,9 @@ impl WsManager {
                         }
                         res
                     }
-                    Err(err) => {
-                        Err(Error::ReaderTextConversion(err.to_string()))
-                    }
+                    Err(err) => Err(Error::ReaderTextConversion(err.to_string()))
                 },
-                Err(err) => {
-                    Err(Error::GenericReader(err.to_string()))
-                }
+                Err(err) => Err(Error::GenericReader(err.to_string()))
             },
             None => {
                 let mut subscriptions = subscriptions.lock().await;
