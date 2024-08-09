@@ -56,7 +56,7 @@ pub enum Message {
     #[serde(skip_serializing)]
     NoData,
     #[serde(skip_serializing)]
-    WsError(String),
+    HyperliquidError(String),
     AllMids(AllMids),
     Trades(Trades),
     L2Book(L2Book),
@@ -170,8 +170,8 @@ impl WsManager {
             }
             Message::Notification(_) => Ok("notification".to_string()),
             Message::SubscriptionResponse | Message::Pong => Ok(String::default()),
-            Message::WsError(_) => Ok("error".to_string()),
             Message::NoData => Ok(String::default()),
+            Message::HyperliquidError(err) => Ok(format!("hyperliquid error: {err:?}")),
         }
     }
 
@@ -208,27 +208,46 @@ impl WsManager {
                         }
                         res
                     }
-                    Err(err) => Err(Error::ReaderTextConversion(err.to_string()))
-                },
-                Err(err) => Err(Error::GenericReader(err.to_string()))
-            },
-            None => {
-                let mut subscriptions = subscriptions.lock().await;
-                let mut res = Ok(());
-                for (_, subs_data) in subscriptions.iter_mut() {
-                    for subscription_data in subs_data {
-                        if let Err(e) = subscription_data
-                            .sending_channel
-                            .send(Message::NoData)
-                            .map_err(|e| Error::WsSend(e.to_string()))
-                        {
-                            res = Err(e);
-                        }
+                    Err(err) => {
+                        let error = Error::ReaderTextConversion(err.to_string());
+                        Ok(WsManager::send_to_all_subscriptions(
+                            subscriptions,
+                            Message::HyperliquidError(error.to_string()),
+                        )
+                        .await?)
                     }
+                },
+                Err(err) => {
+                    let error = Error::GenericReader(err.to_string());
+                    Ok(WsManager::send_to_all_subscriptions(
+                        subscriptions,
+                        Message::HyperliquidError(error.to_string()),
+                    )
+                    .await?)
                 }
-                res
+            },
+            None => Ok(WsManager::send_to_all_subscriptions(subscriptions, Message::NoData).await?),
+        }
+    }
+
+    async fn send_to_all_subscriptions(
+        subscriptions: &Arc<Mutex<HashMap<String, Vec<SubscriptionData>>>>,
+        message: Message,
+    ) -> Result<()> {
+        let mut subscriptions = subscriptions.lock().await;
+        let mut res = Ok(());
+        for (_, subs_data) in subscriptions.iter_mut() {
+            for subscription_data in subs_data {
+                if let Err(e) = subscription_data
+                    .sending_channel
+                    .send(message.clone())
+                    .map_err(|e| Error::WsSend(e.to_string()))
+                {
+                    res = Err(e);
+                }
             }
         }
+        res
     }
 
     pub(crate) async fn add_subscription(
