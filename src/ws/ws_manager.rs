@@ -170,7 +170,7 @@ impl WsManager {
             }
             Message::Notification(_) => Ok("notification".to_string()),
             Message::SubscriptionResponse | Message::Pong => Ok(String::default()),
-            Message::WsError(_) => Ok(format!("error")),
+            Message::WsError(_) => Ok("error".to_string()),
             Message::NoData => Ok(String::default()),
         }
     }
@@ -209,11 +209,11 @@ impl WsManager {
                         res
                     }
                     Err(err) => {
-                        return Err(Error::ReaderTextConversion(err.to_string()));
+                        Err(Error::ReaderTextConversion(err.to_string()))
                     }
                 },
                 Err(err) => {
-                    return Err(Error::GenericReader(err.to_string()));
+                    Err(Error::GenericReader(err.to_string()))
                 }
             },
             None => {
