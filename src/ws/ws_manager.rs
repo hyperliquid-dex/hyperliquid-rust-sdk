@@ -179,7 +179,7 @@ impl WsManager {
     ) -> Result<()> {
         // If no data
         let Some(data) = data else {
-            return Ok(WsManager::send_to_all_subscriptions(subscriptions, Message::NoData).await?);
+            return WsManager::send_to_all_subscriptions(subscriptions, Message::NoData).await;
         };
 
         match data {
