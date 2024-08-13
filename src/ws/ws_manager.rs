@@ -53,9 +53,7 @@ pub enum Subscription {
 #[serde(tag = "channel")]
 #[serde(rename_all = "camelCase")]
 pub enum Message {
-    #[serde(skip_serializing)]
     NoData,
-    #[serde(skip_serializing)]
     HyperliquidError(String),
     AllMids(AllMids),
     Trades(Trades),
@@ -179,46 +177,41 @@ impl WsManager {
         data: Option<std::result::Result<protocol::Message, tungstenite::Error>>,
         subscriptions: &Arc<Mutex<HashMap<String, Vec<SubscriptionData>>>>,
     ) -> Result<()> {
-        match data {
-            Some(data) => match data {
-                Ok(data) => match data.into_text() {
-                    Ok(data) => {
-                        if !data.starts_with('{') {
-                            return Ok(());
-                        }
-                        let message = serde_json::from_str::<Message>(&data)
-                            .map_err(|e| Error::JsonParse(e.to_string()))?;
-                        let identifier = WsManager::get_identifier(&message)?;
-                        if identifier.is_empty() {
-                            return Ok(());
-                        }
+        // If no data
+        let Some(data) = data else {
+            return Ok(WsManager::send_to_all_subscriptions(subscriptions, Message::NoData).await?);
+        };
 
-                        let mut subscriptions = subscriptions.lock().await;
-                        let mut res = Ok(());
-                        if let Some(subscription_datas) = subscriptions.get_mut(&identifier) {
-                            for subscription_data in subscription_datas {
-                                if let Err(e) = subscription_data
-                                    .sending_channel
-                                    .send(message.clone())
-                                    .map_err(|e| Error::WsSend(e.to_string()))
-                                {
-                                    res = Err(e);
-                                }
+        match data {
+            Ok(data) => match data.into_text() {
+                Ok(data) => {
+                    if !data.starts_with('{') {
+                        return Ok(());
+                    }
+                    let message = serde_json::from_str::<Message>(&data)
+                        .map_err(|e| Error::JsonParse(e.to_string()))?;
+                    let identifier = WsManager::get_identifier(&message)?;
+                    if identifier.is_empty() {
+                        return Ok(());
+                    }
+
+                    let mut subscriptions = subscriptions.lock().await;
+                    let mut res = Ok(());
+                    if let Some(subscription_datas) = subscriptions.get_mut(&identifier) {
+                        for subscription_data in subscription_datas {
+                            if let Err(e) = subscription_data
+                                .sending_channel
+                                .send(message.clone())
+                                .map_err(|e| Error::WsSend(e.to_string()))
+                            {
+                                res = Err(e);
                             }
                         }
-                        res
                     }
-                    Err(err) => {
-                        let error = Error::ReaderTextConversion(err.to_string());
-                        Ok(WsManager::send_to_all_subscriptions(
-                            subscriptions,
-                            Message::HyperliquidError(error.to_string()),
-                        )
-                        .await?)
-                    }
-                },
+                    res
+                }
                 Err(err) => {
-                    let error = Error::GenericReader(err.to_string());
+                    let error = Error::ReaderTextConversion(err.to_string());
                     Ok(WsManager::send_to_all_subscriptions(
                         subscriptions,
                         Message::HyperliquidError(error.to_string()),
@@ -226,7 +219,14 @@ impl WsManager {
                     .await?)
                 }
             },
-            None => Ok(WsManager::send_to_all_subscriptions(subscriptions, Message::NoData).await?),
+            Err(err) => {
+                let error = Error::GenericReader(err.to_string());
+                Ok(WsManager::send_to_all_subscriptions(
+                    subscriptions,
+                    Message::HyperliquidError(error.to_string()),
+                )
+                .await?)
+            }
         }
     }
 
@@ -236,8 +236,8 @@ impl WsManager {
     ) -> Result<()> {
         let mut subscriptions = subscriptions.lock().await;
         let mut res = Ok(());
-        for (_, subs_data) in subscriptions.iter_mut() {
-            for subscription_data in subs_data {
+        for subscription_datas in subscriptions.values_mut() {
+            for subscription_data in subscription_datas {
                 if let Err(e) = subscription_data
                     .sending_channel
                     .send(message.clone())
