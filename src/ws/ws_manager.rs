@@ -45,7 +45,7 @@ pub(crate) struct WsManager {
     subscription_identifiers: HashMap<u32, String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
 pub enum Subscription {
@@ -82,14 +82,14 @@ pub enum Message {
 }
 
 #[derive(Serialize)]
-pub(crate) struct SubscriptionSendData<'a> {
-    method: &'static str,
-    subscription: &'a serde_json::Value,
+pub struct SubscriptionSendData<'a> {
+    pub method: &'static str,
+    pub subscription: &'a serde_json::Value,
 }
 
 #[derive(Serialize)]
 pub(crate) struct Ping {
-    method: &'static str,
+    pub(crate) method: &'static str,
 }
 
 impl WsManager {
@@ -158,7 +158,7 @@ impl WsManager {
         })
     }
 
-    fn get_identifier(message: &Message) -> Result<String> {
+    pub(crate) fn get_identifier(message: &Message) -> Result<String> {
         match message {
             Message::AllMids(_) => serde_json::to_string(&Subscription::AllMids)
                 .map_err(|e| Error::JsonParse(e.to_string())),
