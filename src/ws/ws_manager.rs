@@ -168,7 +168,7 @@ impl WsManager {
             }
             Message::Notification(_) => Ok("notification".to_string()),
             Message::SubscriptionResponse | Message::Pong => Ok(String::default()),
-            Message::NoData => Ok(String::default()),
+            Message::NoData => Ok("".to_string()),
             Message::HyperliquidError(err) => Ok(format!("hyperliquid error: {err:?}")),
         }
     }
@@ -177,7 +177,6 @@ impl WsManager {
         data: Option<std::result::Result<protocol::Message, tungstenite::Error>>,
         subscriptions: &Arc<Mutex<HashMap<String, Vec<SubscriptionData>>>>,
     ) -> Result<()> {
-        // If no data
         let Some(data) = data else {
             return WsManager::send_to_all_subscriptions(subscriptions, Message::NoData).await;
         };
