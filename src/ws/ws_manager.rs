@@ -6,9 +6,21 @@ use crate::{
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
 use log::{error, info};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::{atomic::{AtomicBool, Ordering}, Arc}, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 use tokio::{
-    net::TcpStream, runtime::Runtime, spawn, sync::{mpsc::UnboundedSender, Mutex}, task::JoinHandle, time
+    net::TcpStream,
+    runtime::Runtime,
+    spawn,
+    sync::{mpsc::UnboundedSender, Mutex},
+    task::JoinHandle,
+    time,
 };
 use tokio_tungstenite::{
     connect_async,
