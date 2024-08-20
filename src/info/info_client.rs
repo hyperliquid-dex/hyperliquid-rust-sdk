@@ -52,6 +52,11 @@ pub enum InfoRequest {
         user: H160,
         oid: u64,
     },
+    #[serde(rename = "orderStatus")]
+    OrderStatusByCloid {
+        user: H160,
+        oid: String,
+    },
     Meta,
     SpotMeta,
     SpotMetaAndAssetCtxs,
@@ -256,6 +261,18 @@ impl InfoClient {
 
     pub async fn query_order_by_oid(&self, address: H160, oid: u64) -> Result<OrderStatusResponse> {
         let input = InfoRequest::OrderStatus { user: address, oid };
+        self.send_info_request(input).await
+    }
+
+    pub async fn query_order_by_cloid(
+        &self,
+        address: H160,
+        cloid: String,
+    ) -> Result<OrderStatusResponse> {
+        let input = InfoRequest::OrderStatusByCloid {
+            user: address,
+            oid: cloid,
+        };
         self.send_info_request(input).await
     }
 
