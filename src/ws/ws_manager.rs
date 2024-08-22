@@ -115,7 +115,9 @@ impl WsManager {
                 // TODO: reconnect
                 while !stop_flag.load(Ordering::Relaxed) {
                     let data = reader.next().await;
-                    if let Err(err) = WsManager::parse_and_send_data(data, &subscriptions_copy).await {
+                    if let Err(err) =
+                        WsManager::parse_and_send_data(data, &subscriptions_copy).await
+                    {
                         error!("Error processing data received by WS manager reader: {err}");
                     }
                 }
