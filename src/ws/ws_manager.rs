@@ -113,7 +113,7 @@ impl WsManager {
             let stop_flag = Arc::clone(&stop_flag);
             let reader_fut = async move {
                 // TODO: reconnect
-                while !stop_flag1.load(Ordering::Relaxed) {
+                while !stop_flag.load(Ordering::Relaxed) {
                     let data = reader.next().await;
                     if let Err(err) = WsManager::parse_and_send_data(data, &subscriptions_copy).await {
                         error!("Error processing data received by WS manager reader: {err}");
@@ -128,7 +128,7 @@ impl WsManager {
             let stop_flag = Arc::clone(&stop_flag);
             let writer = Arc::clone(&writer);
             let ping_fut = async move {
-                while !stop_flag2.load(Ordering::Relaxed) {
+                while !stop_flag.load(Ordering::Relaxed) {
                     match serde_json::to_string(&Ping { method: "ping" }) {
                         Ok(payload) => {
                             let mut writer = writer.lock().await;
