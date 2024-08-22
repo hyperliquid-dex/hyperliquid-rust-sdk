@@ -4,7 +4,7 @@ use crate::{
     Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
 };
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
-use log::{error, info};
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -109,21 +109,23 @@ impl WsManager {
         let subscriptions = Arc::new(Mutex::new(subscriptions_map));
         let subscriptions_copy = Arc::clone(&subscriptions);
 
-        let stop_flag1 = Arc::clone(&stop_flag);
-        let reader_fut = async move {
-            // TODO: reconnect
-            while !stop_flag1.load(Ordering::Relaxed) {
-                let data = reader.next().await;
-                if let Err(err) = WsManager::parse_and_send_data(data, &subscriptions_copy).await {
-                    error!("Error processing data received by WS manager reader: {err}");
+        let reader_handle = {
+            let stop_flag1 = Arc::clone(&stop_flag);
+            let reader_fut = async move {
+                // TODO: reconnect
+                while !stop_flag1.load(Ordering::Relaxed) {
+                    let data = reader.next().await;
+                    if let Err(err) = WsManager::parse_and_send_data(data, &subscriptions_copy).await {
+                        error!("Error processing data received by WS manager reader: {err}");
+                    }
                 }
-            }
-            info!("Stopped reading...");
+                warn!("ws message reader task stopped");
+            };
+            spawn(reader_fut)
         };
-        let reader_handle = spawn(reader_fut);
 
-        let stop_flag2 = Arc::clone(&stop_flag);
         let ping_handle = {
+            let stop_flag2 = Arc::clone(&stop_flag);
             let writer = Arc::clone(&writer);
             let ping_fut = async move {
                 while !stop_flag2.load(Ordering::Relaxed) {
@@ -138,7 +140,7 @@ impl WsManager {
                     }
                     time::sleep(Duration::from_secs(Self::SEND_PING_INTERVAL)).await;
                 }
-                info!("Stopped pinging...");
+                warn!("ws ping task stopped");
             };
             spawn(ping_fut)
         };
