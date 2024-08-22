@@ -4,7 +4,7 @@ use crate::{
     Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
 };
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
-use log::{error, info, warn};
+use log::{error, warn};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -110,7 +110,7 @@ impl WsManager {
         let subscriptions_copy = Arc::clone(&subscriptions);
 
         let reader_handle = {
-            let stop_flag1 = Arc::clone(&stop_flag);
+            let stop_flag = Arc::clone(&stop_flag);
             let reader_fut = async move {
                 // TODO: reconnect
                 while !stop_flag1.load(Ordering::Relaxed) {
@@ -125,7 +125,7 @@ impl WsManager {
         };
 
         let ping_handle = {
-            let stop_flag2 = Arc::clone(&stop_flag);
+            let stop_flag = Arc::clone(&stop_flag);
             let writer = Arc::clone(&writer);
             let ping_fut = async move {
                 while !stop_flag2.load(Ordering::Relaxed) {
