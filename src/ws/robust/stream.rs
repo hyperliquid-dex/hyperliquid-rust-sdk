@@ -20,6 +20,9 @@ type Socket = WebSocketStream<MaybeTlsStream<TcpStream>>;
 type Writer = SplitSink<Socket, protocol::Message>;
 type Reader = SplitStream<Socket>;
 
+const PING_INTERVAL: Duration = Duration::from_secs(50);
+const PONG_TIMEOUT: Duration = Duration::from_secs(60);
+
 pub async fn connect(base_url: &BaseUrl) -> Result<Socket> {
     let url = format!("ws{}/ws", &BaseUrl::get_url(base_url)[4..]);
 
@@ -61,9 +64,6 @@ fn parse_message(message: protocol::Message) -> Result<Option<Message>> {
         _ => Err(anyhow!("Unhandled message type: {:?}", message)),
     }
 }
-
-const PING_INTERVAL: Duration = Duration::from_secs(50);
-const PONG_TIMEOUT: Duration = Duration::from_secs(60);
 
 pub async fn stream(
     mut reader: Reader,
