@@ -3,6 +3,7 @@ use serde::Deserialize;
 #[derive(Deserialize, Debug, Clone)]
 pub struct RestingOrder {
     pub oid: u64,
+    pub cloid: Option<String>
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -11,6 +12,7 @@ pub struct FilledOrder {
     pub total_sz: String,
     pub avg_px: String,
     pub oid: u64,
+    pub cloid: Option<String>
 }
 
 #[derive(Deserialize, Debug, Clone)]
