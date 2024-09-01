@@ -7,6 +7,39 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
 
+
+
+// used to work out a order price that will be agressed (hit/lifted)
+fn aggress_price(mid_price: f64, is_buy: bool) -> f64 {
+    const SLIPPAGE: f64 = 0.05;
+    let c = if is_buy { SLIPPAGE } else { -SLIPPAGE };
+    mid_price * 1.0 + c
+}
+
+// rounds to the nearest tick price based 0.5 tick size
+fn round_to_nearest_tick(value: f64) -> f64 {
+    (value * 2.0).round() / 2.0
+}
+
+// create a market order by creating a limit order that aggresses the book
+pub(crate) fn market_order(asset: String, mid_price: f64, is_buy: bool, qty: f64, cloid: Option<Uuid>) -> ClientOrderRequest {
+    let limit_px = aggress_price(mid_price, is_buy);
+
+    let tick_price = round_to_nearest_tick(limit_px);
+    ClientOrderRequest {
+        asset,
+        is_buy,
+        reduce_only: false,
+        limit_px: tick_price,
+        sz: qty,
+        cloid,
+        order_type: ClientOrder::Limit(ClientLimit {
+            tif: "Ioc".to_string(),
+        }),
+    }
+}
+
+
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Limit {
     pub tif: String,
