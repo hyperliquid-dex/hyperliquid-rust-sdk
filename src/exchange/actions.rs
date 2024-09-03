@@ -1,4 +1,4 @@
-use crate::exchange::{cancel::CancelRequest, order::OrderRequest};
+use crate::exchange::{cancel::CancelRequest, modify::ModifyRequest, order::OrderRequest};
 pub(crate) use ethers::{
     abi::{encode, ParamType, Tokenizable},
     types::{
@@ -105,6 +105,12 @@ pub struct BulkOrder {
 #[serde(rename_all = "camelCase")]
 pub struct BulkCancel {
     pub cancels: Vec<CancelRequest>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct BulkModify {
+    pub modifies: Vec<ModifyRequest>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
