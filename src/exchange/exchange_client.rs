@@ -28,6 +28,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use super::cancel::ClientCancelRequestCloid;
+use super::order::{MarketCloseParams, MarketOrderParams};
+use super::{ClientLimit, ClientOrder};
 
 pub struct ExchangeClient {
     pub http_client: HttpClient,
@@ -222,6 +224,133 @@ impl ExchangeClient {
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
         self.post(action, signature, timestamp).await
+    }
+
+    pub async fn market_open(
+        &self,
+        params: MarketOrderParams<'_>,
+    ) -> Result<ExchangeResponseStatus> {
+        let slippage = params.slippage.unwrap_or(0.05); // Default 5% slippage
+        let (px, sz_decimals) = self
+            .calculate_slippage_price(params.asset, params.is_buy, slippage, params.px)
+            .await?;
+
+        let order = ClientOrderRequest {
+            asset: params.asset.to_string(),
+            is_buy: params.is_buy,
+            reduce_only: false,
+            limit_px: px,
+            sz: round_to_decimals(params.sz, sz_decimals),
+            cloid: params.cloid,
+            order_type: ClientOrder::Limit(ClientLimit {
+                tif: "Ioc".to_string(),
+            }),
+        };
+
+        self.order(order, params.wallet).await
+    }
+
+    pub async fn market_close(
+        &self,
+        params: MarketCloseParams<'_>,
+    ) -> Result<ExchangeResponseStatus> {
+        let slippage = params.slippage.unwrap_or(0.05); // Default 5% slippage
+        let wallet = params.wallet.unwrap_or(&self.wallet);
+
+        let base_url = match self.http_client.base_url.as_str() {
+            "https://api.hyperliquid.xyz" => BaseUrl::Mainnet,
+            "https://api.hyperliquid-testnet.xyz" => BaseUrl::Testnet,
+            _ => return Err(Error::GenericRequest("Invalid base URL".to_string())),
+        };
+        let info_client = InfoClient::new(None, Some(base_url)).await?;
+        let user_state = info_client.user_state(wallet.address()).await?;
+
+        let position = user_state
+            .asset_positions
+            .iter()
+            .find(|p| p.position.coin == params.asset)
+            .ok_or_else(|| Error::AssetNotFound)?;
+
+        let szi = position
+            .position
+            .szi
+            .parse::<f64>()
+            .map_err(|_| Error::FloatStringParse)?;
+
+        let (px, sz_decimals) = self
+            .calculate_slippage_price(params.asset, szi < 0.0, slippage, params.px)
+            .await?;
+
+        let sz = round_to_decimals(params.sz.unwrap_or_else(|| szi.abs()), sz_decimals);
+
+        let order = ClientOrderRequest {
+            asset: params.asset.to_string(),
+            is_buy: szi < 0.0,
+            reduce_only: true,
+            limit_px: px,
+            sz,
+            cloid: params.cloid,
+            order_type: ClientOrder::Limit(ClientLimit {
+                tif: "Ioc".to_string(),
+            }),
+        };
+
+        self.order(order, Some(wallet)).await
+    }
+
+    async fn calculate_slippage_price(
+        &self,
+        asset: &str,
+        is_buy: bool,
+        slippage: f64,
+        px: Option<f64>,
+    ) -> Result<(f64, u32)> {
+        let base_url = match self.http_client.base_url.as_str() {
+            "https://api.hyperliquid.xyz" => BaseUrl::Mainnet,
+            "https://api.hyperliquid-testnet.xyz" => BaseUrl::Testnet,
+            _ => return Err(Error::GenericRequest("Invalid base URL".to_string())),
+        };
+        let info_client = InfoClient::new(None, Some(base_url)).await?;
+        let meta = info_client.meta().await?;
+
+        let asset_meta = meta
+            .universe
+            .iter()
+            .find(|a| a.name == asset)
+            .ok_or_else(|| Error::AssetNotFound)?;
+
+        let sz_decimals = asset_meta.sz_decimals;
+        let max_decimals: u32 = if self.coin_to_asset[asset] < 10000 {
+            6
+        } else {
+            8
+        };
+        let price_decimals = max_decimals.saturating_sub(sz_decimals);
+
+        let px = if let Some(px) = px {
+            px
+        } else {
+            let all_mids = info_client.all_mids().await?;
+            all_mids
+                .get(asset)
+                .ok_or_else(|| Error::AssetNotFound)?
+                .parse::<f64>()
+                .map_err(|_| Error::FloatStringParse)?
+        };
+
+        debug!("px before slippage: {px:?}");
+        let slippage_factor = if is_buy {
+            1.0 + slippage
+        } else {
+            1.0 - slippage
+        };
+        let px = px * slippage_factor;
+
+        // Round to the correct number of decimal places and significant figures
+        let px = round_to_significant_and_decimal(px, 5, price_decimals);
+
+        debug!("px after slippage: {px:?}");
+        Ok((px, sz_decimals))
     }
 
     pub async fn order(
@@ -495,6 +624,19 @@ impl ExchangeClient {
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
         self.post(action, signature, timestamp).await
     }
+}
+
+fn round_to_decimals(value: f64, decimals: u32) -> f64 {
+    let factor = 10f64.powi(decimals as i32);
+    (value * factor).round() / factor
+}
+
+fn round_to_significant_and_decimal(value: f64, sig_figs: u32, max_decimals: u32) -> f64 {
+    let abs_value = value.abs();
+    let magnitude = abs_value.log10().floor() as i32;
+    let scale = 10f64.powi(sig_figs as i32 - magnitude - 1);
+    let rounded = (abs_value * scale).round() / scale;
+    round_to_decimals(rounded.copysign(value), max_decimals)
 }
 
 #[cfg(test)]
