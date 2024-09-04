@@ -338,7 +338,7 @@ impl ExchangeClient {
                 .map_err(|_| Error::FloatStringParse)?
         };
 
-        debug!("px before slippage: {:?}", px);
+        debug!("px before slippage: {px:?}");
         let slippage_factor = if is_buy {
             1.0 + slippage
         } else {
@@ -349,7 +349,7 @@ impl ExchangeClient {
         // Round to the correct number of decimal places and significant figures
         let px = round_to_significant_and_decimal(px, 5, price_decimals);
 
-        debug!("px after slippage: {:?}", px);
+        debug!("px after slippage: {px:?}");
         Ok((px, sz_decimals))
     }
 
