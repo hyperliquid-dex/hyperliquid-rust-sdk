@@ -53,6 +53,7 @@ pub struct UserFillsResponse {
     pub start_position: String,
     pub sz: String,
     pub time: u64,
+    pub fee: String,
 }
 
 #[derive(serde::Deserialize, Debug)]
