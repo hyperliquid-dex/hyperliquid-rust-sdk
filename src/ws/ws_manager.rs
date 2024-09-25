@@ -16,10 +16,8 @@ use std::{
 };
 use tokio::{
     net::TcpStream,
-    runtime::Runtime,
     spawn,
     sync::{mpsc::UnboundedSender, Mutex},
-    task::JoinHandle,
     time,
 };
 use tokio_tungstenite::{
@@ -37,8 +35,6 @@ struct SubscriptionData {
 }
 pub(crate) struct WsManager {
     stop_flag: Arc<AtomicBool>,
-    reader_handle: Option<JoinHandle<()>>,
-    ping_handle: Option<JoinHandle<()>>,
     writer: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>>>,
     subscriptions: Arc<Mutex<HashMap<String, Vec<SubscriptionData>>>>,
     subscription_id: u32,
@@ -109,7 +105,7 @@ impl WsManager {
         let subscriptions = Arc::new(Mutex::new(subscriptions_map));
         let subscriptions_copy = Arc::clone(&subscriptions);
 
-        let reader_handle = {
+        {
             let stop_flag = Arc::clone(&stop_flag);
             let reader_fut = async move {
                 // TODO: reconnect
@@ -123,10 +119,10 @@ impl WsManager {
                 }
                 warn!("ws message reader task stopped");
             };
-            spawn(reader_fut)
-        };
+            spawn(reader_fut);
+        }
 
-        let ping_handle = {
+        {
             let stop_flag = Arc::clone(&stop_flag);
             let writer = Arc::clone(&writer);
             let ping_fut = async move {
@@ -144,13 +140,11 @@ impl WsManager {
                 }
                 warn!("ws ping task stopped");
             };
-            spawn(ping_fut)
-        };
+            spawn(ping_fut);
+        }
 
         Ok(WsManager {
             stop_flag,
-            reader_handle: Some(reader_handle),
-            ping_handle: Some(ping_handle),
             writer,
             subscriptions,
             subscription_id: 0,
@@ -384,15 +378,5 @@ impl WsManager {
 impl Drop for WsManager {
     fn drop(&mut self) {
         self.stop_flag.store(true, Ordering::Relaxed);
-
-        let rt = Runtime::new().unwrap();
-
-        if let Some(task) = self.reader_handle.take() {
-            rt.block_on(task).unwrap();
-        }
-
-        if let Some(task) = self.ping_handle.take() {
-            rt.block_on(task).unwrap();
-        }
     }
 }
