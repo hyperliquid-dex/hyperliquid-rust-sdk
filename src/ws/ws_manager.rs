@@ -4,9 +4,16 @@ use crate::{
     Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
 };
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
-use log::error;
+use log::{error, warn};
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+    collections::HashMap,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    time::Duration,
+};
 use tokio::{
     net::TcpStream,
     spawn,
@@ -27,6 +34,7 @@ struct SubscriptionData {
     subscription_id: u32,
 }
 pub(crate) struct WsManager {
+    stop_flag: Arc<AtomicBool>,
     writer: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>>>,
     subscriptions: Arc<Mutex<HashMap<String, Vec<SubscriptionData>>>>,
     subscription_id: u32,
@@ -84,6 +92,8 @@ impl WsManager {
     const SEND_PING_INTERVAL: u64 = 50;
 
     pub(crate) async fn new(url: String) -> Result<WsManager> {
+        let stop_flag = Arc::new(AtomicBool::new(false));
+
         let (ws_stream, _) = connect_async(url.clone())
             .await
             .map_err(|e| Error::Websocket(e.to_string()))?;
@@ -95,21 +105,28 @@ impl WsManager {
         let subscriptions = Arc::new(Mutex::new(subscriptions_map));
         let subscriptions_copy = Arc::clone(&subscriptions);
 
-        let reader_fut = async move {
-            // TODO: reconnect
-            loop {
-                let data = reader.next().await;
-                if let Err(err) = WsManager::parse_and_send_data(data, &subscriptions_copy).await {
-                    error!("Error processing data received by WS manager reader: {err}");
+        {
+            let stop_flag = Arc::clone(&stop_flag);
+            let reader_fut = async move {
+                // TODO: reconnect
+                while !stop_flag.load(Ordering::Relaxed) {
+                    let data = reader.next().await;
+                    if let Err(err) =
+                        WsManager::parse_and_send_data(data, &subscriptions_copy).await
+                    {
+                        error!("Error processing data received by WS manager reader: {err}");
+                    }
                 }
-            }
-        };
-        spawn(reader_fut);
+                warn!("ws message reader task stopped");
+            };
+            spawn(reader_fut);
+        }
 
         {
+            let stop_flag = Arc::clone(&stop_flag);
             let writer = Arc::clone(&writer);
             let ping_fut = async move {
-                loop {
+                while !stop_flag.load(Ordering::Relaxed) {
                     match serde_json::to_string(&Ping { method: "ping" }) {
                         Ok(payload) => {
                             let mut writer = writer.lock().await;
@@ -121,11 +138,13 @@ impl WsManager {
                     }
                     time::sleep(Duration::from_secs(Self::SEND_PING_INTERVAL)).await;
                 }
+                warn!("ws ping task stopped");
             };
             spawn(ping_fut);
         }
 
         Ok(WsManager {
+            stop_flag,
             writer,
             subscriptions,
             subscription_id: 0,
@@ -353,5 +372,11 @@ impl WsManager {
                 .map_err(|e| Error::Websocket(e.to_string()))?;
         }
         Ok(())
+    }
+}
+
+impl Drop for WsManager {
+    fn drop(&mut self) {
+        self.stop_flag.store(true, Ordering::Relaxed);
     }
 }
