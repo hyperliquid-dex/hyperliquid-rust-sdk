@@ -59,8 +59,7 @@ pub enum Actions {
     Order(BulkOrder),
     Cancel(BulkCancel),
     CancelByCloid(BulkCancelCloid),
-    #[serde(rename = "batchModify")]
-    Modify(BulkModify),
+    BatchModify(BulkModify),
     ApproveAgent(ApproveAgent),
     Withdraw3(Withdraw3),
     SpotUser(SpotUser),
@@ -454,7 +453,7 @@ impl ExchangeClient {
             });
         }
 
-        let action = Actions::Modify(BulkModify {
+        let action = Actions::BatchModify(BulkModify {
             modifies: transformed_modifies,
         });
         let connection_id = action.hash(timestamp, self.vault_address)?;
