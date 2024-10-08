@@ -118,6 +118,7 @@ pub struct CandlesSnapshotResponse {
 pub struct OrderStatusResponse {
     pub status: String,
     /// `None` if the order is not found
+    #[serde(default)]
     pub order: Option<OrderInfo>,
 }
 
