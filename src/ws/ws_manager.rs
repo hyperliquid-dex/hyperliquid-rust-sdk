@@ -294,9 +294,9 @@ impl WsManager {
         res
     }
     
-    async fn send_subscribe(writer : &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>, identifier : &str) -> Result<()> {
+    async fn send_subscription_data(method : &'static str, writer : &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>, identifier : &str) -> Result<()> {
         let payload = serde_json::to_string(&SubscriptionSendData {
-            method: "subscribe",
+            method,
             subscription: &serde_json::from_str::<serde_json::Value>(identifier)
                 .map_err(|e| Error::JsonParse(e.to_string()))?,
         })
@@ -307,6 +307,14 @@ impl WsManager {
             .await
             .map_err(|e| Error::Websocket(e.to_string()))?;
         Ok(())
+    }
+
+    async fn send_subscribe(writer : &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>, identifier : &str) -> Result<()> {
+        Self::send_subscription_data("subscribe", writer, identifier).await
+    }
+
+    async fn send_unsubscribe(writer : &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>, identifier : &str) -> Result<()> {
+        Self::send_subscription_data("unsubscribe", writer, identifier).await
     }
 
     pub(crate) async fn add_subscription(
@@ -389,7 +397,7 @@ impl WsManager {
         subscriptions.remove(index);
 
         if subscriptions.is_empty() {
-            Self::send_subscribe(self.writer.lock().await.borrow_mut(), identifier.as_str()).await?;
+            Self::send_unsubscribe(self.writer.lock().await.borrow_mut(), identifier.as_str()).await?;
         }
         Ok(())
     }
