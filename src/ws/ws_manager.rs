@@ -30,7 +30,7 @@ use ethers::types::H160;
 struct SubscriptionData {
     sending_channel: UnboundedSender<Message>,
     subscription_id: u32,
-    identifier : String,
+    id: String,
 }
 pub(crate) struct WsManager {
     stop_flag: Arc<AtomicBool>,
@@ -109,30 +109,30 @@ impl WsManager {
                     match data {
                         Some(data) => {
                             if let Err(err) = WsManager::parse_and_send_data(data, &subscriptions_copy).await {
-                                error!("Error processing data received by WS manager reader: {err}");
+                                error!("Error processing data received by WsManager reader: {err}");
                             }
                         }
                         None => {
-                            warn!("WS Manager disconnect");
+                            warn!("WsManager disconnected");
                             if let Err(err) = WsManager::send_to_all_subscriptions(&subscriptions_copy, Message::NoData).await {
-                                warn!("Error sending disconnection notification {err}");
+                                warn!("Error sending disconnection notification err={err}");
                             }
                             match Self::connect(url.as_str()).await {
                                 Ok(ws) => {
-                                    let (writer_inner, reader_inner) = ws.split();
-                                    reader = reader_inner;
+                                    let (new_writer, new_reader) = ws.split();
+                                    reader = new_reader;
                                     let mut writer_guard = writer.lock().await;
-                                    *writer_guard = writer_inner;
+                                    *writer_guard = new_writer;
                                     for (identifier, v) in subscriptions_copy.lock().await.iter() {
                                         if identifier.eq("userEvents") || identifier.eq("orderUpdates") { //TODO should these special keys be removed and instead use the simpler direct identifier mapping?
                                             for subscription_data in v.iter() { 
-                                                if let Err(error) = Self::send_subscribe(writer_guard.deref_mut(), &subscription_data.identifier).await {
-                                                    warn!("Could not resubscribe {identifier}: {error}");
+                                                if let Err(err) = Self::subscribe(writer_guard.deref_mut(), &subscription_data.id).await {
+                                                    warn!("Could not resubscribe {identifier}: {err}");
                                                 }
                                             }
                                         }
-                                        else if let Err(error) = Self::send_subscribe(writer_guard.deref_mut(), identifier).await {
-                                            warn!("Could not resubscribe correctly {identifier}: {error}");
+                                        else if let Err(err) = Self::subscribe(writer_guard.deref_mut(), identifier).await {
+                                            warn!("Could not resubscribe correctly {identifier}: {err}");
                                         }
                                     }
                                 },
@@ -309,11 +309,11 @@ impl WsManager {
         Ok(())
     }
 
-    async fn send_subscribe(writer : &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>, identifier : &str) -> Result<()> {
+    async fn subscribe(writer : &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>, identifier : &str) -> Result<()> {
         Self::send_subscription_data("subscribe", writer, identifier).await
     }
 
-    async fn send_unsubscribe(writer : &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>, identifier : &str) -> Result<()> {
+    async fn unsubscribe(writer : &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>, identifier : &str) -> Result<()> {
         Self::send_subscription_data("unsubscribe", writer, identifier).await
     }
 
@@ -346,7 +346,7 @@ impl WsManager {
         }
 
         if subscriptions.is_empty() {
-            Self::send_subscribe(self.writer.lock().await.borrow_mut(), identifier.as_str()).await?;
+            Self::subscribe(self.writer.lock().await.borrow_mut(), identifier.as_str()).await?;
         }
 
         let subscription_id = self.subscription_id;
@@ -355,7 +355,7 @@ impl WsManager {
         subscriptions.push(SubscriptionData {
             sending_channel,
             subscription_id,
-            identifier,
+            id : identifier,
         });
 
         self.subscription_id += 1;
@@ -397,7 +397,7 @@ impl WsManager {
         subscriptions.remove(index);
 
         if subscriptions.is_empty() {
-            Self::send_unsubscribe(self.writer.lock().await.borrow_mut(), identifier.as_str()).await?;
+            Self::unsubscribe(self.writer.lock().await.borrow_mut(), identifier.as_str()).await?;
         }
         Ok(())
     }
