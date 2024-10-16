@@ -2,10 +2,11 @@ use crate::signature::sign_typed_data;
 use crate::{
     exchange::{
         actions::{
-            ApproveAgent, BulkCancel, BulkOrder, SetReferrer, UpdateIsolatedMargin, UpdateLeverage,
-            UsdSend,
+            ApproveAgent, BulkCancel, BulkModify, BulkOrder, SetReferrer, UpdateIsolatedMargin,
+            UpdateLeverage, UsdSend,
         },
         cancel::{CancelRequest, CancelRequestCloid},
+        modify::{ClientModifyRequest, ModifyRequest},
         ClientCancelRequest, ClientOrderRequest,
     },
     helpers::{generate_random_key, next_nonce, uuid_to_hex_string},
@@ -58,6 +59,7 @@ pub enum Actions {
     Order(BulkOrder),
     Cancel(BulkCancel),
     CancelByCloid(BulkCancelCloid),
+    BatchModify(BulkModify),
     ApproveAgent(ApproveAgent),
     Withdraw3(Withdraw3),
     SpotUser(SpotUser),
@@ -417,6 +419,42 @@ impl ExchangeClient {
 
         let action = Actions::Cancel(BulkCancel {
             cancels: transformed_cancels,
+        });
+        let connection_id = action.hash(timestamp, self.vault_address)?;
+
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+        let is_mainnet = self.http_client.is_mainnet();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+        self.post(action, signature, timestamp).await
+    }
+
+    pub async fn modify(
+        &self,
+        modify: ClientModifyRequest,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        self.bulk_modify(vec![modify], wallet).await
+    }
+
+    pub async fn bulk_modify(
+        &self,
+        modifies: Vec<ClientModifyRequest>,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let timestamp = next_nonce();
+
+        let mut transformed_modifies = Vec::new();
+        for modify in modifies.into_iter() {
+            transformed_modifies.push(ModifyRequest {
+                oid: modify.oid,
+                order: modify.order.convert(&self.coin_to_asset)?,
+            });
+        }
+
+        let action = Actions::BatchModify(BulkModify {
+            modifies: transformed_modifies,
         });
         let connection_id = action.hash(timestamp, self.vault_address)?;
 
