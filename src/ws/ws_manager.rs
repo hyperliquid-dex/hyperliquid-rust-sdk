@@ -117,6 +117,7 @@ impl WsManager {
                             if let Err(err) = WsManager::send_to_all_subscriptions(&subscriptions_copy, Message::NoData).await {
                                 warn!("Error sending disconnection notification err={err}");
                             }
+                            tokio::time::sleep(Duration::from_secs(1)).await; //Always sleep for 1 second before attempting to reconnect so it does not spin reconnecting. This could be enhanced to exponential backoff.
                             match Self::connect(url.as_str()).await {
                                 Ok(ws) => {
                                     let (new_writer, new_reader) = ws.split();
