@@ -188,7 +188,10 @@ impl WsManager {
             Message::AllMids(_) => serde_json::to_string(&Subscription::AllMids)
                 .map_err(|e| Error::JsonParse(e.to_string())),
             Message::User(_) => Ok("userEvents".to_string()),
-            Message::UserFills(_) => Ok("userFills".to_string()),
+            Message::UserFills(fills) => serde_json::to_string(&Subscription::UserFills {
+                user: fills.data.user,
+            })
+            .map_err(|e| Error::JsonParse(e.to_string())),
             Message::Trades(trades) => {
                 if trades.data.is_empty() {
                     Ok(String::default())
@@ -209,7 +212,10 @@ impl WsManager {
             })
             .map_err(|e| Error::JsonParse(e.to_string())),
             Message::OrderUpdates(_) => Ok("orderUpdates".to_string()),
-            Message::UserFundings(_) => Ok("userFundings".to_string()),
+            Message::UserFundings(fundings) => serde_json::to_string(&Subscription::UserFundings {
+                user: fundings.data.user,
+            })
+            .map_err(|e| Error::JsonParse(e.to_string())),
             Message::UserNonFundingLedgerUpdates(user_non_funding_ledger_updates) => {
                 serde_json::to_string(&Subscription::UserNonFundingLedgerUpdates {
                     user: user_non_funding_ledger_updates.data.user,
