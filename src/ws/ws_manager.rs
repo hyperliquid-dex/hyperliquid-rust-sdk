@@ -301,7 +301,7 @@ impl WsManager {
         res
     }
     
-    async fn send_subscription_data(method : &'static str, writer : &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>, identifier : &str) -> Result<()> {
+    async fn send_subscription_data(method: &'static str, writer: &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>, identifier: &str) -> Result<()> {
         let payload = serde_json::to_string(&SubscriptionSendData {
             method,
             subscription: &serde_json::from_str::<serde_json::Value>(identifier)
