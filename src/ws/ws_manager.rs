@@ -362,7 +362,7 @@ impl WsManager {
         subscriptions.push(SubscriptionData {
             sending_channel,
             subscription_id,
-            id : identifier,
+            id: identifier,
         });
 
         self.subscription_id += 1;
