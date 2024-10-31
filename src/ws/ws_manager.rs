@@ -125,7 +125,8 @@ impl WsManager {
                                     let mut writer_guard = writer.lock().await;
                                     *writer_guard = new_writer;
                                     for (identifier, v) in subscriptions_copy.lock().await.iter() {
-                                        if identifier.eq("userEvents") || identifier.eq("orderUpdates") { //TODO should these special keys be removed and instead use the simpler direct identifier mapping?
+                                        // TODO should these special keys be removed and instead use the simpler direct identifier mapping?
+                                        if identifier.eq("userEvents") || identifier.eq("orderUpdates") {
                                             for subscription_data in v.iter() { 
                                                 if let Err(err) = Self::subscribe(writer_guard.deref_mut(), &subscription_data.id).await {
                                                     warn!("Could not resubscribe {identifier}: {err}");
