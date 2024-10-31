@@ -179,7 +179,7 @@ impl WsManager {
         })
     }
 
-    async fn connect(url : &str) -> Result<WebSocketStream<MaybeTlsStream<TcpStream>>> {
+    async fn connect(url: &str) -> Result<WebSocketStream<MaybeTlsStream<TcpStream>>> {
         Ok(connect_async(url )
             .await
             .map_err(|e| Error::Websocket(e.to_string()))?.0)
