@@ -93,7 +93,7 @@ impl WsManager {
     pub(crate) async fn new(url: String) -> Result<WsManager> {
         let stop_flag = Arc::new(AtomicBool::new(false));
 
-        let (writer, mut reader) = Self::connect(url.as_str()).await?.split();
+        let (writer, mut reader) = Self::connect(&url).await?.split();
         let writer = Arc::new(Mutex::new(writer));
 
         let subscriptions_map: HashMap<String, Vec<SubscriptionData>> = HashMap::new();
@@ -119,7 +119,7 @@ impl WsManager {
                             }
                             // Always sleep for 1 second before attempting to reconnect so it does not spin during reconnecting. This could be enhanced with exponential backoff.
                             tokio::time::sleep(Duration::from_secs(1)).await;
-                            match Self::connect(url.as_str()).await {
+                            match Self::connect(&url).await {
                                 Ok(ws) => {
                                     let (new_writer, new_reader) = ws.split();
                                     reader = new_reader;
@@ -128,14 +128,14 @@ impl WsManager {
                                     for (identifier, v) in subscriptions_copy.lock().await.iter() {
                                         // TODO should these special keys be removed and instead use the simpler direct identifier mapping?
                                         if identifier.eq("userEvents") || identifier.eq("orderUpdates") {
-                                            for subscription_data in &v { 
+                                            for subscription_data in v { 
                                                 if let Err(err) = Self::subscribe(writer_guard.deref_mut(), &subscription_data.id).await {
-                                                    warn!("Could not resubscribe {identifier}: {err}");
+                                                    error!("Could not resubscribe {identifier}: {err}");
                                                 }
                                             }
                                         }
                                         else if let Err(err) = Self::subscribe(writer_guard.deref_mut(), identifier).await {
-                                            warn!("Could not resubscribe correctly {identifier}: {err}");
+                                            error!("Could not resubscribe correctly {identifier}: {err}");
                                         }
                                     }
                                 },
