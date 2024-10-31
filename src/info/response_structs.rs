@@ -118,7 +118,9 @@ pub struct CandlesSnapshotResponse {
 #[derive(Deserialize, Debug)]
 pub struct OrderStatusResponse {
     pub status: String,
-    pub order: OrderInfo,
+    /// `None` if the order is not found
+    #[serde(default)]
+    pub order: Option<OrderInfo>,
 }
 
 #[derive(Deserialize, Debug)]
