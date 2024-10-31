@@ -105,42 +105,39 @@ impl WsManager {
             let stop_flag = Arc::clone(&stop_flag);
             let reader_fut = async move {
                 while !stop_flag.load(Ordering::Relaxed) {
-                    let data = reader.next().await;
-                    match data {
-                        Some(data) => {
-                            if let Err(err) = WsManager::parse_and_send_data(data, &subscriptions_copy).await {
-                                error!("Error processing data received by WsManager reader: {err}");
-                            }
+                    if let Some(data) = reader.next().await {
+                        if let Err(err) = WsManager::parse_and_send_data(data, &subscriptions_copy).await {
+                            error!("Error processing data received by WsManager reader: {err}");
                         }
-                        None => {
-                            warn!("WsManager disconnected");
-                            if let Err(err) = WsManager::send_to_all_subscriptions(&subscriptions_copy, Message::NoData).await {
-                                warn!("Error sending disconnection notification err={err}");
-                            }
-                            // Always sleep for 1 second before attempting to reconnect so it does not spin during reconnecting. This could be enhanced with exponential backoff.
-                            tokio::time::sleep(Duration::from_secs(1)).await;
-                            match Self::connect(&url).await {
-                                Ok(ws) => {
-                                    let (new_writer, new_reader) = ws.split();
-                                    reader = new_reader;
-                                    let mut writer_guard = writer.lock().await;
-                                    *writer_guard = new_writer;
-                                    for (identifier, v) in subscriptions_copy.lock().await.iter() {
-                                        // TODO should these special keys be removed and instead use the simpler direct identifier mapping?
-                                        if identifier.eq("userEvents") || identifier.eq("orderUpdates") {
-                                            for subscription_data in v { 
-                                                if let Err(err) = Self::subscribe(writer_guard.deref_mut(), &subscription_data.id).await {
-                                                    error!("Could not resubscribe {identifier}: {err}");
-                                                }
+                    }
+                    else {
+                        warn!("WsManager disconnected");
+                        if let Err(err) = WsManager::send_to_all_subscriptions(&subscriptions_copy, Message::NoData).await {
+                            warn!("Error sending disconnection notification err={err}");
+                        }
+                        // Always sleep for 1 second before attempting to reconnect so it does not spin during reconnecting. This could be enhanced with exponential backoff.
+                        tokio::time::sleep(Duration::from_secs(1)).await;
+                        match Self::connect(&url).await {
+                            Ok(ws) => {
+                                let (new_writer, new_reader) = ws.split();
+                                reader = new_reader;
+                                let mut writer_guard = writer.lock().await;
+                                *writer_guard = new_writer;
+                                for (identifier, v) in subscriptions_copy.lock().await.iter() {
+                                    // TODO should these special keys be removed and instead use the simpler direct identifier mapping?
+                                    if identifier.eq("userEvents") || identifier.eq("orderUpdates") {
+                                        for subscription_data in v { 
+                                            if let Err(err) = Self::subscribe(writer_guard.deref_mut(), &subscription_data.id).await {
+                                                error!("Could not resubscribe {identifier}: {err}");
                                             }
                                         }
-                                        else if let Err(err) = Self::subscribe(writer_guard.deref_mut(), identifier).await {
-                                            error!("Could not resubscribe correctly {identifier}: {err}");
-                                        }
                                     }
-                                },
-                                Err(err) => error!("Could not connect to websocket {err}"),
-                            }
+                                    else if let Err(err) = Self::subscribe(writer_guard.deref_mut(), identifier).await {
+                                        error!("Could not resubscribe correctly {identifier}: {err}");
+                                    }
+                                }
+                            },
+                            Err(err) => error!("Could not connect to websocket {err}"),
                         }
                     }
                 }
