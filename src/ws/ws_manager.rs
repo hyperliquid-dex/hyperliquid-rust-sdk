@@ -4,7 +4,7 @@ use crate::{
     Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
 };
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
-use log::{error, warn};
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::{
     borrow::BorrowMut, collections::HashMap, ops::DerefMut, sync::{
@@ -90,7 +90,7 @@ pub(crate) struct Ping {
 impl WsManager {
     const SEND_PING_INTERVAL: u64 = 50;
 
-    pub(crate) async fn new(url: String) -> Result<WsManager> {
+    pub(crate) async fn new(url: String, reconnect : bool) -> Result<WsManager> {
         let stop_flag = Arc::new(AtomicBool::new(false));
 
         let (writer, mut reader) = Self::connect(&url).await?.split();
@@ -115,29 +115,37 @@ impl WsManager {
                         if let Err(err) = WsManager::send_to_all_subscriptions(&subscriptions_copy, Message::NoData).await {
                             warn!("Error sending disconnection notification err={err}");
                         }
-                        // Always sleep for 1 second before attempting to reconnect so it does not spin during reconnecting. This could be enhanced with exponential backoff.
-                        tokio::time::sleep(Duration::from_secs(1)).await;
-                        match Self::connect(&url).await {
-                            Ok(ws) => {
-                                let (new_writer, new_reader) = ws.split();
-                                reader = new_reader;
-                                let mut writer_guard = writer.lock().await;
-                                *writer_guard = new_writer;
-                                for (identifier, v) in subscriptions_copy.lock().await.iter() {
-                                    // TODO should these special keys be removed and instead use the simpler direct identifier mapping?
-                                    if identifier.eq("userEvents") || identifier.eq("orderUpdates") {
-                                        for subscription_data in v { 
-                                            if let Err(err) = Self::subscribe(writer_guard.deref_mut(), &subscription_data.id).await {
-                                                error!("Could not resubscribe {identifier}: {err}");
+                        if reconnect {
+                            // Always sleep for 1 second before attempting to reconnect so it does not spin during reconnecting. This could be enhanced with exponential backoff.
+                            tokio::time::sleep(Duration::from_secs(1)).await;
+                            info!("WsManager attempting to reconnect");
+                            match Self::connect(&url).await {
+                                Ok(ws) => {
+                                    let (new_writer, new_reader) = ws.split();
+                                    reader = new_reader;
+                                    let mut writer_guard = writer.lock().await;
+                                    *writer_guard = new_writer;
+                                    for (identifier, v) in subscriptions_copy.lock().await.iter() {
+                                        // TODO should these special keys be removed and instead use the simpler direct identifier mapping?
+                                        if identifier.eq("userEvents") || identifier.eq("orderUpdates") {
+                                            for subscription_data in v { 
+                                                if let Err(err) = Self::subscribe(writer_guard.deref_mut(), &subscription_data.id).await {
+                                                    error!("Could not resubscribe {identifier}: {err}");
+                                                }
                                             }
                                         }
+                                        else if let Err(err) = Self::subscribe(writer_guard.deref_mut(), identifier).await {
+                                            error!("Could not resubscribe correctly {identifier}: {err}");
+                                        }
                                     }
-                                    else if let Err(err) = Self::subscribe(writer_guard.deref_mut(), identifier).await {
-                                        error!("Could not resubscribe correctly {identifier}: {err}");
-                                    }
-                                }
-                            },
-                            Err(err) => error!("Could not connect to websocket {err}"),
+                                    info!("WsManager reconnect finished");
+                                },
+                                Err(err) => error!("Could not connect to websocket {err}"),
+                            }
+                        }
+                        else {
+                            error!("WsManager reconnection disabled. Will not reconnect and exiting reader task.");
+                            break;
                         }
                     }
                 }
