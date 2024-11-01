@@ -52,7 +52,9 @@ pub struct TradeInfo {
 }
 
 #[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct UserFillsData {
+    pub is_snapshot: Option<bool>,
     pub user: H160,
     pub fills: Vec<TradeInfo>,
 }
