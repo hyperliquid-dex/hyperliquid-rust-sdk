@@ -89,7 +89,7 @@ pub enum InfoRequest {
 pub struct InfoClient {
     pub http_client: HttpClient,
     pub(crate) ws_manager: Option<WsManager>,
-    reconnect : bool,
+    reconnect: bool,
 }
 
 impl InfoClient {
@@ -97,11 +97,18 @@ impl InfoClient {
         Self::new_internal(client, base_url, false).await
     }
 
-    pub async fn with_reconnect(client: Option<Client>, base_url: Option<BaseUrl>) -> Result<InfoClient> {
+    pub async fn with_reconnect(
+        client: Option<Client>,
+        base_url: Option<BaseUrl>,
+    ) -> Result<InfoClient> {
         Self::new_internal(client, base_url, true).await
     }
 
-    async fn new_internal(client: Option<Client>, base_url: Option<BaseUrl>, reconnect : bool) -> Result<InfoClient> {
+    async fn new_internal(
+        client: Option<Client>,
+        base_url: Option<BaseUrl>,
+        reconnect: bool,
+    ) -> Result<InfoClient> {
         let client = client.unwrap_or_default();
         let base_url = base_url.unwrap_or(BaseUrl::Mainnet).get_url();
 
@@ -118,8 +125,11 @@ impl InfoClient {
         sender_channel: UnboundedSender<Message>,
     ) -> Result<u32> {
         if self.ws_manager.is_none() {
-            let ws_manager =
-                WsManager::new(format!("ws{}/ws", &self.http_client.base_url[4..]), self.reconnect).await?;
+            let ws_manager = WsManager::new(
+                format!("ws{}/ws", &self.http_client.base_url[4..]),
+                self.reconnect,
+            )
+            .await?;
             self.ws_manager = Some(ws_manager);
         }
 
@@ -135,8 +145,11 @@ impl InfoClient {
 
     pub async fn unsubscribe(&mut self, subscription_id: u32) -> Result<()> {
         if self.ws_manager.is_none() {
-            let ws_manager =
-                WsManager::new(format!("ws{}/ws", &self.http_client.base_url[4..]), self.reconnect).await?;
+            let ws_manager = WsManager::new(
+                format!("ws{}/ws", &self.http_client.base_url[4..]),
+                self.reconnect,
+            )
+            .await?;
             self.ws_manager = Some(ws_manager);
         }
 
