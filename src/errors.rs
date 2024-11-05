@@ -1,15 +1,13 @@
-use reqwest::header::HeaderMap;
 use thiserror::Error;
 
 #[derive(Error, Debug, Clone)]
 pub enum Error {
     // TODO: turn some embedded types into errors instead of strings
-    #[error("Client error: status code: {status_code}, error code: {error_code:?}, error message: {error_message}, headers: {headers:?}, error data: {error_data:?}")]
+    #[error("Client error: status code: {status_code}, error code: {error_code:?}, error message: {error_message}, error data: {error_data:?}")]
     ClientRequest {
         status_code: u16,
         error_code: Option<u16>,
         error_message: String,
-        headers: HeaderMap,
         error_data: Option<String>,
     },
     #[error("Server error: status code: {status_code}, error message: {error_message}")]
