@@ -335,7 +335,7 @@ impl ExchangeClient {
             let all_mids = info_client.all_mids().await?;
             all_mids
                 .get(asset)
-                .ok_or( Error::AssetNotFound)?
+                .ok_or(Error::AssetNotFound)?
                 .parse::<f64>()
                 .map_err(|_| Error::FloatStringParse)?
         };
