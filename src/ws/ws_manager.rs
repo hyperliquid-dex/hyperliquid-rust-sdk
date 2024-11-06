@@ -4,10 +4,12 @@ use crate::{
     Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
 };
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
-use log::{error, warn};
+use log::{error, info, warn};
 use serde::{Deserialize, Serialize};
 use std::{
+    borrow::BorrowMut,
     collections::HashMap,
+    ops::DerefMut,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -32,6 +34,7 @@ use ethers::types::H160;
 struct SubscriptionData {
     sending_channel: UnboundedSender<Message>,
     subscription_id: u32,
+    id: String,
 }
 pub(crate) struct WsManager {
     stop_flag: Arc<AtomicBool>,
@@ -91,14 +94,10 @@ pub(crate) struct Ping {
 impl WsManager {
     const SEND_PING_INTERVAL: u64 = 50;
 
-    pub(crate) async fn new(url: String) -> Result<WsManager> {
+    pub(crate) async fn new(url: String, reconnect: bool) -> Result<WsManager> {
         let stop_flag = Arc::new(AtomicBool::new(false));
 
-        let (ws_stream, _) = connect_async(url.clone())
-            .await
-            .map_err(|e| Error::Websocket(e.to_string()))?;
-
-        let (writer, mut reader) = ws_stream.split();
+        let (writer, mut reader) = Self::connect(&url).await?.split();
         let writer = Arc::new(Mutex::new(writer));
 
         let subscriptions_map: HashMap<String, Vec<SubscriptionData>> = HashMap::new();
@@ -106,15 +105,68 @@ impl WsManager {
         let subscriptions_copy = Arc::clone(&subscriptions);
 
         {
+            let writer = writer.clone();
             let stop_flag = Arc::clone(&stop_flag);
             let reader_fut = async move {
-                // TODO: reconnect
                 while !stop_flag.load(Ordering::Relaxed) {
-                    let data = reader.next().await;
-                    if let Err(err) =
-                        WsManager::parse_and_send_data(data, &subscriptions_copy).await
-                    {
-                        error!("Error processing data received by WS manager reader: {err}");
+                    if let Some(data) = reader.next().await {
+                        if let Err(err) =
+                            WsManager::parse_and_send_data(data, &subscriptions_copy).await
+                        {
+                            error!("Error processing data received by WsManager reader: {err}");
+                        }
+                    } else {
+                        warn!("WsManager disconnected");
+                        if let Err(err) = WsManager::send_to_all_subscriptions(
+                            &subscriptions_copy,
+                            Message::NoData,
+                        )
+                        .await
+                        {
+                            warn!("Error sending disconnection notification err={err}");
+                        }
+                        if reconnect {
+                            // Always sleep for 1 second before attempting to reconnect so it does not spin during reconnecting. This could be enhanced with exponential backoff.
+                            tokio::time::sleep(Duration::from_secs(1)).await;
+                            info!("WsManager attempting to reconnect");
+                            match Self::connect(&url).await {
+                                Ok(ws) => {
+                                    let (new_writer, new_reader) = ws.split();
+                                    reader = new_reader;
+                                    let mut writer_guard = writer.lock().await;
+                                    *writer_guard = new_writer;
+                                    for (identifier, v) in subscriptions_copy.lock().await.iter() {
+                                        // TODO should these special keys be removed and instead use the simpler direct identifier mapping?
+                                        if identifier.eq("userEvents")
+                                            || identifier.eq("orderUpdates")
+                                        {
+                                            for subscription_data in v {
+                                                if let Err(err) = Self::subscribe(
+                                                    writer_guard.deref_mut(),
+                                                    &subscription_data.id,
+                                                )
+                                                .await
+                                                {
+                                                    error!(
+                                                        "Could not resubscribe {identifier}: {err}"
+                                                    );
+                                                }
+                                            }
+                                        } else if let Err(err) =
+                                            Self::subscribe(writer_guard.deref_mut(), identifier)
+                                                .await
+                                        {
+                                            error!("Could not resubscribe correctly {identifier}: {err}");
+                                        }
+                                    }
+                                    info!("WsManager reconnect finished");
+                                }
+                                Err(err) => error!("Could not connect to websocket {err}"),
+                            }
+                        } else {
+                            error!("WsManager reconnection disabled. Will not reconnect and exiting reader task.");
+                            break;
+                        }
                     }
                 }
                 warn!("ws message reader task stopped");
@@ -152,12 +204,22 @@ impl WsManager {
         })
     }
 
+    async fn connect(url: &str) -> Result<WebSocketStream<MaybeTlsStream<TcpStream>>> {
+        Ok(connect_async(url)
+            .await
+            .map_err(|e| Error::Websocket(e.to_string()))?
+            .0)
+    }
+
     fn get_identifier(message: &Message) -> Result<String> {
         match message {
             Message::AllMids(_) => serde_json::to_string(&Subscription::AllMids)
                 .map_err(|e| Error::JsonParse(e.to_string())),
             Message::User(_) => Ok("userEvents".to_string()),
-            Message::UserFills(_) => Ok("userFills".to_string()),
+            Message::UserFills(fills) => serde_json::to_string(&Subscription::UserFills {
+                user: fills.data.user,
+            })
+            .map_err(|e| Error::JsonParse(e.to_string())),
             Message::Trades(trades) => {
                 if trades.data.is_empty() {
                     Ok(String::default())
@@ -178,7 +240,10 @@ impl WsManager {
             })
             .map_err(|e| Error::JsonParse(e.to_string())),
             Message::OrderUpdates(_) => Ok("orderUpdates".to_string()),
-            Message::UserFundings(_) => Ok("userFundings".to_string()),
+            Message::UserFundings(fundings) => serde_json::to_string(&Subscription::UserFundings {
+                user: fundings.data.user,
+            })
+            .map_err(|e| Error::JsonParse(e.to_string())),
             Message::UserNonFundingLedgerUpdates(user_non_funding_ledger_updates) => {
                 serde_json::to_string(&Subscription::UserNonFundingLedgerUpdates {
                     user: user_non_funding_ledger_updates.data.user,
@@ -193,13 +258,9 @@ impl WsManager {
     }
 
     async fn parse_and_send_data(
-        data: Option<std::result::Result<protocol::Message, tungstenite::Error>>,
+        data: std::result::Result<protocol::Message, tungstenite::Error>,
         subscriptions: &Arc<Mutex<HashMap<String, Vec<SubscriptionData>>>>,
     ) -> Result<()> {
-        let Some(data) = data else {
-            return WsManager::send_to_all_subscriptions(subscriptions, Message::NoData).await;
-        };
-
         match data {
             Ok(data) => match data.into_text() {
                 Ok(data) => {
@@ -268,6 +329,39 @@ impl WsManager {
         res
     }
 
+    async fn send_subscription_data(
+        method: &'static str,
+        writer: &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>,
+        identifier: &str,
+    ) -> Result<()> {
+        let payload = serde_json::to_string(&SubscriptionSendData {
+            method,
+            subscription: &serde_json::from_str::<serde_json::Value>(identifier)
+                .map_err(|e| Error::JsonParse(e.to_string()))?,
+        })
+        .map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        writer
+            .send(protocol::Message::Text(payload))
+            .await
+            .map_err(|e| Error::Websocket(e.to_string()))?;
+        Ok(())
+    }
+
+    async fn subscribe(
+        writer: &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>,
+        identifier: &str,
+    ) -> Result<()> {
+        Self::send_subscription_data("subscribe", writer, identifier).await
+    }
+
+    async fn unsubscribe(
+        writer: &mut SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>,
+        identifier: &str,
+    ) -> Result<()> {
+        Self::send_subscription_data("unsubscribe", writer, identifier).await
+    }
+
     pub(crate) async fn add_subscription(
         &mut self,
         identifier: String,
@@ -297,18 +391,7 @@ impl WsManager {
         }
 
         if subscriptions.is_empty() {
-            let payload = serde_json::to_string(&SubscriptionSendData {
-                method: "subscribe",
-                subscription: &serde_json::from_str::<serde_json::Value>(&identifier)
-                    .map_err(|e| Error::JsonParse(e.to_string()))?,
-            })
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
-
-            let mut writer = self.writer.lock().await;
-            writer
-                .send(protocol::Message::Text(payload))
-                .await
-                .map_err(|e| Error::Websocket(e.to_string()))?;
+            Self::subscribe(self.writer.lock().await.borrow_mut(), identifier.as_str()).await?;
         }
 
         let subscription_id = self.subscription_id;
@@ -317,6 +400,7 @@ impl WsManager {
         subscriptions.push(SubscriptionData {
             sending_channel,
             subscription_id,
+            id: identifier,
         });
 
         self.subscription_id += 1;
@@ -358,18 +442,7 @@ impl WsManager {
         subscriptions.remove(index);
 
         if subscriptions.is_empty() {
-            let payload = serde_json::to_string(&SubscriptionSendData {
-                method: "unsubscribe",
-                subscription: &serde_json::from_str::<serde_json::Value>(&identifier)
-                    .map_err(|e| Error::JsonParse(e.to_string()))?,
-            })
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
-
-            let mut writer = self.writer.lock().await;
-            writer
-                .send(protocol::Message::Text(payload))
-                .await
-                .map_err(|e| Error::Websocket(e.to_string()))?;
+            Self::unsubscribe(self.writer.lock().await.borrow_mut(), identifier.as_str()).await?;
         }
         Ok(())
     }

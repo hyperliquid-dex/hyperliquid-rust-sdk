@@ -210,7 +210,7 @@ impl ExchangeClient {
         let vault_address = self
             .vault_address
             .or(vault_address)
-            .ok_or_else(|| Error::VaultAddressNotFound)?;
+            .ok_or(Error::VaultAddressNotFound)?;
         let wallet = wallet.unwrap_or(&self.wallet);
 
         let timestamp = next_nonce();
@@ -271,7 +271,7 @@ impl ExchangeClient {
             .asset_positions
             .iter()
             .find(|p| p.position.coin == params.asset)
-            .ok_or_else(|| Error::AssetNotFound)?;
+            .ok_or(Error::AssetNotFound)?;
 
         let szi = position
             .position
@@ -319,7 +319,7 @@ impl ExchangeClient {
             .universe
             .iter()
             .find(|a| a.name == asset)
-            .ok_or_else(|| Error::AssetNotFound)?;
+            .ok_or(Error::AssetNotFound)?;
 
         let sz_decimals = asset_meta.sz_decimals;
         let max_decimals: u32 = if self.coin_to_asset[asset] < 10000 {
@@ -335,7 +335,7 @@ impl ExchangeClient {
             let all_mids = info_client.all_mids().await?;
             all_mids
                 .get(asset)
-                .ok_or_else(|| Error::AssetNotFound)?
+                .ok_or(Error::AssetNotFound)?
                 .parse::<f64>()
                 .map_err(|_| Error::FloatStringParse)?
         };
