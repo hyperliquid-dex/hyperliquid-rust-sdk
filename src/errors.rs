@@ -61,4 +61,7 @@ pub enum Error {
     SignatureFailure(String),
     #[error("Vault address not found")]
     VaultAddressNotFound,
+
+    #[error("ExchangeResponseStatus Error: {0:?}")]
+    ExchangeResponseStatusError(String),
 }

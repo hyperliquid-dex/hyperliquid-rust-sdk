@@ -139,14 +139,19 @@ impl ExchangeClient {
             .map_err(|e| Error::JsonParse(e.to_string()))?;
         debug!("Sending request {res:?}");
 
-        serde_json::from_str(
+        let response: ExchangeResponseStatus = serde_json::from_str(
             &self
                 .http_client
                 .post("/exchange", res)
                 .await
                 .map_err(|e| Error::JsonParse(e.to_string()))?,
         )
-        .map_err(|e| Error::JsonParse(e.to_string()))
+        .map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        match response {
+            ExchangeResponseStatus::Err(s) => Err(Error::ExchangeResponseStatusError(s)),
+            val => Ok(val),
+        }
     }
 
     pub async fn usdc_transfer(
