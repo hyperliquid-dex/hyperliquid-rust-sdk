@@ -1,16 +1,15 @@
 #![deny(unreachable_pub)]
-mod consts;
-mod eip712;
-mod errors;
-mod exchange;
-mod helpers;
-mod info;
-mod market_maker;
-mod meta;
-mod prelude;
-mod req;
-mod signature;
-mod ws;
+pub mod consts;
+pub mod errors;
+pub mod exchange;
+pub mod helpers;
+pub mod info;
+pub mod market_maker;
+pub mod meta;
+pub mod prelude;
+pub mod req;
+pub mod signature;
+pub mod ws;
 pub use consts::{EPSILON, LOCAL_API_URL, MAINNET_API_URL, TESTNET_API_URL};
 pub use eip712::Eip712;
 pub use errors::Error;
