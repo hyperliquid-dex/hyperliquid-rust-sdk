@@ -12,6 +12,7 @@ use crate::{
 };
 
 use ethers::types::H160;
+use log::info;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -86,6 +87,7 @@ pub enum InfoRequest {
     },
 }
 
+#[derive(Clone)]
 pub struct InfoClient {
     pub http_client: HttpClient,
     pub(crate) ws_manager: Option<WsManager>,

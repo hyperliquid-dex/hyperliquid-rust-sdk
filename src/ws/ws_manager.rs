@@ -36,6 +36,8 @@ struct SubscriptionData {
     subscription_id: u32,
     id: String,
 }
+
+#[derive(Clone)]
 pub(crate) struct WsManager {
     stop_flag: Arc<AtomicBool>,
     writer: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>>>,
