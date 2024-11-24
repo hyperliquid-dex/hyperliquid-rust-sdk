@@ -108,7 +108,7 @@ pub struct Vip {
     pub ntl_cutoff: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct UserTokenBalance {
     pub coin: String,

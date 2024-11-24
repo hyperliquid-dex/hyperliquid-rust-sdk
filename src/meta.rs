@@ -52,6 +52,21 @@ pub enum SpotMetaAndAssetCtxs {
     Context(Vec<SpotAssetContext>),
 }
 
+impl SpotMetaAndAssetCtxs {
+    pub fn get_spot_meta(&self) -> &SpotMeta {
+        match self {
+            SpotMetaAndAssetCtxs::SpotMeta(meta) => meta,
+            _ => panic!("Not a spot meta"),
+        }
+    }
+    pub fn get_context(&self) -> &Vec<SpotAssetContext> {
+        match self {
+            SpotMetaAndAssetCtxs::Context(ctxs) => ctxs,
+            _ => panic!("Not a context"),
+        }
+    }
+}
+
 #[derive(Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum MetaAndAssetCtxs {
@@ -112,4 +127,5 @@ pub struct TokenInfo {
     pub index: usize,
     pub token_id: B128,
     pub is_canonical: bool,
+    pub full_name: Option<String>,
 }

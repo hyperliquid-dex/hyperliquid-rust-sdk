@@ -30,7 +30,7 @@ use crate::{
     VaultTransfer, Withdraw3,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExchangeClient {
     pub http_client: HttpClient,
     pub wallet: PrivateKeySigner,

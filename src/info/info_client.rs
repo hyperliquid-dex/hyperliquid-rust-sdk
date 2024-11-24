@@ -19,6 +19,13 @@ use crate::{
     UserFundingResponse, UserTokenBalanceResponse,
 };
 
+use ethers::types::H160;
+use log::info;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use tokio::sync::mpsc::UnboundedSender;
+
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CandleSnapshotRequest {
@@ -96,7 +103,7 @@ pub enum InfoRequest {
     },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct InfoClient {
     pub http_client: HttpClient,
     pub(crate) ws_manager: Option<WsManager>,
