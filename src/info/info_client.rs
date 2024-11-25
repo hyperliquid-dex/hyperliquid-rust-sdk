@@ -20,7 +20,6 @@ use crate::{
 };
 
 use ethers::types::H160;
-use log::info;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
