@@ -140,14 +140,10 @@ impl ExchangeClient {
             .map_err(|e| Error::JsonParse(e.to_string()))?;
         info!("Sending request {res:?}");
 
-        let output = &self
-            .http_client
-            .post("/exchange", res)
-            .await
-            .map_err(|e| {
-                info!("{e:#?}");
-                Error::JsonParse(e.to_string())
-            })?;
+        let output = &self.http_client.post("/exchange", res).await.map_err(|e| {
+            info!("{e:#?}");
+            Error::JsonParse(e.to_string())
+        })?;
         info!("{output:?}");
         serde_json::from_str(output).map_err(|e| Error::JsonParse(e.to_string()))
     }
