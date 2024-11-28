@@ -293,3 +293,10 @@ pub struct VaultTransfer {
 pub struct SetReferrer {
     pub code: String,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ApproveBuilderFee {
+    pub max_fee_rate: String,
+    pub builder: String,
+}

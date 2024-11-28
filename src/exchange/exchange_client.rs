@@ -2,8 +2,8 @@ use crate::signature::sign_typed_data;
 use crate::{
     exchange::{
         actions::{
-            ApproveAgent, BulkCancel, BulkModify, BulkOrder, SetReferrer, UpdateIsolatedMargin,
-            UpdateLeverage, UsdSend,
+            ApproveAgent, ApproveBuilderFee, BulkCancel, BulkModify, BulkOrder, SetReferrer,
+            UpdateIsolatedMargin, UpdateLeverage, UsdSend,
         },
         cancel::{CancelRequest, CancelRequestCloid},
         modify::{ClientModifyRequest, ModifyRequest},
@@ -23,7 +23,7 @@ use ethers::{
     signers::{LocalWallet, Signer},
     types::{Signature, H160, H256},
 };
-use log::debug;
+use log::{debug, info};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -66,6 +66,7 @@ pub enum Actions {
     VaultTransfer(VaultTransfer),
     SpotSend(SpotSend),
     SetReferrer(SetReferrer),
+    ApproveBuilderFee(ApproveBuilderFee),
 }
 
 impl Actions {
@@ -137,16 +138,18 @@ impl ExchangeClient {
         };
         let res = serde_json::to_string(&exchange_payload)
             .map_err(|e| Error::JsonParse(e.to_string()))?;
-        debug!("Sending request {res:?}");
+        info!("Sending request {res:?}");
 
-        serde_json::from_str(
-            &self
-                .http_client
-                .post("/exchange", res)
-                .await
-                .map_err(|e| Error::JsonParse(e.to_string()))?,
-        )
-        .map_err(|e| Error::JsonParse(e.to_string()))
+        let output = &self
+            .http_client
+            .post("/exchange", res)
+            .await
+            .map_err(|e| {
+                info!("{e:#?}");
+                Error::JsonParse(e.to_string())
+            })?;
+        info!("{output:?}");
+        serde_json::from_str(output).map_err(|e| Error::JsonParse(e.to_string()))
     }
 
     pub async fn usdc_transfer(
@@ -655,6 +658,29 @@ impl ExchangeClient {
 
         let action = Actions::SetReferrer(SetReferrer { code });
 
+        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        let is_mainnet = self.http_client.is_mainnet();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+        self.post(action, signature, timestamp).await
+    }
+
+    pub async fn approve_builder_fee(
+        &self,
+        builder: String,
+        max_fee_rate: String,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let timestamp = next_nonce();
+
+        let action = Actions::ApproveBuilderFee(ApproveBuilderFee {
+            builder,
+            max_fee_rate,
+        });
+
+        info!("{timestamp:?}");
         let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
