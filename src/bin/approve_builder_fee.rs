@@ -18,9 +18,8 @@ async fn main() {
     let max_fee_rate = "10";
     let builder = "0x1ab189B7801140900C711E458212F9c76F8dAC79";
 
-    info!("something");
-    let res = exchange_client
+    let resp = exchange_client
         .approve_builder_fee(builder.to_string(), max_fee_rate.to_string(), Some(&wallet))
         .await;
-    info!("Response from result: {res:#?}");
+    info!("resp: {resp:#?}");
 }
