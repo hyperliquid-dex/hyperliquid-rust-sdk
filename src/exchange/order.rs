@@ -47,16 +47,19 @@ pub struct OrderRequest {
     pub cloid: Option<String>,
 }
 
+#[derive(Debug)]
 pub struct ClientLimit {
     pub tif: String,
 }
 
+#[derive(Debug)]
 pub struct ClientTrigger {
     pub is_market: bool,
     pub trigger_px: f64,
     pub tpsl: String,
 }
 
+#[derive(Debug)]
 pub struct MarketOrderParams<'a> {
     pub asset: &'a str,
     pub is_buy: bool,
@@ -67,6 +70,7 @@ pub struct MarketOrderParams<'a> {
     pub wallet: Option<&'a LocalWallet>,
 }
 
+#[derive(Debug)]
 pub struct MarketCloseParams<'a> {
     pub asset: &'a str,
     pub sz: Option<f64>,
@@ -76,10 +80,13 @@ pub struct MarketCloseParams<'a> {
     pub wallet: Option<&'a LocalWallet>,
 }
 
+#[derive(Debug)]
 pub enum ClientOrder {
     Limit(ClientLimit),
     Trigger(ClientTrigger),
 }
+
+#[derive(Debug)]
 pub struct ClientOrderRequest {
     pub asset: String,
     pub is_buy: bool,
