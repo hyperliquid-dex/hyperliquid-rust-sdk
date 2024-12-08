@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
+#[derive(Debug)]
 pub struct ClientCancelRequest {
     pub asset: String,
     pub oid: u64,
@@ -14,6 +15,7 @@ pub struct CancelRequest {
     pub oid: u64,
 }
 
+#[derive(Debug)]
 pub struct ClientCancelRequestCloid {
     pub asset: String,
     pub cloid: Uuid,
