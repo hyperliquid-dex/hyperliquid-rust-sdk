@@ -741,7 +741,6 @@ impl ExchangeClient {
             max_fee_rate,
         });
 
-        info!("{timestamp:?}");
         let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
