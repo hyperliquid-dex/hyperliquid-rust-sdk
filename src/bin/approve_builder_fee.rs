@@ -1,5 +1,6 @@
 use ethers::signers::LocalWallet;
 use hyperliquid_rust_sdk::{BaseUrl, ExchangeClient};
+use log::info;
 
 #[tokio::main]
 async fn main() {
@@ -14,7 +15,7 @@ async fn main() {
             .await
             .unwrap();
 
-    let max_fee_rate = "10";
+    let max_fee_rate = "0.001%";
     let builder = "0x1ab189B7801140900C711E458212F9c76F8dAC79";
 
     let resp = exchange_client
