@@ -30,7 +30,7 @@ use std::collections::HashMap;
 
 use super::cancel::ClientCancelRequestCloid;
 use super::order::{MarketCloseParams, MarketOrderParams};
-use super::{ClientLimit, ClientOrder};
+use super::{BuilderInfo, BulkOrderWithBuilder, ClientLimit, ClientOrder};
 
 pub struct ExchangeClient {
     pub http_client: HttpClient,
@@ -57,6 +57,8 @@ pub enum Actions {
     UpdateLeverage(UpdateLeverage),
     UpdateIsolatedMargin(UpdateIsolatedMargin),
     Order(BulkOrder),
+    #[serde(rename = "order")]
+    OrderWithBuilder(BulkOrderWithBuilder),
     Cancel(BulkCancel),
     CancelByCloid(BulkCancelCloid),
     BatchModify(BulkModify),
@@ -251,6 +253,31 @@ impl ExchangeClient {
         self.order(order, params.wallet).await
     }
 
+    pub async fn market_open_with_builder(
+        &self,
+        params: MarketOrderParams<'_>,
+        builder: BuilderInfo,
+    ) -> Result<ExchangeResponseStatus> {
+        let slippage = params.slippage.unwrap_or(0.05); // Default 5% slippage
+        let (px, sz_decimals) = self
+            .calculate_slippage_price(params.asset, params.is_buy, slippage, params.px)
+            .await?;
+
+        let order = ClientOrderRequest {
+            asset: params.asset.to_string(),
+            is_buy: params.is_buy,
+            reduce_only: false,
+            limit_px: px,
+            sz: round_to_decimals(params.sz, sz_decimals),
+            cloid: params.cloid,
+            order_type: ClientOrder::Limit(ClientLimit {
+                tif: "Ioc".to_string(),
+            }),
+        };
+
+        self.order_with_builder(order, params.wallet, builder).await
+    }
+
     pub async fn market_close(
         &self,
         params: MarketCloseParams<'_>,
@@ -362,6 +389,16 @@ impl ExchangeClient {
         self.bulk_order(vec![order], wallet).await
     }
 
+    pub async fn order_with_builder(
+        &self,
+        order: ClientOrderRequest,
+        wallet: Option<&LocalWallet>,
+        builder: BuilderInfo,
+    ) -> Result<ExchangeResponseStatus> {
+        self.bulk_order_with_builder(vec![order], wallet, builder)
+            .await
+    }
+
     pub async fn bulk_order(
         &self,
         orders: Vec<ClientOrderRequest>,
@@ -379,6 +416,34 @@ impl ExchangeClient {
         let action = Actions::Order(BulkOrder {
             orders: transformed_orders,
             grouping: "na".to_string(),
+        });
+        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        let is_mainnet = self.http_client.is_mainnet();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+        self.post(action, signature, timestamp).await
+    }
+
+    pub async fn bulk_order_with_builder(
+        &self,
+        orders: Vec<ClientOrderRequest>,
+        wallet: Option<&LocalWallet>,
+        builder: BuilderInfo,
+    ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let timestamp = next_nonce();
+
+        let mut transformed_orders = Vec::new();
+
+        for order in orders {
+            transformed_orders.push(order.convert(&self.coin_to_asset)?);
+        }
+
+        let action = Actions::OrderWithBuilder(BulkOrderWithBuilder {
+            orders: transformed_orders,
+            grouping: "na".to_string(),
+            builder,
         });
         let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
