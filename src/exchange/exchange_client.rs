@@ -23,7 +23,7 @@ use ethers::{
     signers::{LocalWallet, Signer},
     types::{Signature, H160, H256},
 };
-use log::{debug, info};
+use log::debug;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -142,9 +142,11 @@ impl ExchangeClient {
             .map_err(|e| Error::JsonParse(e.to_string()))?;
         debug!("Sending request {res:?}");
 
-        let output = &self.http_client.post("/exchange", res).await.map_err(|e| {
-            Error::JsonParse(e.to_string())
-        })?;
+        let output = &self
+            .http_client
+            .post("/exchange", res)
+            .await
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
         serde_json::from_str(output).map_err(|e| Error::JsonParse(e.to_string()))
     }
 
