@@ -143,7 +143,6 @@ impl ExchangeClient {
         debug!("Sending request {res:?}");
 
         let output = &self.http_client.post("/exchange", res).await.map_err(|e| {
-            info!("{e:#?}");
             Error::JsonParse(e.to_string())
         })?;
         serde_json::from_str(output).map_err(|e| Error::JsonParse(e.to_string()))
@@ -735,9 +734,19 @@ impl ExchangeClient {
         let wallet = wallet.unwrap_or(&self.wallet);
         let timestamp = next_nonce();
 
+        let hyperliquid_chain = if self.http_client.is_mainnet() {
+            "Mainnet".to_string()
+        } else {
+            "Testnet".to_string()
+        };
+
+        let nonce = next_nonce();
         let action = Actions::ApproveBuilderFee(ApproveBuilderFee {
+            signature_chain_id: 421614.into(),
+            hyperliquid_chain,
             builder,
             max_fee_rate,
+            nonce,
         });
 
         let connection_id = action.hash(timestamp, self.vault_address)?;

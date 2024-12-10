@@ -307,4 +307,7 @@ pub struct SetReferrer {
 pub struct ApproveBuilderFee {
     pub max_fee_rate: String,
     pub builder: String,
+    pub nonce: u64,
+    pub signature_chain_id: U256,
+    pub hyperliquid_chain: String,
 }
