@@ -742,13 +742,12 @@ impl ExchangeClient {
             "Testnet".to_string()
         };
 
-        let nonce = next_nonce();
         let action = Actions::ApproveBuilderFee(ApproveBuilderFee {
             signature_chain_id: 421614.into(),
             hyperliquid_chain,
             builder,
             max_fee_rate,
-            nonce,
+            nonce: timestamp,
         });
 
         let connection_id = action.hash(timestamp, self.vault_address)?;
