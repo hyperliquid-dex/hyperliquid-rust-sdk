@@ -57,7 +57,7 @@ pub enum Actions {
     UpdateLeverage(UpdateLeverage),
     UpdateIsolatedMargin(UpdateIsolatedMargin),
     Order(BulkOrder),
-    #[serde(rename = "order")]
+    #[serde(rename(serialize = "order"))]
     OrderWithBuilder(BulkOrderWithBuilder),
     Cancel(BulkCancel),
     CancelByCloid(BulkCancelCloid),
