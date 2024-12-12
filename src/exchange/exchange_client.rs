@@ -429,10 +429,12 @@ impl ExchangeClient {
         &self,
         orders: Vec<ClientOrderRequest>,
         wallet: Option<&LocalWallet>,
-        builder: BuilderInfo,
+        mut builder: BuilderInfo,
     ) -> Result<ExchangeResponseStatus> {
         let wallet = wallet.unwrap_or(&self.wallet);
         let timestamp = next_nonce();
+
+        builder.builder = builder.builder.to_lowercase();
 
         let mut transformed_orders = Vec::new();
 

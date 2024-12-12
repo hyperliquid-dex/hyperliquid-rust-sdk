@@ -30,7 +30,7 @@ async fn main() {
         wallet: None,
     };
 
-    let fee = 10.0f64;
+    let fee = 1;
     let builder = "0x1ab189B7801140900C711E458212F9c76F8dAC79";
 
     let response = exchange_client

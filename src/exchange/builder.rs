@@ -6,5 +6,5 @@ pub struct BuilderInfo {
     #[serde(rename = "b")]
     pub builder: String,
     #[serde(rename = "f")]
-    pub fee: f64,
+    pub fee: u64,
 }
