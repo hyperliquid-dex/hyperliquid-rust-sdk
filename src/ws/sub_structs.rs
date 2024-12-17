@@ -273,3 +273,9 @@ pub struct SpotGenesis {
 pub struct NotificationData {
     pub notification: String,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct WebData2Data {
+    pub user: H160,
+}
