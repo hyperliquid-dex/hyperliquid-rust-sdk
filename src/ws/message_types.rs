@@ -50,3 +50,8 @@ pub struct UserNonFundingLedgerUpdates {
 pub struct Notification {
     pub data: NotificationData,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct WebData2 {
+    pub data: WebData2Data,
+}

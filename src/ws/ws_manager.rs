@@ -1,7 +1,7 @@
 use crate::{
     prelude::*,
     ws::message_types::{AllMids, Candle, L2Book, OrderUpdates, Trades, User},
-    Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
+    Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates, WebData2,
 };
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
 use log::{error, info, warn};
@@ -59,6 +59,7 @@ pub enum Subscription {
     UserFundings { user: H160 },
     UserNonFundingLedgerUpdates { user: H160 },
     Notification { user: H160 },
+    WebData2 { user: H160 },
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -78,6 +79,7 @@ pub enum Message {
     UserFundings(UserFundings),
     UserNonFundingLedgerUpdates(UserNonFundingLedgerUpdates),
     Notification(Notification),
+    WebData2(WebData2),
     Pong,
 }
 
@@ -252,6 +254,10 @@ impl WsManager {
                 .map_err(|e| Error::JsonParse(e.to_string()))
             }
             Message::Notification(_) => Ok("notification".to_string()),
+            Message::WebData2(web_data2) => serde_json::to_string(&Subscription::WebData2 {
+                user: web_data2.data.user,
+            })
+            .map_err(|e| Error::JsonParse(e.to_string())),
             Message::SubscriptionResponse | Message::Pong => Ok(String::default()),
             Message::NoData => Ok("".to_string()),
             Message::HyperliquidError(err) => Ok(format!("hyperliquid error: {err:?}")),
