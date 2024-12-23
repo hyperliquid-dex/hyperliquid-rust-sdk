@@ -55,3 +55,9 @@ pub struct Notification {
 pub struct WebData2 {
     pub data: WebData2Data,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveAssetCtx {
+    pub data: ActiveAssetCtxData,
+}
