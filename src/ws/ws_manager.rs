@@ -35,6 +35,8 @@ use crate::{
     WebData2,
 };
 
+use super::{ActiveAssetCtx, ActiveAssetCtxData};
+
 #[derive(Debug)]
 struct SubscriptionData {
     sending_channel: UnboundedSender<Message>,
@@ -297,6 +299,18 @@ impl WsManager {
             Message::SubscriptionResponse | Message::Pong => Ok(String::default()),
             Message::NoData => Ok("".to_string()),
             Message::HyperliquidError(err) => Ok(format!("hyperliquid error: {err:?}")),
+            Message::ActiveAssetCtx(active_asset_ctx) => {
+                let coin = match &active_asset_ctx.data {
+                    ActiveAssetCtxData::WsActiveAssetCtx(active_asset_ctx) => {
+                        active_asset_ctx.coin.clone()
+                    }
+                    ActiveAssetCtxData::WsActiveSpotAssetCtx(active_asset_ctx) => {
+                        active_asset_ctx.coin.clone()
+                    }
+                };
+                serde_json::to_string(&Subscription::ActiveAssetCtx { coin })
+                    .map_err(|e| Error::JsonParse(e.to_string()))
+            }
         }
     }
 

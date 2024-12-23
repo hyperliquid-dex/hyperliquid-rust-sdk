@@ -58,6 +58,7 @@ pub struct WebData2 {
 }
 
 #[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct ActiveAssetCtx {
     pub data: ActiveAssetCtxData,
 }
