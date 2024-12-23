@@ -18,6 +18,7 @@ pub struct MarketMakerRestingOrder {
     pub price: f64,
 }
 
+#[derive(Debug)]
 pub struct MarketMakerInput {
     pub asset: String,
     pub target_liquidity: f64, // Amount of liquidity on both sides to target
@@ -28,6 +29,7 @@ pub struct MarketMakerInput {
     pub wallet: LocalWallet, // Wallet containing private key
 }
 
+#[derive(Debug)]
 pub struct MarketMaker {
     pub asset: String,
     pub target_liquidity: f64,

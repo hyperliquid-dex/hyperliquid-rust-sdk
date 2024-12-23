@@ -59,6 +59,7 @@ pub struct ClientTrigger {
     pub tpsl: String,
 }
 
+#[derive(Debug)]
 pub struct MarketOrderParams<'a> {
     pub asset: &'a str,
     pub is_buy: bool,
@@ -69,6 +70,7 @@ pub struct MarketOrderParams<'a> {
     pub wallet: Option<&'a LocalWallet>,
 }
 
+#[derive(Debug)]
 pub struct MarketCloseParams<'a> {
     pub asset: &'a str,
     pub sz: Option<f64>,
