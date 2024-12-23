@@ -35,7 +35,7 @@ use crate::{
     WebData2,
 };
 
-use super::ActiveAssetCtx;
+use super::{ActiveAssetCtx, SubscriptionError};
 
 #[derive(Debug)]
 struct SubscriptionData {
@@ -95,6 +95,7 @@ pub enum Message {
     ActiveAssetData(ActiveAssetData),
     ActiveSpotAssetCtx(ActiveSpotAssetCtx),
     Bbo(Bbo),
+    Error(SubscriptionError),
     Pong,
 }
 
@@ -305,6 +306,15 @@ impl WsManager {
                 })
                 .map_err(|e| Error::JsonParse(e.to_string()))
             }
+            Message::Error(err) => {
+                let error_str = err.data.to_string();
+                let identifier = error_str
+                    .split("Invalid subscription ")
+                    .nth(1)
+                    .unwrap_or("Invalid subscription")
+                    .to_string();
+                Ok(identifier)
+            }
         }
     }
 
@@ -318,8 +328,10 @@ impl WsManager {
                     if !data.starts_with('{') {
                         return Ok(());
                     }
+
                     let message = serde_json::from_str::<Message>(&data)
                         .map_err(|e| Error::JsonParse(e.to_string()))?;
+
                     let identifier = WsManager::get_identifier(&message)?;
                     if identifier.is_empty() {
                         return Ok(());
@@ -420,15 +432,11 @@ impl WsManager {
     ) -> Result<u32> {
         let mut subscriptions = self.subscriptions.lock().await;
 
-        let identifier_entry = if let Subscription::UserEvents { user: _ } =
-            serde_json::from_str::<Subscription>(&identifier)
-                .map_err(|e| Error::JsonParse(e.to_string()))?
-        {
+        let subscription = serde_json::from_str::<Subscription>(&identifier)
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
+        let identifier_entry = if let Subscription::UserEvents { user: _ } = subscription {
             "userEvents".to_string()
-        } else if let Subscription::OrderUpdates { user: _ } =
-            serde_json::from_str::<Subscription>(&identifier)
-                .map_err(|e| Error::JsonParse(e.to_string()))?
-        {
+        } else if let Subscription::OrderUpdates { user: _ } = subscription {
             "orderUpdates".to_string()
         } else {
             identifier.clone()

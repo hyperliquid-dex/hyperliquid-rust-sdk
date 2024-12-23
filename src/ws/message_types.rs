@@ -3,6 +3,11 @@ use serde::Deserialize;
 use crate::ws::sub_structs::*;
 
 #[derive(Deserialize, Clone, Debug)]
+pub struct SubscriptionError {
+    pub data: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
 pub struct Trades {
     pub data: Vec<Trade>,
 }
