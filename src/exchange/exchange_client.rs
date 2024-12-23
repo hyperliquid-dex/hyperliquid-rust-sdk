@@ -806,6 +806,7 @@ mod tests {
                 cloid: None,
             }],
             grouping: "na".to_string(),
+            builder: None,
         });
         let connection_id = action.hash(1583838, None)?;
 
@@ -836,6 +837,7 @@ mod tests {
                 cloid: Some(uuid_to_hex_string(cloid.unwrap())),
             }],
             grouping: "na".to_string(),
+            builder: None,
         });
         let connection_id = action.hash(1583838, None)?;
 
@@ -880,6 +882,7 @@ mod tests {
                     }
                 ],
                 grouping: "na".to_string(),
+                builder: None,
             });
             let connection_id = action.hash(1583838, None)?;
 
