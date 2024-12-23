@@ -99,14 +99,8 @@ pub struct UpdateIsolatedMargin {
 pub struct BulkOrder {
     pub orders: Vec<OrderRequest>,
     pub grouping: String,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct BulkOrderWithBuilder {
-    pub orders: Vec<OrderRequest>,
-    pub grouping: String,
-    pub builder: BuilderInfo,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub builder: Option<BuilderInfo>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

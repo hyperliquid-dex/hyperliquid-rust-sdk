@@ -30,7 +30,7 @@ use std::collections::HashMap;
 
 use super::cancel::ClientCancelRequestCloid;
 use super::order::{MarketCloseParams, MarketOrderParams};
-use super::{BuilderInfo, BulkOrderWithBuilder, ClientLimit, ClientOrder};
+use super::{BuilderInfo, ClientLimit, ClientOrder};
 
 pub struct ExchangeClient {
     pub http_client: HttpClient,
@@ -57,8 +57,6 @@ pub enum Actions {
     UpdateLeverage(UpdateLeverage),
     UpdateIsolatedMargin(UpdateIsolatedMargin),
     Order(BulkOrder),
-    #[serde(rename(serialize = "order"))]
-    OrderWithBuilder(BulkOrderWithBuilder),
     Cancel(BulkCancel),
     CancelByCloid(BulkCancelCloid),
     BatchModify(BulkModify),
@@ -416,6 +414,7 @@ impl ExchangeClient {
         let action = Actions::Order(BulkOrder {
             orders: transformed_orders,
             grouping: "na".to_string(),
+            builder: None,
         });
         let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
@@ -442,10 +441,10 @@ impl ExchangeClient {
             transformed_orders.push(order.convert(&self.coin_to_asset)?);
         }
 
-        let action = Actions::OrderWithBuilder(BulkOrderWithBuilder {
+        let action = Actions::Order(BulkOrder {
             orders: transformed_orders,
             grouping: "na".to_string(),
-            builder,
+            builder: Some(builder),
         });
         let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
