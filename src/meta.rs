@@ -1,14 +1,15 @@
 use std::collections::HashMap;
 
 use alloy::primitives::B128;
-use serde::Deserialize;
+use ethers::abi::ethereum_types::H128;
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct Meta {
     pub universe: Vec<AssetMeta>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Serialize)]
 pub struct SpotMeta {
     pub universe: Vec<SpotAssetMeta>,
     pub tokens: Vec<TokenInfo>,
@@ -74,7 +75,7 @@ pub enum MetaAndAssetCtxs {
     Context(Vec<AssetContext>),
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpotAssetContext {
     pub day_ntl_vlm: String,
@@ -109,7 +110,7 @@ pub struct AssetMeta {
     pub only_isolated: Option<bool>,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpotAssetMeta {
     pub tokens: [usize; 2],
@@ -118,7 +119,7 @@ pub struct SpotAssetMeta {
     pub is_canonical: bool,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Deserialize, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TokenInfo {
     pub name: String,
