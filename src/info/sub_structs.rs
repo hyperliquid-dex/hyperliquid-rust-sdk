@@ -98,7 +98,7 @@ pub struct Vip {
     pub ntl_cutoff: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct UserTokenBalance {
     pub coin: String,
     pub hold: String,

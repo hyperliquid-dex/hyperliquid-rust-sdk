@@ -279,3 +279,25 @@ pub struct NotificationData {
 pub struct WebData2Data {
     pub user: H160,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveAssetCtxData {
+    pub coin: String,
+    pub ctx: AssetCtx,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct AssetCtx {
+    pub funding: String,
+    pub open_interest: String,
+    pub prev_day_px: String,
+    pub day_ntl_vlm: String,
+    pub premium: String,
+    pub oracle_px: String,
+    pub mark_px: String,
+    pub mid_px: String,
+    pub impact_pxs: Vec<String>,
+    pub day_base_vlm: String,
+}

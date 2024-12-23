@@ -2,6 +2,11 @@ use crate::ws::sub_structs::*;
 use serde::Deserialize;
 
 #[derive(Deserialize, Clone, Debug)]
+pub struct SubscriptionError {
+    pub data: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
 pub struct Trades {
     pub data: Vec<Trade>,
 }
@@ -54,4 +59,10 @@ pub struct Notification {
 #[derive(Deserialize, Clone, Debug)]
 pub struct WebData2 {
     pub data: WebData2Data,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveAssetCtx {
+    pub data: ActiveAssetCtxData,
 }
