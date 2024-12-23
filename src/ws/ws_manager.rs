@@ -61,6 +61,7 @@ pub enum Subscription {
     UserNonFundingLedgerUpdates { user: H160 },
     Notification { user: H160 },
     WebData2 { user: H160 },
+    ActiveAssetCtx { coin: String },
 }
 
 #[derive(Deserialize, Clone, Debug)]
