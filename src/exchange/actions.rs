@@ -12,7 +12,7 @@ pub(crate) use ethers::{
 };
 use serde::{Deserialize, Serialize};
 
-use super::cancel::CancelRequestCloid;
+use super::{cancel::CancelRequestCloid, BuilderInfo};
 
 pub(crate) const HYPERLIQUID_EIP_PREFIX: &str = "HyperliquidTransaction:";
 
@@ -99,6 +99,8 @@ pub struct UpdateIsolatedMargin {
 pub struct BulkOrder {
     pub orders: Vec<OrderRequest>,
     pub grouping: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub builder: Option<BuilderInfo>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -292,4 +294,14 @@ pub struct VaultTransfer {
 #[serde(rename_all = "camelCase")]
 pub struct SetReferrer {
     pub code: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ApproveBuilderFee {
+    pub max_fee_rate: String,
+    pub builder: String,
+    pub nonce: u64,
+    pub signature_chain_id: U256,
+    pub hyperliquid_chain: String,
 }
