@@ -354,52 +354,22 @@ pub struct BboData {
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub enum ActiveAssetCtxData {
-    WsActiveAssetCtx(WsActiveAssetCtx),
-    WsActiveSpotAssetCtx(WsActiveSpotAssetCtx),
-}
-
-#[derive(Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct WsActiveAssetCtx {
+pub struct ActiveAssetCtxData {
     pub coin: String,
-    pub ctx: PerpsAssetCtx,
+    pub ctx: AssetCtx,
 }
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct WsActiveSpotAssetCtx {
-    pub coin: String,
-    pub ctx: SpotAssetCtx,
-}
-
-#[derive(Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct SharedAssetCtx {
-    pub day_ntl_vlm: u64,
-    pub prev_day_px: u64,
-    pub mark_px: u64,
-    pub mid_px: Option<u64>,
-}
-
-#[derive(Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct PerpsAssetCtx {
-    pub day_ntl_vlm: u64,
-    pub prev_day_px: u64,
-    pub mark_px: u64,
-    pub mid_px: Option<u64>,
-    pub funding: u64,
-    pub open_interest: u64,
-    pub oracle_px: u64,
-}
-
-#[derive(Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct SpotAssetCtx {
-    pub day_ntl_vlm: u64,
-    pub prev_day_px: u64,
-    pub mark_px: u64,
-    pub mid_px: Option<u64>,
-    pub circulating_supply: u64,
+pub struct AssetCtx {
+    pub funding: String,
+    pub open_interest: String,
+    pub prev_day_px: String,
+    pub day_ntl_vlm: String,
+    pub premium: String,
+    pub oracle_px: String,
+    pub mark_px: String,
+    pub mid_px: String,
+    pub impact_pxs: Vec<String>,
+    pub day_base_vlm: String,
 }

@@ -35,7 +35,7 @@ use crate::{
     WebData2,
 };
 
-use super::{ActiveAssetCtx, ActiveAssetCtxData};
+use super::ActiveAssetCtx;
 
 #[derive(Debug)]
 struct SubscriptionData {
@@ -300,16 +300,10 @@ impl WsManager {
             Message::NoData => Ok("".to_string()),
             Message::HyperliquidError(err) => Ok(format!("hyperliquid error: {err:?}")),
             Message::ActiveAssetCtx(active_asset_ctx) => {
-                let coin = match &active_asset_ctx.data {
-                    ActiveAssetCtxData::WsActiveAssetCtx(active_asset_ctx) => {
-                        active_asset_ctx.coin.clone()
-                    }
-                    ActiveAssetCtxData::WsActiveSpotAssetCtx(active_asset_ctx) => {
-                        active_asset_ctx.coin.clone()
-                    }
-                };
-                serde_json::to_string(&Subscription::ActiveAssetCtx { coin })
-                    .map_err(|e| Error::JsonParse(e.to_string()))
+                serde_json::to_string(&Subscription::ActiveAssetCtx {
+                    coin: active_asset_ctx.data.coin.clone(),
+                })
+                .map_err(|e| Error::JsonParse(e.to_string()))
             }
         }
     }
