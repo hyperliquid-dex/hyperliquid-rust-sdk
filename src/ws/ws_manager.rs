@@ -30,7 +30,7 @@ use tokio_tungstenite::{
 
 use ethers::types::H160;
 
-use super::{ActiveAssetCtx, SubscriptionError};
+use super::{ActiveAssetCtx, SpotAssetCtx, SubscriptionError};
 
 #[derive(Debug)]
 struct SubscriptionData {
@@ -85,6 +85,7 @@ pub enum Message {
     Notification(Notification),
     WebData2(WebData2),
     ActiveAssetCtx(ActiveAssetCtx),
+    ActiveSpotAssetCtx(SpotAssetCtx),
     Error(SubscriptionError),
     Pong,
 }
@@ -270,6 +271,12 @@ impl WsManager {
             Message::ActiveAssetCtx(active_asset_ctx) => {
                 serde_json::to_string(&Subscription::ActiveAssetCtx {
                     coin: active_asset_ctx.data.coin.clone(),
+                })
+                .map_err(|e| Error::JsonParse(e.to_string()))
+            }
+            Message::ActiveSpotAssetCtx(active_spot_asset_ctx) => {
+                serde_json::to_string(&Subscription::ActiveAssetCtx {
+                    coin: active_spot_asset_ctx.data.coin.clone(),
                 })
                 .map_err(|e| Error::JsonParse(e.to_string()))
             }

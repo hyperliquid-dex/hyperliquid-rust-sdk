@@ -99,10 +99,13 @@ pub struct Vip {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct UserTokenBalance {
     pub coin: String,
     pub hold: String,
     pub total: String,
+    pub token: u32,
+    pub entry_ntl: String,
 }
 
 #[derive(Deserialize, Clone, Debug)]
