@@ -18,13 +18,9 @@ This project is licensed under the terms of the `MIT` license. See [LICENSE](LIC
 @misc{hyperliquid-rust-sdk,
   author = {Hyperliquid},
   title = {SDK for Hyperliquid API trading with Rust.},
-  year = {2023},
+  year = {2024},
   publisher = {GitHub},
   journal = {GitHub repository},
   howpublished = {\url{https://github.com/hyperliquid-dex/hyperliquid-rust-sdk}}
 }
 ```
-
-## Terms
-
-By using this package you agree to the Terms of Use. See [TERMS](TERMS.md) for more details.
