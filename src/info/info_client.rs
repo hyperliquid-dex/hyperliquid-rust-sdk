@@ -1,7 +1,7 @@
 use crate::{
     info::{
         CandlesSnapshotResponse, FundingHistoryResponse, L2SnapshotResponse, OpenOrdersResponse,
-        RecentTradesResponse, UserFillsResponse, UserStateResponse,
+        OrderInfo, RecentTradesResponse, UserFillsResponse, UserStateResponse,
     },
     meta::{Meta, SpotMeta, SpotMetaAndAssetCtxs},
     prelude::*,
@@ -82,6 +82,9 @@ pub enum InfoRequest {
         req: CandleSnapshotRequest,
     },
     Referral {
+        user: H160,
+    },
+    HistoricalOrders {
         user: H160,
     },
 }
@@ -285,6 +288,11 @@ impl InfoClient {
 
     pub async fn query_referral_state(&self, address: H160) -> Result<ReferralResponse> {
         let input = InfoRequest::Referral { user: address };
+        self.send_info_request(input).await
+    }
+
+    pub async fn historical_orders(&self, address: H160) -> Result<Vec<OrderInfo>> {
+        let input = InfoRequest::HistoricalOrders { user: address };
         self.send_info_request(input).await
     }
 }

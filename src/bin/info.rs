@@ -25,6 +25,7 @@ async fn main() {
     spot_meta_and_asset_contexts_example(&info_client).await;
     query_order_by_oid_example(&info_client).await;
     query_referral_state_example(&info_client).await;
+    historical_orders_example(&info_client).await;
 }
 
 fn address() -> H160 {
@@ -172,5 +173,13 @@ async fn query_referral_state_example(info_client: &InfoClient) {
     info!(
         "Referral state for {user}: {:?}",
         info_client.query_referral_state(user).await.unwrap()
+    );
+}
+
+async fn historical_orders_example(info_client: &InfoClient) {
+    let user = address();
+    info!(
+        "Historical orders for {user}: {:?}",
+        info_client.historical_orders(user).await.unwrap()
     );
 }
