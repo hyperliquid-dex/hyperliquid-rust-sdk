@@ -61,4 +61,6 @@ pub enum Error {
     SignatureFailure(String),
     #[error("Vault address not found")]
     VaultAddressNotFound,
+    #[error("Subscription error: {0:?}")]
+    SubscriptionError(String),
 }

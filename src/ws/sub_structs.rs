@@ -279,3 +279,48 @@ pub struct NotificationData {
 pub struct WebData2Data {
     pub user: H160,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveAssetCtxData {
+    pub coin: String,
+    pub ctx: ActiveAssetCtxEnum,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(untagged)]
+pub enum ActiveAssetCtxEnum {
+    Perps(PerpsAssetCtx),
+    Spot(SpotAssetCtx),
+}
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct PerpsAssetCtx {
+    pub day_ntl_vlm: u64,
+    pub prev_day_px: u64,
+    pub mark_px: u64,
+    pub mid_px: Option<u64>,
+    pub funding: u64,
+    pub open_interest: u64,
+    pub oracle_px: u64,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SpotAssetDetails {
+    #[serde(rename = "prevDayPx")]
+    pub prev_day_px: String, // Ensure this matches the JSON field exactly
+    pub day_ntl_vlm: String,
+    pub mark_px: String,
+    pub mid_px: String,
+    pub circulating_supply: String,
+    pub coin: String,
+    pub total_supply: String,
+    pub day_base_vlm: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct SpotAssetCtx {
+    pub coin: String,
+    pub data: SpotAssetDetails,
+}

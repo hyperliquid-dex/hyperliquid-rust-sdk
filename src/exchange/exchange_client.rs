@@ -32,7 +32,7 @@ use super::cancel::ClientCancelRequestCloid;
 use super::order::{MarketCloseParams, MarketOrderParams};
 use super::{BuilderInfo, ClientLimit, ClientOrder};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExchangeClient {
     pub http_client: HttpClient,
     pub wallet: LocalWallet,
