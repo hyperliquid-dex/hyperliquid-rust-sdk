@@ -1,5 +1,5 @@
 use ethers::types::H160;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Deserialize, Clone, Debug)]
@@ -287,7 +287,7 @@ pub struct ActiveAssetCtxData {
     pub ctx: AssetCtx,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 #[serde(untagged)]
 pub enum AssetCtx {
@@ -295,7 +295,7 @@ pub enum AssetCtx {
     Spot(SpotAssetCtx),
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SharedAssetCtx {
     pub day_ntl_vlm: String,
@@ -304,7 +304,7 @@ pub struct SharedAssetCtx {
     pub mid_px: Option<String>,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PerpsAssetCtx {
     #[serde(flatten)]
@@ -314,7 +314,7 @@ pub struct PerpsAssetCtx {
     pub oracle_px: String,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SpotAssetCtx {
     #[serde(flatten)]
