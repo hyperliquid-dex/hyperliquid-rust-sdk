@@ -1,7 +1,8 @@
 use crate::{
     prelude::*,
     ws::message_types::{AllMids, Candle, L2Book, OrderUpdates, Trades, User},
-    Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates, WebData2,
+    ActiveAssetCtx, Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
+    WebData2,
 };
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
 use log::{error, info, warn};
@@ -50,16 +51,17 @@ pub(crate) struct WsManager {
 #[serde(rename_all = "camelCase")]
 pub enum Subscription {
     AllMids,
-    Trades { coin: String },
-    L2Book { coin: String },
-    UserEvents { user: H160 },
-    UserFills { user: H160 },
-    Candle { coin: String, interval: String },
-    OrderUpdates { user: H160 },
-    UserFundings { user: H160 },
-    UserNonFundingLedgerUpdates { user: H160 },
     Notification { user: H160 },
     WebData2 { user: H160 },
+    Candle { coin: String, interval: String },
+    L2Book { coin: String },
+    Trades { coin: String },
+    OrderUpdates { user: H160 },
+    UserEvents { user: H160 },
+    UserFills { user: H160 },
+    UserFundings { user: H160 },
+    UserNonFundingLedgerUpdates { user: H160 },
+    ActiveAssetCtx { coin: String },
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -80,6 +82,7 @@ pub enum Message {
     UserNonFundingLedgerUpdates(UserNonFundingLedgerUpdates),
     Notification(Notification),
     WebData2(WebData2),
+    ActiveAssetCtx(ActiveAssetCtx),
     Pong,
 }
 
@@ -258,6 +261,12 @@ impl WsManager {
                 user: web_data2.data.user,
             })
             .map_err(|e| Error::JsonParse(e.to_string())),
+            Message::ActiveAssetCtx(active_asset_ctx) => {
+                serde_json::to_string(&Subscription::ActiveAssetCtx {
+                    coin: active_asset_ctx.data.coin.clone(),
+                })
+                .map_err(|e| Error::JsonParse(e.to_string()))
+            }
             Message::SubscriptionResponse | Message::Pong => Ok(String::default()),
             Message::NoData => Ok("".to_string()),
             Message::HyperliquidError(err) => Ok(format!("hyperliquid error: {err:?}")),
