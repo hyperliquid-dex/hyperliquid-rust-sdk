@@ -1,36 +1,32 @@
-use crate::signature::sign_typed_data;
-use crate::{
-    exchange::{
-        actions::{
-            ApproveAgent, ApproveBuilderFee, BulkCancel, BulkModify, BulkOrder, SetReferrer,
-            UpdateIsolatedMargin, UpdateLeverage, UsdSend,
-        },
-        cancel::{CancelRequest, CancelRequestCloid},
-        modify::{ClientModifyRequest, ModifyRequest},
-        ClientCancelRequest, ClientOrderRequest,
-    },
-    helpers::{generate_random_key, next_nonce, uuid_to_hex_string},
-    info::info_client::InfoClient,
-    meta::Meta,
-    prelude::*,
-    req::HttpClient,
-    signature::sign_l1_action,
-    BaseUrl, BulkCancelCloid, Error, ExchangeResponseStatus,
-};
-use crate::{ClassTransfer, SpotSend, SpotUser, VaultTransfer, Withdraw3};
-use ethers::{
-    abi::AbiEncode,
-    signers::{LocalWallet, Signer},
-    types::{Signature, H160, H256},
-};
-use log::debug;
+use std::collections::HashMap;
+
+use ethers::abi::AbiEncode;
+use ethers::signers::{LocalWallet, Signer};
+use ethers::types::{H160, H256, Signature};
+use log::{debug, info};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use super::cancel::ClientCancelRequestCloid;
 use super::order::{MarketCloseParams, MarketOrderParams};
-use super::{BuilderInfo, ClientLimit, ClientOrder};
+use super::{BuilderInfo, ClientLimit, ClientOrder, UsdClassTransfer};
+use crate::exchange::actions::{
+    ApproveAgent, ApproveBuilderFee, BulkCancel, BulkModify, BulkOrder, SetReferrer,
+    UpdateIsolatedMargin, UpdateLeverage, UsdSend,
+};
+use crate::exchange::cancel::{CancelRequest, CancelRequestCloid};
+use crate::exchange::modify::{ClientModifyRequest, ModifyRequest};
+use crate::exchange::{ClientCancelRequest, ClientOrderRequest};
+use crate::helpers::{generate_random_key, next_nonce, uuid_to_hex_string};
+use crate::info::info_client::InfoClient;
+use crate::meta::Meta;
+use crate::prelude::*;
+use crate::req::HttpClient;
+use crate::signature::{sign_l1_action, sign_typed_data};
+use crate::{
+    BaseUrl, BulkCancelCloid, Error, ExchangeResponseStatus, SpotSend, SpotUser, VaultTransfer,
+    Withdraw3, info,
+};
 
 #[derive(Debug)]
 pub struct ExchangeClient {
@@ -68,6 +64,7 @@ pub enum Actions {
     SpotSend(SpotSend),
     SetReferrer(SetReferrer),
     ApproveBuilderFee(ApproveBuilderFee),
+    UsdClassTransfer(UsdClassTransfer),
 }
 
 impl Actions {
@@ -184,18 +181,27 @@ impl ExchangeClient {
         wallet: Option<&LocalWallet>,
     ) -> Result<ExchangeResponseStatus> {
         // payload expects usdc without decimals
-        let usdc = (usdc * 1e6).round() as u64;
         let wallet = wallet.unwrap_or(&self.wallet);
 
         let timestamp = next_nonce();
 
-        let action = Actions::SpotUser(SpotUser {
-            class_transfer: ClassTransfer { usdc, to_perp },
-        });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-        let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+        let hyperliquid_chain = if self.http_client.is_mainnet() {
+            "Mainnet".to_string()
+        } else {
+            "Testnet".to_string()
+        };
+
+        let usd_class_transfer = UsdClassTransfer {
+            signature_chain_id: 421614.into(), // Arbitrum chain ID
+            hyperliquid_chain,
+            amount: usdc.to_string(),
+            to_perp,
+            nonce: timestamp,
+        };
+
+        let signature = sign_typed_data(&usd_class_transfer, wallet)?;
+        let action = serde_json::to_value(Actions::UsdClassTransfer(usd_class_transfer))
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
 
         self.post(action, signature, timestamp).await
     }
@@ -779,10 +785,8 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
-    use crate::{
-        exchange::order::{Limit, OrderRequest, Trigger},
-        Order,
-    };
+    use crate::Order;
+    use crate::exchange::order::{Limit, OrderRequest, Trigger};
 
     fn get_wallet() -> Result<LocalWallet> {
         let priv_key = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e";

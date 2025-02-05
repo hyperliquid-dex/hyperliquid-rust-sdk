@@ -1,18 +1,17 @@
-use crate::exchange::{cancel::CancelRequest, modify::ModifyRequest, order::OrderRequest};
-pub(crate) use ethers::{
-    abi::{encode, ParamType, Tokenizable},
-    types::{
-        transaction::{
-            eip712,
-            eip712::{encode_eip712_type, EIP712Domain, Eip712, Eip712Error},
-        },
-        H160, U256,
-    },
-    utils::keccak256,
+pub(crate) use ethers::abi::{ParamType, Tokenizable, encode};
+pub(crate) use ethers::types::transaction::eip712;
+pub(crate) use ethers::types::transaction::eip712::{
+    EIP712Domain, Eip712, Eip712Error, encode_eip712_type,
 };
+pub(crate) use ethers::types::{H160, U256};
+pub(crate) use ethers::utils::keccak256;
 use serde::{Deserialize, Serialize};
 
-use super::{cancel::CancelRequestCloid, BuilderInfo};
+use super::BuilderInfo;
+use super::cancel::CancelRequestCloid;
+use crate::exchange::cancel::CancelRequest;
+use crate::exchange::modify::ModifyRequest;
+use crate::exchange::order::OrderRequest;
 
 pub(crate) const HYPERLIQUID_EIP_PREFIX: &str = "HyperliquidTransaction:";
 
@@ -280,6 +279,54 @@ pub struct SpotUser {
 pub struct ClassTransfer {
     pub usdc: u64,
     pub to_perp: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UsdClassTransfer {
+    pub signature_chain_id: U256,
+    pub hyperliquid_chain: String,
+    pub amount: String,
+    pub to_perp: bool,
+    pub nonce: u64,
+}
+
+impl Eip712 for UsdClassTransfer {
+    type Error = Eip712Error;
+
+    fn domain(&self) -> Result<EIP712Domain, Self::Error> {
+        Ok(eip_712_domain(self.signature_chain_id))
+    }
+
+    fn type_hash() -> Result<[u8; 32], Self::Error> {
+        Ok(eip712::make_type_hash(
+            format!("{HYPERLIQUID_EIP_PREFIX}UsdClassTransfer"),
+            &[
+                ("hyperliquidChain".to_string(), ParamType::String),
+                ("amount".to_string(), ParamType::String),
+                ("toPerp".to_string(), ParamType::Bool),
+                ("nonce".to_string(), ParamType::Uint(64)),
+            ],
+        ))
+    }
+
+    fn struct_hash(&self) -> Result<[u8; 32], Self::Error> {
+        let Self {
+            signature_chain_id: _,
+            hyperliquid_chain,
+            amount,
+            to_perp,
+            nonce,
+        } = self;
+        let items = vec![
+            ethers::abi::Token::Uint(Self::type_hash()?.into()),
+            encode_eip712_type(hyperliquid_chain.clone().into_token()),
+            encode_eip712_type(amount.clone().into_token()),
+            encode_eip712_type(to_perp.into_token()),
+            encode_eip712_type(nonce.into_token()),
+        ];
+        Ok(keccak256(encode(&items)))
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
