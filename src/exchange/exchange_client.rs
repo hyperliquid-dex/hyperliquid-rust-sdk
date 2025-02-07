@@ -17,7 +17,7 @@ use crate::{
     signature::sign_l1_action,
     BaseUrl, BulkCancelCloid, Error, ExchangeResponseStatus,
 };
-use crate::{ClassTransfer, SpotSend, SpotUser, VaultTransfer, Withdraw3};
+use crate::{SpotSend, SpotUser, VaultTransfer, Withdraw3};
 use ethers::{
     abi::AbiEncode,
     signers::{LocalWallet, Signer},
@@ -30,7 +30,7 @@ use std::collections::HashMap;
 
 use super::cancel::ClientCancelRequestCloid;
 use super::order::{MarketCloseParams, MarketOrderParams};
-use super::{BuilderInfo, ClientLimit, ClientOrder};
+use super::{BuilderInfo, ClientLimit, ClientOrder, UsdClassTransfer};
 
 #[derive(Debug)]
 pub struct ExchangeClient {
@@ -68,6 +68,7 @@ pub enum Actions {
     SpotSend(SpotSend),
     SetReferrer(SetReferrer),
     ApproveBuilderFee(ApproveBuilderFee),
+    UsdClassTransfer(UsdClassTransfer),
 }
 
 impl Actions {
@@ -177,25 +178,34 @@ impl ExchangeClient {
         self.post(action, signature, timestamp).await
     }
 
-    pub async fn class_transfer(
+    pub async fn usd_class_transfer(
         &self,
         usdc: f64,
         to_perp: bool,
         wallet: Option<&LocalWallet>,
     ) -> Result<ExchangeResponseStatus> {
         // payload expects usdc without decimals
-        let usdc = (usdc * 1e6).round() as u64;
         let wallet = wallet.unwrap_or(&self.wallet);
 
         let timestamp = next_nonce();
 
-        let action = Actions::SpotUser(SpotUser {
-            class_transfer: ClassTransfer { usdc, to_perp },
-        });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-        let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+        let hyperliquid_chain = if self.http_client.is_mainnet() {
+            "Mainnet".to_string()
+        } else {
+            "Testnet".to_string()
+        };
+
+        let usd_class_transfer = UsdClassTransfer {
+            signature_chain_id: 421614.into(), // Arbitrum chain ID
+            hyperliquid_chain,
+            amount: usdc.to_string(),
+            to_perp,
+            nonce: timestamp,
+        };
+
+        let signature = sign_typed_data(&usd_class_transfer, wallet)?;
+        let action = serde_json::to_value(Actions::UsdClassTransfer(usd_class_transfer))
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
 
         self.post(action, signature, timestamp).await
     }
@@ -913,6 +923,25 @@ mod tests {
         let signature = sign_l1_action(&wallet, connection_id, false)?;
         assert_eq!(signature.to_string(), "6ffebadfd48067663390962539fbde76cfa36f53be65abe2ab72c9db6d0db44457720db9d7c4860f142a484f070c84eb4b9694c3a617c83f0d698a27e55fd5e01c");
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_usd_class_transfer_action_hashing() -> Result<()> {
+        let wallet = get_wallet()?;
+        let usd_class_transfer = UsdClassTransfer {
+            signature_chain_id: 421614.into(),
+            hyperliquid_chain: "Testnet".to_string(),
+            amount: "1.0".to_string(),
+            to_perp: true,
+            nonce: 1690393044548,
+        };
+
+        let expected_sig = "4cf906797ae924a7b448890c2bd57dfcd3414901fff7be831aac0264503cad304c4a767b1854ceb886ccdaf7bfcf35f9e4e58cc297ca540c8b0f1560ba7cccfa1b";
+        assert_eq!(
+            sign_typed_data(&usd_class_transfer, &wallet)?.to_string(),
+            expected_sig
+        );
         Ok(())
     }
 }

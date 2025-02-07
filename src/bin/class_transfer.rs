@@ -18,7 +18,7 @@ async fn main() {
     let to_perp = false;
 
     let res = exchange_client
-        .class_transfer(usdc, to_perp, None)
+        .usd_class_transfer(usdc, to_perp, None)
         .await
         .unwrap();
     info!("Class transfer result: {res:?}");
