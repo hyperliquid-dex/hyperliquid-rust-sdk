@@ -305,3 +305,41 @@ pub struct ApproveBuilderFee {
     pub signature_chain_id: U256,
     pub hyperliquid_chain: String,
 }
+
+impl Eip712 for ApproveBuilderFee {
+    type Error = Eip712Error;
+
+    fn domain(&self) -> Result<EIP712Domain, Self::Error> {
+        Ok(eip_712_domain(self.signature_chain_id))
+    }
+
+    fn type_hash() -> Result<[u8; 32], Self::Error> {
+        Ok(eip712::make_type_hash(
+            format!("{HYPERLIQUID_EIP_PREFIX}ApproveBuilderFee"),
+            &[
+                ("hyperliquidChain".to_string(), ParamType::String),
+                ("builder".to_string(), ParamType::String),
+                ("maxFeeRate".to_string(), ParamType::String),
+                ("nonce".to_string(), ParamType::Uint(64)),
+            ],
+        ))
+    }
+
+    fn struct_hash(&self) -> Result<[u8; 32], Self::Error> {
+        let Self {
+            signature_chain_id: _,
+            hyperliquid_chain,
+            builder,
+            max_fee_rate,
+            nonce,
+        } = self;
+        let items = vec![
+            ethers::abi::Token::Uint(Self::type_hash()?.into()),
+            encode_eip712_type(hyperliquid_chain.clone().into_token()),
+            encode_eip712_type(builder.clone().into_token()),
+            encode_eip712_type(max_fee_rate.clone().into_token()),
+            encode_eip712_type(nonce.into_token()),
+        ];
+        Ok(keccak256(encode(&items)))
+    }
+}

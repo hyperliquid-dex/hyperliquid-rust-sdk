@@ -744,19 +744,17 @@ impl ExchangeClient {
             "Testnet".to_string()
         };
 
-        let action = Actions::ApproveBuilderFee(ApproveBuilderFee {
+        let approve_builder_fee = ApproveBuilderFee {
             signature_chain_id: 421614.into(),
             hyperliquid_chain,
             builder,
             max_fee_rate,
             nonce: timestamp,
-        });
+        };
+        let signature = sign_typed_data(&approve_builder_fee, wallet)?;
+        let action = serde_json::to_value(Actions::ApproveBuilderFee(approve_builder_fee))
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
 
-        let connection_id = action.hash(timestamp, self.vault_address)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
         self.post(action, signature, timestamp).await
     }
 }
@@ -912,6 +910,65 @@ mod tests {
 
         let signature = sign_l1_action(&wallet, connection_id, false)?;
         assert_eq!(signature.to_string(), "6ffebadfd48067663390962539fbde76cfa36f53be65abe2ab72c9db6d0db44457720db9d7c4860f142a484f070c84eb4b9694c3a617c83f0d698a27e55fd5e01c");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_approve_builder_fee_signing() -> Result<()> {
+        let wallet = get_wallet()?;
+
+        // Test mainnet
+        let mainnet_fee = ApproveBuilderFee {
+            signature_chain_id: 421614.into(),
+            hyperliquid_chain: "Mainnet".to_string(),
+            builder: "0x1234567890123456789012345678901234567890".to_string(),
+            max_fee_rate: "0.001%".to_string(),
+            nonce: 1583838,
+        };
+
+        let mainnet_signature = sign_typed_data(&mainnet_fee, &wallet)?;
+        assert_eq!(
+            mainnet_signature.to_string(),
+            "5e8d7383779d8af390dcc1a90f8620d04974022f8a5b6a22c498de27ef1e4fdb7fdc24f12b221844cf2fc513b3a9c66097a58e6e896b26ba387521a6918aa7d91b"
+        );
+
+        // Test testnet
+        let testnet_fee = ApproveBuilderFee {
+            signature_chain_id: 421614.into(),
+            hyperliquid_chain: "Testnet".to_string(),
+            builder: "0x1234567890123456789012345678901234567890".to_string(),
+            max_fee_rate: "0.001%".to_string(),
+            nonce: 1583838,
+        };
+
+        let testnet_signature = sign_typed_data(&testnet_fee, &wallet)?;
+        assert_eq!(
+            testnet_signature.to_string(),
+            "439264578e6c4f57572090e035a471554d3bb5100c48db04d61431669974876c3d525084b23f185230747a83f99780651c7f05ee97ba1483a9964a03680dafa11c"
+        );
+
+        // Verify signatures are different for mainnet vs testnet
+        assert_ne!(mainnet_signature, testnet_signature);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_approve_builder_fee_hash() -> Result<()> {
+        let action = Actions::ApproveBuilderFee(ApproveBuilderFee {
+            signature_chain_id: 421614.into(),
+            hyperliquid_chain: "Mainnet".to_string(),
+            builder: "0x1234567890123456789012345678901234567890".to_string(),
+            max_fee_rate: "0.001%".to_string(),
+            nonce: 1583838,
+        });
+
+        let connection_id = action.hash(1583838, None)?;
+        assert_eq!(
+            format!("{:?}", connection_id),
+            "0x63d953995809b97e9bfc754917b14d19eeef680dbf7d707e68dfa0b0484bafd2"
+        );
 
         Ok(())
     }
