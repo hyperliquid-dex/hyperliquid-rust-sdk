@@ -12,6 +12,14 @@ pub struct Leverage {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
+pub struct CumulativeFunding {
+    pub all_time: String,
+    pub since_open: String,
+    pub since_change: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct PositionData {
     pub coin: String,
     pub entry_px: Option<String>,
@@ -22,6 +30,8 @@ pub struct PositionData {
     pub return_on_equity: String,
     pub szi: String,
     pub unrealized_pnl: String,
+    pub max_leverage: u32,
+    pub cum_funding: CumulativeFunding,
 }
 
 #[derive(Deserialize, Debug)]
