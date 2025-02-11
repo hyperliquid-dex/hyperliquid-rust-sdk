@@ -55,3 +55,8 @@ pub struct Notification {
 pub struct WebData2 {
     pub data: WebData2Data,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct ActiveAssetCtx {
+    pub data: ActiveAssetCtxData,
+}

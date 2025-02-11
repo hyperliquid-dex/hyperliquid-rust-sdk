@@ -1,5 +1,5 @@
 use ethers::types::H160;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Deserialize, Clone, Debug)]
@@ -278,4 +278,46 @@ pub struct NotificationData {
 #[serde(rename_all = "camelCase")]
 pub struct WebData2Data {
     pub user: H160,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveAssetCtxData {
+    pub coin: String,
+    pub ctx: AssetCtx,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+#[serde(untagged)]
+pub enum AssetCtx {
+    Perps(PerpsAssetCtx),
+    Spot(SpotAssetCtx),
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SharedAssetCtx {
+    pub day_ntl_vlm: String,
+    pub prev_day_px: String,
+    pub mark_px: String,
+    pub mid_px: Option<String>,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct PerpsAssetCtx {
+    #[serde(flatten)]
+    pub shared: SharedAssetCtx,
+    pub funding: String,
+    pub open_interest: String,
+    pub oracle_px: String,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SpotAssetCtx {
+    #[serde(flatten)]
+    pub shared: SharedAssetCtx,
+    pub circulating_supply: String,
 }
