@@ -1,32 +1,30 @@
-use ethers::signers::LocalWallet;
+use alloy_primitives::U256;
+use alloy_signer_local::PrivateKeySigner;
 use log::info;
+use uuid::Uuid;
 
 use hyperliquid_rust_sdk::{
     BaseUrl, ClientCancelRequestCloid, ClientLimit, ClientOrder, ClientOrderRequest, ExchangeClient,
+    ExchangeDataStatus, ExchangeResponseStatus,
 };
 use std::{thread::sleep, time::Duration};
-use uuid::Uuid;
 
 #[tokio::main]
 async fn main() {
     env_logger::init();
     // Key was randomly generated for testing and shouldn't be used with any real funds
-    let wallet: LocalWallet = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e"
-        .parse()
-        .unwrap();
+    let priv_key = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e";
+    let wallet = priv_key.parse::<PrivateKeySigner>().unwrap();
 
-    let exchange_client = ExchangeClient::new(None, wallet, Some(BaseUrl::Testnet), None, None)
-        .await
-        .unwrap();
+    let exchange_client = ExchangeClient::new(BaseUrl::Testnet.get_url());
 
-    // Order and Cancel with cloid
     let cloid = Uuid::new_v4();
     let order = ClientOrderRequest {
         asset: "ETH".to_string(),
         is_buy: true,
         reduce_only: false,
-        limit_px: 1800.0,
-        sz: 0.01,
+        limit_px: 2000.0,
+        sz: 0.1,
         cloid: Some(cloid),
         order_type: ClientOrder::Limit(ClientLimit {
             tif: "Gtc".to_string(),
@@ -36,12 +34,23 @@ async fn main() {
     let response = exchange_client.order(order, None).await.unwrap();
     info!("Order placed: {response:?}");
 
+    let response = match response {
+        ExchangeResponseStatus::Ok(exchange_response) => exchange_response,
+        ExchangeResponseStatus::Err(e) => panic!("error with exchange response: {e}"),
+    };
+    let status = response.data.unwrap().statuses[0].clone();
+    match status {
+        ExchangeDataStatus::Filled(order) => info!("Order filled: {order:?}"),
+        ExchangeDataStatus::Resting(order) => info!("Order resting: {order:?}"),
+        _ => panic!("Error: {status:?}"),
+    };
+
     // So you can see the order before it's cancelled
     sleep(Duration::from_secs(10));
 
     let cancel = ClientCancelRequestCloid {
         asset: "ETH".to_string(),
-        cloid,
+        cloid: cloid.to_string(),
     };
 
     // This response will return an error if order was filled (since you can't cancel a filled order), otherwise it will cancel the order

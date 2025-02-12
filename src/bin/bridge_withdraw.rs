@@ -1,5 +1,5 @@
-use ethers::signers::LocalWallet;
-use hyperliquid_rust_sdk::{BaseUrl, ExchangeClient};
+use alloy_primitives::{Address, U256};
+use hyperliquid_rust_sdk::{BaseUrl, ExchangeClient, LocalWallet};
 use log::info;
 
 #[tokio::main]
@@ -10,16 +10,17 @@ async fn main() {
         .parse()
         .unwrap();
 
-    let exchange_client = ExchangeClient::new(None, wallet, Some(BaseUrl::Testnet), None, None)
-        .await
-        .unwrap();
+    let exchange_client = ExchangeClient::new(BaseUrl::Testnet.get_url());
 
-    let usd = "5"; // 5 USD
+    let amount = "5"; // 5 USD
     let destination = "0x0D1d9635D0640821d15e323ac8AdADfA9c111414";
 
-    let res = exchange_client
-        .withdraw_from_bridge(usd, destination, None)
+    let amount = amount.parse::<U256>().unwrap();
+    let destination = destination.parse::<Address>().unwrap();
+
+    exchange_client
+        .withdraw(destination, amount, "Testnet".to_string())
         .await
         .unwrap();
-    info!("Withdraw from bridge result: {res:?}");
+    info!("Withdraw completed");
 }
