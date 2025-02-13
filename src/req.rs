@@ -25,28 +25,17 @@ async fn parse_response(response: Response) -> Result<String> {
     if status_code < 400 {
         return Ok(text);
     }
-    let error_data = serde_json::from_str::<ErrorData>(&text);
-    if (400..500).contains(&status_code) {
-        let client_error = match error_data {
-            Ok(error_data) => Error::ClientRequest {
-                status_code,
-                error_code: Some(error_data.code),
-                error_message: error_data.msg,
-                error_data: Some(error_data.data),
-            },
-            Err(err) => Error::ClientRequest {
-                status_code,
-                error_message: text,
-                error_code: None,
-                error_data: Some(err.to_string()),
-            },
+    if let Ok(err) = serde_json::from_str::<ErrorData>(&text) {
+        let client_error = Error::ClientRequest {
+            message: err.msg,
+            error_code: Some(err.code as i64),
+            error_data: Some(err.data),
         };
         return Err(client_error);
     }
 
     Err(Error::ServerRequest {
-        status_code,
-        error_message: text,
+        message: format!("Server error (status: {}): {}", status_code, text),
     })
 }
 

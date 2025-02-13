@@ -1,7 +1,7 @@
-use ethers::types::H160;
-use serde::Deserialize;
+use alloy_primitives::Address;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Leverage {
     #[serde(rename = "type")]
@@ -10,7 +10,7 @@ pub struct Leverage {
     pub raw_usd: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CumulativeFunding {
     pub all_time: String,
@@ -18,7 +18,7 @@ pub struct CumulativeFunding {
     pub since_change: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PositionData {
     pub coin: String,
@@ -41,7 +41,7 @@ pub struct AssetPosition {
     pub type_string: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MarginSummary {
     pub account_value: String,
@@ -146,7 +146,7 @@ pub struct BasicOrderInfo {
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Referrer {
-    pub referrer: H160,
+    pub referrer: Address,
     pub code: String,
 }
 
@@ -161,4 +161,20 @@ pub struct ReferrerState {
 #[serde(rename_all = "camelCase")]
 pub struct ReferrerData {
     pub required: String,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct Position {
+    pub position: PositionData,
+    #[serde(rename = "type")]
+    pub type_string: String,
+}
+
+#[derive(Deserialize, Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UserState {
+    pub user: Address,
+    pub margin_summary: MarginSummary,
+    pub positions: Vec<Position>,
 }

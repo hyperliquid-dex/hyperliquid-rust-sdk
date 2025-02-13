@@ -1,4 +1,4 @@
-use ethers::types::H160;
+use alloy_primitives::Address;
 use hyperliquid_rust_sdk::{BaseUrl, InfoClient};
 use log::info;
 
@@ -8,28 +8,52 @@ const ADDRESS: &str = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8";
 async fn main() {
     env_logger::init();
     let info_client = InfoClient::new(None, Some(BaseUrl::Testnet)).await.unwrap();
-    open_orders_example(&info_client).await;
-    user_state_example(&info_client).await;
-    user_states_example(&info_client).await;
-    recent_trades(&info_client).await;
-    meta_example(&info_client).await;
-    all_mids_example(&info_client).await;
-    user_fills_example(&info_client).await;
-    funding_history_example(&info_client).await;
-    l2_snapshot_example(&info_client).await;
-    candles_snapshot_example(&info_client).await;
-    user_token_balances_example(&info_client).await;
-    user_fees_example(&info_client).await;
-    user_funding_example(&info_client).await;
-    spot_meta_example(&info_client).await;
-    spot_meta_and_asset_contexts_example(&info_client).await;
-    query_order_by_oid_example(&info_client).await;
-    query_referral_state_example(&info_client).await;
-    historical_orders_example(&info_client).await;
+    let user = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8".parse::<Address>().unwrap();
+
+    let user_state = info_client.user_state(user).await.unwrap();
+    info!("User state: {user_state:?}");
+
+    let user_fills = info_client.user_fills(user).await.unwrap();
+    info!("User fills: {user_fills:?}");
+
+    let open_orders = info_client.open_orders(user).await.unwrap();
+    info!("Open orders: {open_orders:?}");
+
+    let meta = info_client.meta().await.unwrap();
+    info!("Meta: {meta:?}");
+
+    let all_mids = info_client.all_mids().await.unwrap();
+    info!("All mids: {all_mids:?}");
+
+    let l2_snapshot = info_client.l2_snapshot("ETH".to_string()).await.unwrap();
+    info!("L2 snapshot: {l2_snapshot:?}");
+
+    let recent_trades = info_client.recent_trades("ETH".to_string()).await.unwrap();
+    info!("Recent trades: {recent_trades:?}");
+
+    let candles_snapshot = info_client
+        .candles_snapshot(
+            "ETH".to_string(),
+            "1m".to_string(),
+            1704067200,
+            1704153600,
+        )
+        .await
+        .unwrap();
+    info!("Candles snapshot: {candles_snapshot:?}");
+
+    let order_status = info_client.query_order_by_oid(user, 1).await.unwrap();
+    info!("Order status: {order_status:?}");
+
+    let referral_state = info_client.query_referral_state(user).await.unwrap();
+    info!("Referral state: {referral_state:?}");
+
+    let historical_orders = info_client.historical_orders(user).await.unwrap();
+    info!("Historical orders: {historical_orders:?}");
 }
 
-fn address() -> H160 {
-    ADDRESS.to_string().parse().unwrap()
+fn address() -> Address {
+    ADDRESS.parse().unwrap()
 }
 
 async fn open_orders_example(info_client: &InfoClient) {
