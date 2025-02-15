@@ -1,18 +1,17 @@
-use crate::exchange::{cancel::CancelRequest, modify::ModifyRequest, order::OrderRequest};
-pub(crate) use ethers::{
-    abi::{encode, ParamType, Tokenizable},
-    types::{
-        transaction::{
-            eip712,
-            eip712::{encode_eip712_type, EIP712Domain, Eip712, Eip712Error},
-        },
-        H160, U256,
-    },
-    utils::keccak256,
+pub(crate) use ethers::abi::{ParamType, Tokenizable, encode};
+pub(crate) use ethers::types::transaction::eip712;
+pub(crate) use ethers::types::transaction::eip712::{
+    EIP712Domain, Eip712, Eip712Error, encode_eip712_type,
 };
+pub(crate) use ethers::types::{H160, U256};
+pub(crate) use ethers::utils::keccak256;
 use serde::{Deserialize, Serialize};
 
-use super::{cancel::CancelRequestCloid, BuilderInfo};
+use super::BuilderInfo;
+use super::cancel::CancelRequestCloid;
+use crate::exchange::cancel::CancelRequest;
+use crate::exchange::modify::ModifyRequest;
+use crate::exchange::order::OrderRequest;
 
 pub(crate) const HYPERLIQUID_EIP_PREFIX: &str = "HyperliquidTransaction:";
 
@@ -352,4 +351,40 @@ pub struct ApproveBuilderFee {
     pub nonce: u64,
     pub signature_chain_id: U256,
     pub hyperliquid_chain: String,
+}
+
+impl Eip712 for ApproveBuilderFee {
+    type Error = Eip712Error;
+
+    fn domain(&self) -> Result<EIP712Domain, Self::Error> {
+        Ok(eip_712_domain(self.signature_chain_id))
+    }
+
+    fn type_hash() -> Result<[u8; 32], Self::Error> {
+        Ok(eip712::make_type_hash(
+            format!("{HYPERLIQUID_EIP_PREFIX}ApproveBuilderFee"),
+            &[
+                ("hyperliquidChain".to_string(), ParamType::String),
+                ("maxFeeRate".to_string(), ParamType::String),
+                ("builder".to_string(), ParamType::Address),
+                ("nonce".to_string(), ParamType::Uint(64)),
+            ],
+        ))
+    }
+
+    fn struct_hash(&self) -> Result<[u8; 32], Self::Error> {
+        let type_hash = Self::type_hash()?;
+        let builder_addr = self
+            .builder
+            .parse::<H160>()
+            .map_err(|e| Eip712Error::Message(e.to_string()))?;
+        let items = vec![
+            ethers::abi::Token::Uint(type_hash.into()),
+            encode_eip712_type(self.hyperliquid_chain.clone().into_token()),
+            encode_eip712_type(self.max_fee_rate.clone().into_token()),
+            encode_eip712_type(builder_addr.into_token()),
+            encode_eip712_type(self.nonce.into_token()),
+        ];
+        Ok(keccak256(encode(&items)))
+    }
 }

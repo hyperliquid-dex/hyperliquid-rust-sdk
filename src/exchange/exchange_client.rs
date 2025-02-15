@@ -1,36 +1,36 @@
-use crate::signature::sign_typed_data;
-use crate::{
-    exchange::{
-        actions::{
-            ApproveAgent, ApproveBuilderFee, BulkCancel, BulkModify, BulkOrder, SetReferrer,
-            UpdateIsolatedMargin, UpdateLeverage, UsdSend,
-        },
-        cancel::{CancelRequest, CancelRequestCloid},
-        modify::{ClientModifyRequest, ModifyRequest},
-        ClientCancelRequest, ClientOrderRequest,
-    },
-    helpers::{generate_random_key, next_nonce, uuid_to_hex_string},
-    info::info_client::InfoClient,
-    meta::Meta,
-    prelude::*,
-    req::HttpClient,
-    signature::sign_l1_action,
-    BaseUrl, BulkCancelCloid, Error, ExchangeResponseStatus,
-};
-use crate::{SpotSend, SpotUser, VaultTransfer, Withdraw3};
-use ethers::{
-    abi::AbiEncode,
-    signers::{LocalWallet, Signer},
-    types::{Signature, H160, H256},
-};
-use log::debug;
+
+use std::collections::HashMap;
+
+use ethers::abi::AbiEncode;
+use ethers::signers::{LocalWallet, Signer};
+use ethers::types::{H160, H256, Signature};
+use log::{debug, info};
+
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use super::cancel::ClientCancelRequestCloid;
 use super::order::{MarketCloseParams, MarketOrderParams};
 use super::{BuilderInfo, ClientLimit, ClientOrder, UsdClassTransfer};
+
+use crate::exchange::actions::{
+    ApproveAgent, ApproveBuilderFee, BulkCancel, BulkModify, BulkOrder, SetReferrer,
+    UpdateIsolatedMargin, UpdateLeverage, UsdSend,
+};
+use crate::exchange::cancel::{CancelRequest, CancelRequestCloid};
+use crate::exchange::modify::{ClientModifyRequest, ModifyRequest};
+use crate::exchange::{ClientCancelRequest, ClientOrderRequest};
+use crate::helpers::{generate_random_key, next_nonce, uuid_to_hex_string};
+use crate::info::info_client::InfoClient;
+use crate::meta::Meta;
+use crate::prelude::*;
+use crate::req::HttpClient;
+use crate::signature::{sign_l1_action, sign_typed_data};
+use crate::{
+    BaseUrl, BulkCancelCloid, Error, ExchangeResponseStatus, SpotSend, SpotUser, VaultTransfer,
+    Withdraw3, info,
+};
+
 
 #[derive(Debug)]
 pub struct ExchangeClient {
@@ -748,25 +748,26 @@ impl ExchangeClient {
         let wallet = wallet.unwrap_or(&self.wallet);
         let timestamp = next_nonce();
 
+        // Ensure builder address is lowercase
+        let builder = builder.to_lowercase();
+
         let hyperliquid_chain = if self.http_client.is_mainnet() {
             "Mainnet".to_string()
         } else {
             "Testnet".to_string()
         };
 
-        let action = Actions::ApproveBuilderFee(ApproveBuilderFee {
+        let approve_builder_fee = ApproveBuilderFee {
             signature_chain_id: 421614.into(),
             hyperliquid_chain,
             builder,
             max_fee_rate,
             nonce: timestamp,
-        });
+        };
+        let signature = sign_typed_data(&approve_builder_fee, wallet)?;
+        let action = serde_json::to_value(Actions::ApproveBuilderFee(approve_builder_fee))
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
 
-        let connection_id = action.hash(timestamp, self.vault_address)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
         self.post(action, signature, timestamp).await
     }
 }
@@ -789,10 +790,8 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
-    use crate::{
-        exchange::order::{Limit, OrderRequest, Trigger},
-        Order,
-    };
+    use crate::Order;
+    use crate::exchange::order::{Limit, OrderRequest, Trigger};
 
     fn get_wallet() -> Result<LocalWallet> {
         let priv_key = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e";
@@ -927,6 +926,7 @@ mod tests {
     }
 
     #[test]
+
     fn test_usd_class_transfer_action_hashing() -> Result<()> {
         let wallet = get_wallet()?;
         let usd_class_transfer = UsdClassTransfer {
@@ -942,6 +942,62 @@ mod tests {
             sign_typed_data(&usd_class_transfer, &wallet)?.to_string(),
             expected_sig
         );
+
+    fn test_approve_builder_fee_signing() -> Result<()> {
+        let wallet = get_wallet()?;
+
+        // Test mainnet
+        let mainnet_fee = ApproveBuilderFee {
+            signature_chain_id: 421614.into(),
+            hyperliquid_chain: "Mainnet".to_string(),
+            builder: "0x1234567890123456789012345678901234567890".to_string(),
+            max_fee_rate: "0.001%".to_string(),
+            nonce: 1583838,
+        };
+
+        let mainnet_signature = sign_typed_data(&mainnet_fee, &wallet)?;
+        assert_eq!(
+            mainnet_signature.to_string(),
+            "343c9078af7c3d6683abefd0ca3b2960de5b669b716863e6dc49090853a4a3cd6c016301239461091a8ca3ea5ac783362526c4d9e9e624ffc563aea93d6ac2391b"
+        );
+
+        // Test testnet
+        let testnet_fee = ApproveBuilderFee {
+            signature_chain_id: 421614.into(),
+            hyperliquid_chain: "Testnet".to_string(),
+            builder: "0x1234567890123456789012345678901234567890".to_string(),
+            max_fee_rate: "0.001%".to_string(),
+            nonce: 1583838,
+        };
+
+        let testnet_signature = sign_typed_data(&testnet_fee, &wallet)?;
+        assert_eq!(
+            testnet_signature.to_string(),
+            "2ada43eeebeba9cfe13faf95aa84e5b8c4885c3a07cbf4536f2df5edd340d4eb1ed0e24f60a80d199a842258d5fa737a18d486f7d4e656268b434d226f2811d71c"
+        );
+
+        // Verify signatures are different for mainnet vs testnet
+        assert_ne!(mainnet_signature, testnet_signature);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_approve_builder_fee_hash() -> Result<()> {
+        let action = Actions::ApproveBuilderFee(ApproveBuilderFee {
+            signature_chain_id: 421614.into(),
+            hyperliquid_chain: "Mainnet".to_string(),
+            builder: "0x1234567890123456789012345678901234567890".to_string(),
+            max_fee_rate: "0.001%".to_string(),
+            nonce: 1583838,
+        });
+
+        let connection_id = action.hash(1583838, None)?;
+        assert_eq!(
+            format!("{:?}", connection_id),
+            "0x63d953995809b97e9bfc754917b14d19eeef680dbf7d707e68dfa0b0484bafd2"
+        );
+
         Ok(())
     }
 }
