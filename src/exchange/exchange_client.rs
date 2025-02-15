@@ -738,6 +738,9 @@ impl ExchangeClient {
         let wallet = wallet.unwrap_or(&self.wallet);
         let timestamp = next_nonce();
 
+        // Ensure builder address is lowercase
+        let builder = builder.to_lowercase();
+
         let hyperliquid_chain = if self.http_client.is_mainnet() {
             "Mainnet".to_string()
         } else {
@@ -930,7 +933,7 @@ mod tests {
         let mainnet_signature = sign_typed_data(&mainnet_fee, &wallet)?;
         assert_eq!(
             mainnet_signature.to_string(),
-            "5e8d7383779d8af390dcc1a90f8620d04974022f8a5b6a22c498de27ef1e4fdb7fdc24f12b221844cf2fc513b3a9c66097a58e6e896b26ba387521a6918aa7d91b"
+            "343c9078af7c3d6683abefd0ca3b2960de5b669b716863e6dc49090853a4a3cd6c016301239461091a8ca3ea5ac783362526c4d9e9e624ffc563aea93d6ac2391b"
         );
 
         // Test testnet
@@ -945,7 +948,7 @@ mod tests {
         let testnet_signature = sign_typed_data(&testnet_fee, &wallet)?;
         assert_eq!(
             testnet_signature.to_string(),
-            "439264578e6c4f57572090e035a471554d3bb5100c48db04d61431669974876c3d525084b23f185230747a83f99780651c7f05ee97ba1483a9964a03680dafa11c"
+            "2ada43eeebeba9cfe13faf95aa84e5b8c4885c3a07cbf4536f2df5edd340d4eb1ed0e24f60a80d199a842258d5fa737a18d486f7d4e656268b434d226f2811d71c"
         );
 
         // Verify signatures are different for mainnet vs testnet

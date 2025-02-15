@@ -318,27 +318,25 @@ impl Eip712 for ApproveBuilderFee {
             format!("{HYPERLIQUID_EIP_PREFIX}ApproveBuilderFee"),
             &[
                 ("hyperliquidChain".to_string(), ParamType::String),
-                ("builder".to_string(), ParamType::String),
                 ("maxFeeRate".to_string(), ParamType::String),
+                ("builder".to_string(), ParamType::Address),
                 ("nonce".to_string(), ParamType::Uint(64)),
             ],
         ))
     }
 
     fn struct_hash(&self) -> Result<[u8; 32], Self::Error> {
-        let Self {
-            signature_chain_id: _,
-            hyperliquid_chain,
-            builder,
-            max_fee_rate,
-            nonce,
-        } = self;
+        let type_hash = Self::type_hash()?;
+        let builder_addr = self
+            .builder
+            .parse::<H160>()
+            .map_err(|e| Eip712Error::Message(e.to_string()))?;
         let items = vec![
-            ethers::abi::Token::Uint(Self::type_hash()?.into()),
-            encode_eip712_type(hyperliquid_chain.clone().into_token()),
-            encode_eip712_type(builder.clone().into_token()),
-            encode_eip712_type(max_fee_rate.clone().into_token()),
-            encode_eip712_type(nonce.into_token()),
+            ethers::abi::Token::Uint(type_hash.into()),
+            encode_eip712_type(self.hyperliquid_chain.clone().into_token()),
+            encode_eip712_type(self.max_fee_rate.clone().into_token()),
+            encode_eip712_type(builder_addr.into_token()),
+            encode_eip712_type(self.nonce.into_token()),
         ];
         Ok(keccak256(encode(&items)))
     }
