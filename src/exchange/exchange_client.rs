@@ -124,7 +124,7 @@ impl ExchangeClient {
         })
     }
 
-    async fn post(
+    pub async fn post(
         &self,
         action: serde_json::Value,
         signature: Signature,
