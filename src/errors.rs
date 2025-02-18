@@ -1,64 +1,106 @@
 use thiserror::Error;
 
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug)]
 pub enum Error {
-    // TODO: turn some embedded types into errors instead of strings
-    #[error("Client error: status code: {status_code}, error code: {error_code:?}, error message: {error_message}, error data: {error_data:?}")]
+    #[error("Client request error: {message} (code: {error_code:?}, data: {error_data:?})")]
     ClientRequest {
-        status_code: u16,
-        error_code: Option<u16>,
-        error_message: String,
+        message: String,
+        error_code: Option<i64>,
         error_data: Option<String>,
     },
-    #[error("Server error: status code: {status_code}, error message: {error_message}")]
+
+    #[error("Server request error: {message}")]
     ServerRequest {
-        status_code: u16,
-        error_message: String,
+        message: String,
     },
-    #[error("Generic request error: {0:?}")]
-    GenericRequest(String),
-    #[error("Chain type not allowed for this function")]
+
+    #[error("Chain not allowed")]
     ChainNotAllowed,
-    #[error("Asset not found")]
-    AssetNotFound,
-    #[error("Error from Eip712 struct: {0:?}")]
+
+    #[error("Invalid signature: {0}")]
+    InvalidSignature(String),
+
+    #[error("Alloy conversion error: {0}")]
+    AlloyConversion(String),
+
+    #[error("Serde JSON error: {0}")]
+    SerdeJson(#[from] serde_json::Error),
+
+    #[error("Reqwest error: {0}")]
+    ReqwestError(#[from] reqwest::Error),
+
+    #[error("EIP712 error: {0}")]
     Eip712(String),
-    #[error("Json parse error: {0:?}")]
-    JsonParse(String),
-    #[error("Generic parse error: {0:?}")]
+
+    #[error("Generic parse error: {0}")]
     GenericParse(String),
-    #[error("Wallet error: {0:?}")]
-    Wallet(String),
-    #[error("Websocket error: {0:?}")]
-    Websocket(String),
+
+    #[error("Asset not found: {0}")]
+    AssetNotFound(String),
+
+    #[error("Vault address not found: {0}")]
+    VaultAddressNotFound(String),
+
+    #[error("Float string parse error: {0}")]
+    FloatStringParse(String),
+
+    #[error("Generic request error: {0}")]
+    GenericRequest(String),
+
     #[error("Subscription not found")]
     SubscriptionNotFound,
+
     #[error("WS manager not instantiated")]
     WsManagerNotFound,
+
     #[error("WS send error: {0:?}")]
     WsSend(String),
+
     #[error("Reader data not found")]
     ReaderDataNotFound,
+
     #[error("Reader error: {0:?}")]
     GenericReader(String),
+
     #[error("Reader text conversion error: {0:?}")]
     ReaderTextConversion(String),
+
     #[error("Order type not found")]
     OrderTypeNotFound,
+
     #[error("Issue with generating random data: {0:?}")]
     RandGen(String),
-    #[error("Private key parse error: {0:?}")]
+
+    #[error("Private key parse error: {0}")]
     PrivateKeyParse(String),
+
     #[error("Cannot subscribe to multiple user events")]
     UserEvents,
-    #[error("Rmp parse error: {0:?}")]
+
+    #[error("RMP parse error: {0}")]
     RmpParse(String),
-    #[error("Invalid input number")]
-    FloatStringParse,
-    #[error("No cloid found in order request when expected")]
-    NoCloid,
-    #[error("ECDSA signature failed: {0:?}")]
+
+    #[error("JSON parse error: {0}")]
+    JsonParse(String),
+
+    #[error("Websocket error: {0}")]
+    Websocket(String),
+
+    #[error("Signature failure: {0}")]
     SignatureFailure(String),
-    #[error("Vault address not found")]
-    VaultAddressNotFound,
+
+    #[error("Alloy signer error: {0}")]
+    AlloySignerError(String),
+}
+
+impl From<alloy_signer::Error> for Error {
+    fn from(err: alloy_signer::Error) -> Self {
+        Error::AlloySignerError(err.to_string())
+    }
+}
+
+impl From<fn(String) -> Error> for Error {
+    fn from(_: fn(String) -> Error) -> Self {
+        Error::AssetNotFound("Asset not found".to_string())
+    }
 }
