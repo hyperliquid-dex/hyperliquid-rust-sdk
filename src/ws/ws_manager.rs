@@ -4,7 +4,7 @@ use crate::{
     ActiveAssetCtx, Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
     WebData2,
 };
-use alloy_primitives::Address;
+use alloy::primitives::Address;
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
 use log::{error, info, warn};
 use serde::{Deserialize, Serialize};

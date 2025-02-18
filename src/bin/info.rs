@@ -1,4 +1,5 @@
-use alloy_primitives::Address;
+use alloy::primitives::{Address, U256};
+
 use hyperliquid_rust_sdk::{BaseUrl, InfoClient};
 use log::info;
 
@@ -8,7 +9,9 @@ const ADDRESS: &str = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8";
 async fn main() {
     env_logger::init();
     let info_client = InfoClient::new(None, Some(BaseUrl::Testnet)).await.unwrap();
-    let user = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8".parse::<Address>().unwrap();
+    let user = "0xc64cc00b46101bd40aa1c3121195e85c0b0918d8"
+        .parse::<Address>()
+        .unwrap();
 
     let user_state = info_client.user_state(user).await.unwrap();
     info!("User state: {user_state:?}");
@@ -32,12 +35,7 @@ async fn main() {
     info!("Recent trades: {recent_trades:?}");
 
     let candles_snapshot = info_client
-        .candles_snapshot(
-            "ETH".to_string(),
-            "1m".to_string(),
-            1704067200,
-            1704153600,
-        )
+        .candles_snapshot("ETH".to_string(), "1m".to_string(), 1704067200, 1704153600)
         .await
         .unwrap();
     info!("Candles snapshot: {candles_snapshot:?}");

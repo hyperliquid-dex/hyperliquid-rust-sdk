@@ -1,7 +1,7 @@
+use alloy::primitives::{Address, U256};
 use hyperliquid_rust_sdk::LocalWallet;
 use hyperliquid_rust_sdk::{BaseUrl, ExchangeClient};
 use log::info;
-use alloy_primitives::{Address, U256};
 
 #[tokio::main]
 async fn main() {

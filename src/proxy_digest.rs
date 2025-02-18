@@ -1,10 +1,13 @@
 // For synchronous signing.
 // Needed to duplicate our own copy because it wasn't possible to import from ethers-signers.
-use alloy_primitives::B256;
+use alloy::primitives::B256;
 use k256::{
     ecdsa::signature::digest::{
         generic_array::GenericArray,
-        {Digest, FixedOutput, FixedOutputReset, HashMarker, Output, OutputSizeUser, Reset, Update},
+        {
+            Digest, FixedOutput, FixedOutputReset, HashMarker, Output, OutputSizeUser, Reset,
+            Update,
+        },
     },
     sha2,
 };

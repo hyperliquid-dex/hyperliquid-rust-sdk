@@ -10,9 +10,7 @@ pub enum Error {
     },
 
     #[error("Server request error: {message}")]
-    ServerRequest {
-        message: String,
-    },
+    ServerRequest { message: String },
 
     #[error("Chain not allowed")]
     ChainNotAllowed,
@@ -93,8 +91,8 @@ pub enum Error {
     AlloySignerError(String),
 }
 
-impl From<alloy_signer::Error> for Error {
-    fn from(err: alloy_signer::Error) -> Self {
+impl From<alloy::signers::Error> for Error {
+    fn from(err: alloy::signers::Error) -> Self {
         Error::AlloySignerError(err.to_string())
     }
 }

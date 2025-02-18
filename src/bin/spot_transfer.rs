@@ -1,6 +1,5 @@
-use alloy_primitives::{Address, U256};
-use alloy_signer_local::LocalWallet;
-use hyperliquid_rust_sdk::{BaseUrl, ExchangeClient};
+use alloy::primitives::{Address, U256};
+use hyperliquid_rust_sdk::{BaseUrl, ExchangeClient, LocalWallet};
 use log::info;
 
 #[tokio::main]
@@ -22,7 +21,12 @@ async fn main() {
     info!("Sending {} {} to {}", amount, token, destination);
 
     exchange_client
-        .spot_send(destination, token.to_string(), amount, "Testnet".to_string())
+        .spot_send(
+            destination,
+            token.to_string(),
+            amount,
+            "Testnet".to_string(),
+        )
         .await
         .unwrap();
 }

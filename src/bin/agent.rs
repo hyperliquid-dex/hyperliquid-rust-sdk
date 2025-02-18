@@ -1,5 +1,7 @@
-use alloy_primitives::{Address, U256};
-use alloy_signer_local::PrivateKeySigner;
+use alloy::{
+    primitives::{Address, U256},
+    signers::local::PrivateKeySigner,
+};
 use hyperliquid_rust_sdk::{BaseUrl, ExchangeClient};
 use log::info;
 
@@ -12,11 +14,15 @@ async fn main() {
 
     let exchange_client = ExchangeClient::new(BaseUrl::Testnet.get_url());
 
-    let agent = "0x1234567890123456789012345678901234567890".parse::<Address>().unwrap();
+    let agent = "0x1234567890123456789012345678901234567890"
+        .parse::<Address>()
+        .unwrap();
 
     info!("Approving agent {}", agent);
 
-    let res = exchange_client.approve_agent(agent, "Testnet".to_string()).await;
+    let res = exchange_client
+        .approve_agent(agent, "Testnet".to_string())
+        .await;
     match res {
         Ok(_) => info!("Successfully approved agent"),
         Err(e) => eprintln!("Failed to approve agent: {}", e),

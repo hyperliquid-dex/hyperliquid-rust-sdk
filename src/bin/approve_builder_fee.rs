@@ -1,6 +1,5 @@
-use alloy_primitives::{Address, U256};
-use alloy_signer_local::LocalWallet;
-use hyperliquid_rust_sdk::{BaseUrl, ExchangeClient, BuilderInfo};
+use alloy::primitives::{Address, U256};
+use hyperliquid_rust_sdk::{BaseUrl, BuilderInfo, ExchangeClient, LocalWallet};
 use log::info;
 
 #[tokio::main]

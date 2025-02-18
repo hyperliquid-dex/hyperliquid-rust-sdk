@@ -1,12 +1,11 @@
-use alloy_primitives::{Address, U256};
+use alloy::primitives::Address;
 use log::{error, info};
 use tokio::sync::mpsc::unbounded_channel;
-use serde::Deserialize;
 
 use crate::{
     bps_diff, truncate_float, BaseUrl, ClientCancelRequest, ClientLimit, ClientOrder,
     ClientOrderRequest, ExchangeClient, ExchangeDataStatus, ExchangeResponseStatus, InfoClient,
-    Message, Subscription, UserData, EPSILON, Position, LocalWallet,
+    LocalWallet, Message, Position, Subscription, UserData, EPSILON,
 };
 
 #[derive(Debug, Clone)]

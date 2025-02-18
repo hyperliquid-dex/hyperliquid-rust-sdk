@@ -1,22 +1,24 @@
-use alloy_primitives::{Address, U256};
-use alloy_sol_types::{sol, SolStruct, SolType};
+use alloy::{
+    primitives::{Address, U256},
+    sol_types::{SolStruct, SolType},
+};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 
-use crate::Error;
 use super::{
-    cancel::{CancelRequest, CancelRequestCloid}, 
-    modify::ModifyRequest, 
+    cancel::{CancelRequest, CancelRequestCloid},
+    modify::ModifyRequest,
     order::OrderRequest,
-    BuilderInfo
+    BuilderInfo,
 };
+use crate::Error;
 
 pub(crate) const HYPERLIQUID_EIP_PREFIX: &str = "HyperliquidTransaction:";
 
 pub mod types {
     use super::*;
-    
-    sol! {
+
+    alloy::sol! {
         #[derive(Debug, Serialize, Deserialize)]
         struct UsdSend {
             uint256 signatureChainId;

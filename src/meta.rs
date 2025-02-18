@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use alloy_primitives::U128;
+use alloy::primitives::U128;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone)]

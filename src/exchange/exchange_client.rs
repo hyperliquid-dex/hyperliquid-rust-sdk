@@ -1,16 +1,11 @@
-use alloy_primitives::{Address, U256};
+use alloy::primitives::{Address, U256};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Error,
-    exchange::actions::types::{UsdSend, ApproveAgent, Withdraw3, SpotSend, ClassTransfer},
-    ClientCancelRequest,
-    ClientCancelRequestCloid,
-    ClientOrderRequest,
-    BuilderInfo,
-    ExchangeResponseStatus,
-    VaultTransfer,
+    exchange::actions::types::{ApproveAgent, ClassTransfer, SpotSend, UsdSend, Withdraw3},
+    BuilderInfo, ClientCancelRequest, ClientCancelRequestCloid, ClientOrderRequest, Error,
+    ExchangeResponseStatus, VaultTransfer,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -38,13 +33,20 @@ impl ExchangeClient {
     }
 
     pub fn get_timestamp(&self) -> U256 {
-        U256::from(std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_secs())
+        U256::from(
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+        )
     }
 
-    pub async fn usd_send(&self, destination: Address, amount: U256, hyperliquid_chain: String) -> Result<(), Error> {
+    pub async fn usd_send(
+        &self,
+        destination: Address,
+        amount: U256,
+        hyperliquid_chain: String,
+    ) -> Result<(), Error> {
         let timestamp = self.get_timestamp();
         let req = UsdSend {
             signatureChainId: U256::from(421614u64),
@@ -62,7 +64,11 @@ impl ExchangeClient {
         Ok(())
     }
 
-    pub async fn approve_agent(&self, address: Address, hyperliquid_chain: String) -> Result<(), Error> {
+    pub async fn approve_agent(
+        &self,
+        address: Address,
+        hyperliquid_chain: String,
+    ) -> Result<(), Error> {
         let timestamp = self.get_timestamp();
         let req = ApproveAgent {
             signatureChainId: U256::from(421614u64),
@@ -79,7 +85,12 @@ impl ExchangeClient {
         Ok(())
     }
 
-    pub async fn withdraw(&self, destination: Address, amount: U256, hyperliquid_chain: String) -> Result<(), Error> {
+    pub async fn withdraw(
+        &self,
+        destination: Address,
+        amount: U256,
+        hyperliquid_chain: String,
+    ) -> Result<(), Error> {
         let timestamp = self.get_timestamp();
         let req = Withdraw3 {
             signatureChainId: U256::from(421614u64),
@@ -97,7 +108,13 @@ impl ExchangeClient {
         Ok(())
     }
 
-    pub async fn spot_send(&self, destination: Address, token: String, amount: U256, hyperliquid_chain: String) -> Result<(), Error> {
+    pub async fn spot_send(
+        &self,
+        destination: Address,
+        token: String,
+        amount: U256,
+        hyperliquid_chain: String,
+    ) -> Result<(), Error> {
         let timestamp = self.get_timestamp();
         let req = SpotSend {
             signatureChainId: U256::from(421614u64),
@@ -116,7 +133,12 @@ impl ExchangeClient {
         Ok(())
     }
 
-    pub async fn class_transfer(&self, amount: U256, to_perp: bool, hyperliquid_chain: String) -> Result<(), Error> {
+    pub async fn class_transfer(
+        &self,
+        amount: U256,
+        to_perp: bool,
+        hyperliquid_chain: String,
+    ) -> Result<(), Error> {
         let timestamp = self.get_timestamp();
         let req = ClassTransfer {
             signatureChainId: U256::from(421614u64),
@@ -134,9 +156,14 @@ impl ExchangeClient {
         Ok(())
     }
 
-    pub async fn cancel(&self, req: ClientCancelRequest, _builder: Option<BuilderInfo>) -> Result<ExchangeResponseStatus, Error> {
+    pub async fn cancel(
+        &self,
+        req: ClientCancelRequest,
+        _builder: Option<BuilderInfo>,
+    ) -> Result<ExchangeResponseStatus, Error> {
         let req_json = serde_json::to_string(&req)?;
-        let response = self.http_client
+        let response = self
+            .http_client
             .post(format!("{}/exchange/cancel", self.base_url))
             .body(req_json)
             .send()
@@ -145,9 +172,14 @@ impl ExchangeClient {
         Ok(serde_json::from_str(&text)?)
     }
 
-    pub async fn order(&self, req: ClientOrderRequest, _builder: Option<BuilderInfo>) -> Result<ExchangeResponseStatus, Error> {
+    pub async fn order(
+        &self,
+        req: ClientOrderRequest,
+        _builder: Option<BuilderInfo>,
+    ) -> Result<ExchangeResponseStatus, Error> {
         let req_json = serde_json::to_string(&req)?;
-        let response = self.http_client
+        let response = self
+            .http_client
             .post(format!("{}/exchange/order", self.base_url))
             .body(req_json)
             .send()
@@ -169,9 +201,14 @@ impl ExchangeClient {
         Ok(())
     }
 
-    pub async fn cancel_by_cloid(&self, req: ClientCancelRequestCloid, _builder: Option<BuilderInfo>) -> Result<ExchangeResponseStatus, Error> {
+    pub async fn cancel_by_cloid(
+        &self,
+        req: ClientCancelRequestCloid,
+        _builder: Option<BuilderInfo>,
+    ) -> Result<ExchangeResponseStatus, Error> {
         let req_json = serde_json::to_string(&req)?;
-        let response = self.http_client
+        let response = self
+            .http_client
             .post(format!("{}/exchange/cancelByCloid", self.base_url))
             .body(req_json)
             .send()
@@ -180,7 +217,13 @@ impl ExchangeClient {
         Ok(serde_json::from_str(&text)?)
     }
 
-    pub async fn vault_transfer(&self, vault_address: Address, is_deposit: bool, usd: String, hyperliquid_chain: String) -> Result<(), Error> {
+    pub async fn vault_transfer(
+        &self,
+        vault_address: Address,
+        is_deposit: bool,
+        usd: String,
+        hyperliquid_chain: String,
+    ) -> Result<(), Error> {
         let req = VaultTransfer {
             vault_address,
             is_deposit,

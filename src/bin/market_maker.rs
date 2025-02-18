@@ -1,7 +1,6 @@
-use alloy_primitives::Address;
-use alloy_signer_local::PrivateKeySigner;
+use alloy::primitives::{Address, U256};
 use hyperliquid_rust_sdk::{
-    BaseUrl, ExchangeClient, ClientLimit, ClientOrder, ClientOrderRequest, BuilderInfo,
+    BaseUrl, BuilderInfo, ClientLimit, ClientOrder, ClientOrderRequest, ExchangeClient, LocalWallet,
 };
 use log::info;
 use std::time::Duration;
@@ -11,7 +10,7 @@ async fn main() {
     env_logger::init();
     // Key was randomly generated for testing and shouldn't be used with any real funds
     let priv_key = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e";
-    let wallet = priv_key.parse::<PrivateKeySigner>().unwrap();
+    let wallet = priv_key.parse::<LocalWallet>().unwrap();
 
     let exchange_client = ExchangeClient::new(BaseUrl::Testnet.get_url());
 
@@ -33,7 +32,10 @@ async fn main() {
         }),
     };
 
-    let response = exchange_client.order(buy_order, Some(builder_info.clone())).await.unwrap();
+    let response = exchange_client
+        .order(buy_order, Some(builder_info.clone()))
+        .await
+        .unwrap();
     info!("Buy order response: {response:?}");
 
     tokio::time::sleep(Duration::from_secs(5)).await;
@@ -51,6 +53,9 @@ async fn main() {
         }),
     };
 
-    let response = exchange_client.order(sell_order, Some(builder_info)).await.unwrap();
+    let response = exchange_client
+        .order(sell_order, Some(builder_info))
+        .await
+        .unwrap();
     info!("Sell order response: {response:?}");
 }

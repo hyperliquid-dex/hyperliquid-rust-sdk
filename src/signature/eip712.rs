@@ -1,4 +1,4 @@
-use alloy_primitives::{Address, B256, U256};
+use alloy::primitives::{Address, B256, U256};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,4 +54,4 @@ impl Domain {
             salt,
         }
     }
-} 
+}

@@ -1,18 +1,17 @@
-use alloy_primitives::U256;
-use alloy_signer_local::PrivateKeySigner;
+use alloy::primitives::{Address, U256};
 use hyperliquid_rust_sdk::{
-    BaseUrl, ExchangeClient, ExchangeDataStatus, ExchangeResponseStatus, MarketCloseParams,
-    MarketOrderParams, ClientOrder, ClientOrderRequest, ClientLimit, ClientTrigger,
+    BaseUrl, ClientLimit, ClientOrder, ClientOrderRequest, ClientTrigger, ExchangeClient,
+    ExchangeDataStatus, ExchangeResponseStatus, LocalWallet, MarketCloseParams, MarketOrderParams,
 };
-use std::{thread::sleep, time::Duration};
 use log::info;
+use std::{thread::sleep, time::Duration};
 
 #[tokio::main]
 async fn main() {
     env_logger::init();
     // Key was randomly generated for testing and shouldn't be used with any real funds
     let priv_key = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e";
-    let wallet = priv_key.parse::<PrivateKeySigner>().unwrap();
+    let wallet = priv_key.parse::<LocalWallet>().unwrap();
 
     let exchange_client = ExchangeClient::new(BaseUrl::Testnet.get_url());
 
@@ -49,7 +48,7 @@ async fn main() {
     // Close position with a market order
     let close_order = ClientOrderRequest {
         asset: "ETH".to_string(),
-        is_buy: false, // Opposite direction to close
+        is_buy: false,     // Opposite direction to close
         reduce_only: true, // This ensures we only reduce/close our position
         limit_px: 1795.0,
         sz: 0.01,

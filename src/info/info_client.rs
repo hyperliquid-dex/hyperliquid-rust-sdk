@@ -11,7 +11,7 @@ use crate::{
     UserFundingResponse, UserTokenBalanceResponse,
 };
 
-use alloy_primitives::Address;
+use alloy::primitives::Address;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -281,11 +281,12 @@ impl InfoClient {
         self.send_info_request(input).await
     }
 
-    pub async fn query_order_by_oid(&self, address: Address, oid: u64) -> Result<OrderStatusResponse> {
-        let input = InfoRequest::OrderStatus {
-            user: address,
-            oid,
-        };
+    pub async fn query_order_by_oid(
+        &self,
+        address: Address,
+        oid: u64,
+    ) -> Result<OrderStatusResponse> {
+        let input = InfoRequest::OrderStatus { user: address, oid };
         self.send_info_request(input).await
     }
 

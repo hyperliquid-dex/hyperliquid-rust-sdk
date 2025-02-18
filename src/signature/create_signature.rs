@@ -1,8 +1,10 @@
-use alloy_primitives::{Address, B256, U256};
-use alloy_signer_local::PrivateKeySigner;
-use alloy_signer::{Signer, SignerSync};
-use alloy_sol_types::{sol, SolType, SolValue, SolStruct};
-use alloy_dyn_abi::Eip712Domain;
+use alloy::{
+    dyn_abi::Eip712Domain,
+    primitives::{Address, B256, U256},
+    signers::{local::PrivateKeySigner, Signer, SignerSync},
+    sol_types::{SolStruct, SolType, SolValue},
+};
+
 use crate::{prelude::*, Error};
 use hex;
 
@@ -18,7 +20,7 @@ impl ToString for SignatureBytes {
 pub(crate) mod domain {
     use super::*;
 
-    sol! {
+    alloy::sol! {
         #[derive(Debug)]
         struct Domain {
             string name;
@@ -42,7 +44,10 @@ pub(crate) mod domain {
     }
 }
 
-pub(crate) async fn sign_typed_data<T: SolStruct>(payload: &T, wallet: &PrivateKeySigner) -> Result<SignatureBytes> {
+pub(crate) async fn sign_typed_data<T: SolStruct>(
+    payload: &T,
+    wallet: &PrivateKeySigner,
+) -> Result<SignatureBytes> {
     let domain = Eip712Domain {
         name: Some("HyperLiquid".into()),
         version: Some("1".into()),
@@ -51,14 +56,19 @@ pub(crate) async fn sign_typed_data<T: SolStruct>(payload: &T, wallet: &PrivateK
         salt: None,
     };
 
+    let hash = payload.eip712_signing_hash(&domain);
     let signature = wallet
-        .sign_typed_data_sync(payload, &domain)
+        .sign_hash(&hash)
+        .await
         .map_err(|e| Error::SignatureFailure(e.to_string()))?;
 
     Ok(SignatureBytes(signature.as_bytes()))
 }
 
-pub(crate) async fn sign_l1_action(hash: B256, wallet: &PrivateKeySigner) -> Result<SignatureBytes> {
+pub(crate) async fn sign_l1_action(
+    hash: B256,
+    wallet: &PrivateKeySigner,
+) -> Result<SignatureBytes> {
     let signature = wallet
         .sign_hash_sync(&hash)
         .map_err(|e| Error::SignatureFailure(e.to_string()))?;

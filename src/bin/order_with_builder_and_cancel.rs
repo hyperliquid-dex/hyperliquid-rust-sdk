@@ -1,10 +1,9 @@
-use alloy_primitives::{Address, U256};
-use alloy_signer_local::LocalWallet;
+use alloy::primitives::{Address, U256};
 use log::info;
 
 use hyperliquid_rust_sdk::{
     BaseUrl, BuilderInfo, ClientCancelRequest, ClientLimit, ClientOrder, ClientOrderRequest,
-    ExchangeClient, ExchangeDataStatus, ExchangeResponseStatus,
+    ExchangeClient, ExchangeDataStatus, ExchangeResponseStatus, LocalWallet,
 };
 use std::{thread::sleep, time::Duration};
 
@@ -35,7 +34,10 @@ async fn main() {
     };
 
     info!("Placing order with builder: {:?}", order);
-    let res = exchange_client.order(order.clone(), Some(builder.clone())).await.unwrap();
+    let res = exchange_client
+        .order(order.clone(), Some(builder.clone()))
+        .await
+        .unwrap();
     info!("Order result: {:?}", res);
 
     let response = match res {

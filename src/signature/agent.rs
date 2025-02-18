@@ -1,12 +1,14 @@
-use alloy_primitives::{Address, U256};
-use alloy_sol_types::{sol, SolType, SolValue};
 use crate::prelude::*;
+use alloy::{
+    primitives::{Address, U256},
+    sol_types::{SolType, SolValue},
+};
 use serde::{Deserialize, Serialize};
 
 pub(crate) mod l1 {
     use super::*;
 
-    sol! {
+    alloy::sol! {
         #[derive(Debug)]
         struct Agent {
             address agent;
@@ -17,11 +19,7 @@ pub(crate) mod l1 {
 
     impl Agent {
         pub fn new(agent: Address, name: String, time: u64) -> Self {
-            Self {
-                agent,
-                name,
-                time,
-            }
+            Self { agent, name, time }
         }
     }
 }

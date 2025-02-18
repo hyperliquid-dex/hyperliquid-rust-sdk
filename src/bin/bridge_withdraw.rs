@@ -1,4 +1,4 @@
-use alloy_primitives::{Address, U256};
+use alloy::primitives::{Address, U256};
 use hyperliquid_rust_sdk::{BaseUrl, ExchangeClient, LocalWallet};
 use log::info;
 

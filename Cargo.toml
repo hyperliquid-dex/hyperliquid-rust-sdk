@@ -14,11 +14,12 @@ repository = "https://github.com/hyperliquid-dex/hyperliquid-rust-sdk"
 [dependencies]
 chrono = "0.4.26"
 env_logger = "0.10.0"
-alloy-primitives = { version = "0.8.21", features = ["serde"] }
-alloy-sol-types = { version = "0.8.21", features = ["json"] }
-alloy-signer = { version = "0.11.1", features = ["eip712"] }
-alloy-signer-local = "0.11.1"
-alloy-dyn-abi = "0.8"
+alloy = { version = "0.11", features = ["dyn-abi", "sol-types", "signer-local"] }
+# alloy-primitives = { version = "0.8.21", features = ["serde"] }
+# alloy-sol-types = { version = "0.8.21", features = ["json"] }
+# alloy-signer = { version = "0.11.1", features = ["eip712"] }
+# alloy-signer-local = "0.11.1"
+# alloy-dyn-abi = "0.8"
 k256 = { version = "0.13", features = ["ecdsa", "sha256"] }
 futures-util = "0.3.28"
 hex = "0.4.3"

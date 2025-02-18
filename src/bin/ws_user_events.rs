@@ -2,7 +2,8 @@ use log::info;
 
 use std::str::FromStr;
 
-use alloy_primitives::Address;
+use alloy::primitives::{Address, U256};
+
 use hyperliquid_rust_sdk::{BaseUrl, InfoClient, Message, Subscription};
 use tokio::{
     spawn,
