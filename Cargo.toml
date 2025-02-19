@@ -14,7 +14,8 @@ repository = "https://github.com/hyperliquid-dex/hyperliquid-rust-sdk"
 [dependencies]
 chrono = "0.4.26"
 env_logger = "0.10.0"
-ethers = {version = "2.0.14", features = ["eip712", "abigen"]}
+alloy = { version = "0.11", features = ["dyn-abi", "sol-types", "signer-local"] }
+k256 = { version = "0.13", features = ["ecdsa", "sha256"] }
 futures-util = "0.3.28"
 hex = "0.4.3"
 http = "0.2.9"
@@ -28,4 +29,4 @@ rmp-serde = "1.0.0"
 thiserror = "1.0.44"
 tokio = {version = "1.29.1", features = ["full"]}
 tokio-tungstenite = {version = "0.20.0", features = ["native-tls"]}
-uuid = {version = "1.6.1", features = ["v4"]}
+uuid = {version = "1.6.1", features = ["v4", "serde"]}

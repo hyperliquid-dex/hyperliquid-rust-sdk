@@ -1,9 +1,9 @@
-use ethers::signers::LocalWallet;
+use alloy::primitives::{Address, U256};
 use log::info;
 
 use hyperliquid_rust_sdk::{
     BaseUrl, ClientCancelRequest, ClientLimit, ClientOrder, ClientOrderRequest, ExchangeClient,
-    ExchangeDataStatus, ExchangeResponseStatus,
+    ExchangeDataStatus, ExchangeResponseStatus, LocalWallet,
 };
 use std::{thread::sleep, time::Duration};
 
@@ -11,13 +11,10 @@ use std::{thread::sleep, time::Duration};
 async fn main() {
     env_logger::init();
     // Key was randomly generated for testing and shouldn't be used with any real funds
-    let wallet: LocalWallet = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e"
-        .parse()
-        .unwrap();
+    let priv_key = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e";
+    let wallet = priv_key.parse::<LocalWallet>().unwrap();
 
-    let exchange_client = ExchangeClient::new(None, wallet, Some(BaseUrl::Testnet), None, None)
-        .await
-        .unwrap();
+    let exchange_client = ExchangeClient::new(BaseUrl::Testnet.get_url());
 
     let order = ClientOrderRequest {
         asset: "XYZTWO/USDC".to_string(),
