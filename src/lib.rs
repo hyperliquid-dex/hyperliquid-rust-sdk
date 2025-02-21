@@ -17,5 +17,5 @@ pub use exchange::*;
 pub use helpers::{bps_diff, truncate_float, BaseUrl};
 pub use info::{info_client::*, *};
 pub use market_maker::{MarketMaker, MarketMakerInput, MarketMakerRestingOrder};
-pub use meta::{AssetMeta, Meta};
+pub use meta::{AssetMeta, Meta, SpotMeta};
 pub use ws::*;
