@@ -105,9 +105,7 @@ pub struct ClientOrderRequest<T = f64> {
     pub order_type: ClientOrder,
 }
 
-impl<U> ClientOrderRequest<U>
-where
-    U: ToString,
+impl ClientOrderRequest<f64>
 {
     pub(crate) fn convert(self, coin_to_asset: &HashMap<String, u32>) -> Result<OrderRequest> {
         let order_type = match self.order_type {
@@ -126,8 +124,34 @@ where
             asset,
             is_buy: self.is_buy,
             reduce_only: self.reduce_only,
-            limit_px: self.limit_px.to_string(),
-            sz: self.sz.to_string(),
+            limit_px: float_to_string_for_hashing(self.limit_px),
+            sz: float_to_string_for_hashing(self.sz),
+            order_type,
+            cloid,
+        })
+    }
+}
+
+impl ClientOrderRequest<String> {
+    pub(crate) fn convert(self, coin_to_asset: &HashMap<String, u32>) -> Result<OrderRequest> {
+        let order_type = match self.order_type {
+            ClientOrder::Limit(limit) => Order::Limit(Limit { tif: limit.tif }),
+            ClientOrder::Trigger(trigger) => Order::Trigger(Trigger {
+                trigger_px: float_to_string_for_hashing(trigger.trigger_px),
+                is_market: trigger.is_market,
+                tpsl: trigger.tpsl,
+            }),
+        };
+        let &asset = coin_to_asset.get(&self.asset).ok_or(Error::AssetNotFound)?;
+
+        let cloid = self.cloid.map(uuid_to_hex_string);
+
+        Ok(OrderRequest {
+            asset,
+            is_buy: self.is_buy,
+            reduce_only: self.reduce_only,
+            limit_px: self.limit_px,
+            sz: self.sz,
             order_type,
             cloid,
         })
@@ -181,19 +205,19 @@ mod test {
         let coin_to_asset: &mut HashMap<std::string::String, u32> = &mut HashMap::new();
         coin_to_asset.insert("XYZTWO/USDC".to_string(), 123);
 
-        let f64_client_order_under_test = ClientOrderRequest {
+        let string_client_order_under_test = ClientOrderRequest::<String> {
             asset: "XYZTWO/USDC".to_string(),
             is_buy: true,
             reduce_only: false,
-            limit_px: "2.000",
-            sz: "3.0000",
+            limit_px: "2.000".to_string(),
+            sz: "3.0000".to_string(),
             cloid: None,
             order_type: ClientOrder::Limit(ClientLimit {
                 tif: "Gtc".to_string(),
             }),
         };
 
-        let test_result = f64_client_order_under_test.convert(coin_to_asset);
+        let test_result = string_client_order_under_test.convert(coin_to_asset);
 
         assert_eq!(
             test_result.unwrap(),
