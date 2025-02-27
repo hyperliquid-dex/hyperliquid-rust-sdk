@@ -91,8 +91,8 @@ pub struct ClientOrderRequest {
     pub asset: String,
     pub is_buy: bool,
     pub reduce_only: bool,
-    pub limit_px: f64,
-    pub sz: f64,
+    pub limit_px: String,
+    pub sz: String,
     pub cloid: Option<Uuid>,
     pub order_type: ClientOrder,
 }
@@ -115,8 +115,8 @@ impl ClientOrderRequest {
             asset,
             is_buy: self.is_buy,
             reduce_only: self.reduce_only,
-            limit_px: float_to_string_for_hashing(self.limit_px),
-            sz: float_to_string_for_hashing(self.sz),
+            limit_px: self.limit_px,
+            sz: self.sz,
             order_type,
             cloid,
         })
