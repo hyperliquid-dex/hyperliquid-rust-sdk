@@ -113,6 +113,8 @@ pub struct UserTokenBalance {
     pub coin: String,
     pub hold: String,
     pub total: String,
+    #[serde(rename = "entryNtl")]
+    pub entry_ntl: String,
 }
 
 #[derive(Deserialize, Clone, Debug)]
