@@ -1,6 +1,7 @@
-use ethers::signers::LocalWallet;
+use hyperliquid_rust_sdk::LocalWallet;
 use hyperliquid_rust_sdk::{BaseUrl, ExchangeClient};
 use log::info;
+use alloy_primitives::{Address, U256};
 
 #[tokio::main]
 async fn main() {
@@ -10,16 +11,17 @@ async fn main() {
         .parse()
         .unwrap();
 
-    let exchange_client = ExchangeClient::new(None, wallet, Some(BaseUrl::Testnet), None, None)
-        .await
-        .unwrap();
+    let exchange_client = ExchangeClient::new(BaseUrl::Testnet.get_url());
 
     let amount = "1"; // 1 USD
     let destination = "0x0D1d9635D0640821d15e323ac8AdADfA9c111414";
 
-    let res = exchange_client
-        .usdc_transfer(amount, destination, None)
+    let amount = amount.parse::<U256>().unwrap();
+    let destination = destination.parse::<Address>().unwrap();
+
+    exchange_client
+        .usd_send(destination, amount, "Testnet".to_string())
         .await
         .unwrap();
-    info!("Usdc transfer result: {res:?}");
+    info!("USD transfer completed");
 }

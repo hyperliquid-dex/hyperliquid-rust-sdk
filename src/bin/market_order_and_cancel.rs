@@ -1,40 +1,36 @@
-use ethers::signers::LocalWallet;
-use log::info;
-
+use alloy_primitives::U256;
+use alloy_signer_local::PrivateKeySigner;
 use hyperliquid_rust_sdk::{
     BaseUrl, ExchangeClient, ExchangeDataStatus, ExchangeResponseStatus, MarketCloseParams,
-    MarketOrderParams,
+    MarketOrderParams, ClientOrder, ClientOrderRequest, ClientLimit, ClientTrigger,
 };
 use std::{thread::sleep, time::Duration};
+use log::info;
 
 #[tokio::main]
 async fn main() {
     env_logger::init();
     // Key was randomly generated for testing and shouldn't be used with any real funds
-    let wallet: LocalWallet = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e"
-        .parse()
-        .unwrap();
+    let priv_key = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e";
+    let wallet = priv_key.parse::<PrivateKeySigner>().unwrap();
 
-    let exchange_client = ExchangeClient::new(None, wallet, Some(BaseUrl::Testnet), None, None)
-        .await
-        .unwrap();
+    let exchange_client = ExchangeClient::new(BaseUrl::Testnet.get_url());
 
-    // Market open order
-    let market_open_params = MarketOrderParams {
-        asset: "ETH",
+    // Open position with a limit order
+    let order = ClientOrderRequest {
+        asset: "ETH".to_string(),
         is_buy: true,
+        reduce_only: false,
+        limit_px: 1795.0,
         sz: 0.01,
-        px: None,
-        slippage: Some(0.01), // 1% slippage
         cloid: None,
-        wallet: None,
+        order_type: ClientOrder::Limit(ClientLimit {
+            tif: "Gtc".to_string(),
+        }),
     };
 
-    let response = exchange_client
-        .market_open(market_open_params)
-        .await
-        .unwrap();
-    info!("Market open order placed: {response:?}");
+    let response = exchange_client.order(order, None).await.unwrap();
+    info!("Order placed: {response:?}");
 
     let response = match response {
         ExchangeResponseStatus::Ok(exchange_response) => exchange_response,
@@ -50,21 +46,23 @@ async fn main() {
     // Wait for a while before closing the position
     sleep(Duration::from_secs(10));
 
-    // Market close order
-    let market_close_params = MarketCloseParams {
-        asset: "ETH",
-        sz: None, // Close entire position
-        px: None,
-        slippage: Some(0.01), // 1% slippage
+    // Close position with a market order
+    let close_order = ClientOrderRequest {
+        asset: "ETH".to_string(),
+        is_buy: false, // Opposite direction to close
+        reduce_only: true, // This ensures we only reduce/close our position
+        limit_px: 1795.0,
+        sz: 0.01,
         cloid: None,
-        wallet: None,
+        order_type: ClientOrder::Trigger(ClientTrigger {
+            is_market: true,
+            trigger_px: 1795.0,
+            tpsl: "tp".to_string(),
+        }),
     };
 
-    let response = exchange_client
-        .market_close(market_close_params)
-        .await
-        .unwrap();
-    info!("Market close order placed: {response:?}");
+    let response = exchange_client.order(close_order, None).await.unwrap();
+    info!("Close order placed: {response:?}");
 
     let response = match response {
         ExchangeResponseStatus::Ok(exchange_response) => exchange_response,

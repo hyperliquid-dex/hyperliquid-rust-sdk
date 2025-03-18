@@ -1,16 +1,30 @@
-use ethers::{
-    signers::{LocalWallet, Signer},
-    types::H160,
-};
+use alloy_primitives::{Address, U256};
 use log::{error, info};
-
 use tokio::sync::mpsc::unbounded_channel;
+use serde::Deserialize;
 
 use crate::{
     bps_diff, truncate_float, BaseUrl, ClientCancelRequest, ClientLimit, ClientOrder,
     ClientOrderRequest, ExchangeClient, ExchangeDataStatus, ExchangeResponseStatus, InfoClient,
-    Message, Subscription, UserData, EPSILON,
+    Message, Subscription, UserData, EPSILON, Position, LocalWallet,
 };
+
+#[derive(Debug, Clone)]
+pub(crate) struct MarginSummary {
+    pub account_value: String,
+    pub total_margin_used: String,
+    pub total_ntl_pos: String,
+    pub total_raw_usd: String,
+    pub total_raw_usd_cc: String,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct MarketMakerState {
+    pub user: Address,
+    pub margin_summary: MarginSummary,
+    pub positions: Vec<Position>,
+}
+
 #[derive(Debug)]
 pub struct MarketMakerRestingOrder {
     pub oid: u64,
@@ -21,12 +35,12 @@ pub struct MarketMakerRestingOrder {
 #[derive(Debug)]
 pub struct MarketMakerInput {
     pub asset: String,
-    pub target_liquidity: f64, // Amount of liquidity on both sides to target
-    pub half_spread: u16,      // Half of the spread for our market making (in BPS)
-    pub max_bps_diff: u16, // Max deviation before we cancel and put new orders on the book (in BPS)
-    pub max_absolute_position_size: f64, // Absolute value of the max position we can take on
-    pub decimals: u32,     // Decimals to round to for pricing
-    pub wallet: LocalWallet, // Wallet containing private key
+    pub target_liquidity: f64,
+    pub half_spread: u16,
+    pub max_bps_diff: u16,
+    pub max_absolute_position_size: f64,
+    pub decimals: u32,
+    pub wallet: LocalWallet,
 }
 
 #[derive(Debug)]
@@ -43,7 +57,7 @@ pub struct MarketMaker {
     pub latest_mid_price: f64,
     pub info_client: InfoClient,
     pub exchange_client: ExchangeClient,
-    pub user_address: H160,
+    pub user_address: Address,
 }
 
 impl MarketMaker {
@@ -51,10 +65,7 @@ impl MarketMaker {
         let user_address = input.wallet.address();
 
         let info_client = InfoClient::new(None, Some(BaseUrl::Testnet)).await.unwrap();
-        let exchange_client =
-            ExchangeClient::new(None, input.wallet, Some(BaseUrl::Testnet), None, None)
-                .await
-                .unwrap();
+        let exchange_client = ExchangeClient::new(BaseUrl::Testnet.get_url());
 
         MarketMaker {
             asset: input.asset,

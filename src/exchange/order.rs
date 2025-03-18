@@ -2,8 +2,8 @@ use crate::{
     errors::Error,
     helpers::{float_to_string_for_hashing, uuid_to_hex_string},
     prelude::*,
+    LocalWallet,
 };
-use ethers::signers::LocalWallet;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -47,12 +47,12 @@ pub struct OrderRequest {
     pub cloid: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Clone)]
 pub struct ClientLimit {
     pub tif: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Clone)]
 pub struct ClientTrigger {
     pub is_market: bool,
     pub trigger_px: f64,
@@ -80,13 +80,13 @@ pub struct MarketCloseParams<'a> {
     pub wallet: Option<&'a LocalWallet>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Clone)]
 pub enum ClientOrder {
     Limit(ClientLimit),
     Trigger(ClientTrigger),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Clone)]
 pub struct ClientOrderRequest {
     pub asset: String,
     pub is_buy: bool,
@@ -107,7 +107,7 @@ impl ClientOrderRequest {
                 tpsl: trigger.tpsl,
             }),
         };
-        let &asset = coin_to_asset.get(&self.asset).ok_or(Error::AssetNotFound)?;
+        let &asset = coin_to_asset.get(&self.asset).ok_or_else(|| Error::AssetNotFound(self.asset.clone()))?;
 
         let cloid = self.cloid.map(uuid_to_hex_string);
 
@@ -122,3 +122,4 @@ impl ClientOrderRequest {
         })
     }
 }
+
