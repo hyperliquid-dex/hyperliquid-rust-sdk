@@ -1,4 +1,4 @@
-use ethers::signers::LocalWallet;
+use hyperliquid_rust_sdk::LocalWallet;
 use log::info;
 
 use hyperliquid_rust_sdk::{
@@ -15,9 +15,7 @@ async fn main() {
         .parse()
         .unwrap();
 
-    let exchange_client = ExchangeClient::new(None, wallet, Some(BaseUrl::Testnet), None, None)
-        .await
-        .unwrap();
+    let exchange_client = ExchangeClient::new(BaseUrl::Testnet.get_url());
 
     let order = ClientOrderRequest {
         asset: "ETH".to_string(),
