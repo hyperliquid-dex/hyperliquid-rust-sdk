@@ -1,19 +1,17 @@
 use crate::{
-    errors::Error,
     helpers::{float_to_string_for_hashing, uuid_to_hex_string},
     prelude::*,
 };
-use ethers::signers::LocalWallet;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use utoipa::{IntoParams, ToSchema};
 use uuid::Uuid;
 
-#[derive(Deserialize, Serialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug, ToSchema)]
 pub struct Limit {
     pub tif: String,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct Trigger {
     pub is_market: bool,
@@ -21,14 +19,14 @@ pub struct Trigger {
     pub tpsl: String,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum Order {
     Limit(Limit),
     Trigger(Trigger),
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone)]
+#[derive(Deserialize, Serialize, Debug, Clone, IntoParams, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderRequest {
     #[serde(rename = "a", alias = "asset")]
@@ -47,48 +45,49 @@ pub struct OrderRequest {
     pub cloid: Option<String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, IntoParams, ToSchema)]
 pub struct ClientLimit {
     pub tif: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, IntoParams, ToSchema)]
 pub struct ClientTrigger {
     pub is_market: bool,
     pub trigger_px: f64,
     pub tpsl: String,
 }
 
-#[derive(Debug)]
-pub struct MarketOrderParams<'a> {
-    pub asset: &'a str,
+#[derive(Debug, IntoParams, ToSchema)]
+pub struct MarketOrderParams {
+    pub asset: u32,
     pub is_buy: bool,
     pub sz: f64,
-    pub px: Option<f64>,
-    pub slippage: Option<f64>,
+    pub px: f64,
     pub cloid: Option<Uuid>,
-    pub wallet: Option<&'a LocalWallet>,
+    pub slippage: Option<f64>,
+    pub price_decimals: u32,
 }
 
-#[derive(Debug)]
-pub struct MarketCloseParams<'a> {
-    pub asset: &'a str,
-    pub sz: Option<f64>,
-    pub px: Option<f64>,
+#[derive(Debug, IntoParams, ToSchema)]
+pub struct MarketCloseParams {
+    pub asset: u32,
+    pub sz: f64,
+    pub px: f64,
     pub slippage: Option<f64>,
     pub cloid: Option<Uuid>,
-    pub wallet: Option<&'a LocalWallet>,
+    pub is_buy: bool,
+    pub price_decimals: u32,
 }
 
-#[derive(Debug)]
+#[derive(Debug, ToSchema)]
 pub enum ClientOrder {
     Limit(ClientLimit),
     Trigger(ClientTrigger),
 }
 
-#[derive(Debug)]
+#[derive(Debug, IntoParams, ToSchema)]
 pub struct ClientOrderRequest {
-    pub asset: String,
+    pub asset: u32,
     pub is_buy: bool,
     pub reduce_only: bool,
     pub limit_px: f64,
@@ -98,7 +97,7 @@ pub struct ClientOrderRequest {
 }
 
 impl ClientOrderRequest {
-    pub(crate) fn convert(self, coin_to_asset: &HashMap<String, u32>) -> Result<OrderRequest> {
+    pub(crate) fn convert(self) -> Result<OrderRequest> {
         let order_type = match self.order_type {
             ClientOrder::Limit(limit) => Order::Limit(Limit { tif: limit.tif }),
             ClientOrder::Trigger(trigger) => Order::Trigger(Trigger {
@@ -107,12 +106,11 @@ impl ClientOrderRequest {
                 tpsl: trigger.tpsl,
             }),
         };
-        let &asset = coin_to_asset.get(&self.asset).ok_or(Error::AssetNotFound)?;
 
         let cloid = self.cloid.map(uuid_to_hex_string);
 
         Ok(OrderRequest {
-            asset,
+            asset: self.asset,
             is_buy: self.is_buy,
             reduce_only: self.reduce_only,
             limit_px: float_to_string_for_hashing(self.limit_px),

@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct ClientCancelRequest {
-    pub asset: String,
+    pub asset: u32,
     pub oid: u64,
 }
 
@@ -17,7 +17,7 @@ pub struct CancelRequest {
 
 #[derive(Debug)]
 pub struct ClientCancelRequestCloid {
-    pub asset: String,
+    pub asset: u32,
     pub cloid: Uuid,
 }
 

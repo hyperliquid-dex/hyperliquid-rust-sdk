@@ -1,4 +1,3 @@
-use crate::signature::sign_typed_data;
 use crate::{
     exchange::{
         actions::{
@@ -9,46 +8,24 @@ use crate::{
         modify::{ClientModifyRequest, ModifyRequest},
         ClientCancelRequest, ClientOrderRequest,
     },
-    helpers::{generate_random_key, next_nonce, uuid_to_hex_string},
-    info::info_client::InfoClient,
-    meta::Meta,
+    helpers::{next_nonce, uuid_to_hex_string},
     prelude::*,
-    req::HttpClient,
-    signature::sign_l1_action,
-    BaseUrl, BulkCancelCloid, Error, ExchangeResponseStatus,
+    BulkCancelCloid, Error,
 };
 use crate::{ClassTransfer, SpotSend, SpotUser, VaultTransfer, Withdraw3};
-use ethers::{
-    abi::AbiEncode,
-    signers::{LocalWallet, Signer},
-    types::{Signature, H160, H256},
-};
-use log::debug;
-use reqwest::Client;
+use ethers::types::{H160, H256};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use serde_json::Value;
 
 use super::cancel::ClientCancelRequestCloid;
 use super::order::{MarketCloseParams, MarketOrderParams};
 use super::{BuilderInfo, ClientLimit, ClientOrder};
 
-#[derive(Debug)]
-pub struct ExchangeClient {
-    pub http_client: HttpClient,
-    pub wallet: LocalWallet,
-    pub meta: Meta,
-    pub vault_address: Option<H160>,
-    pub coin_to_asset: HashMap<String, u32>,
-}
+#[cfg(feature = "mainnet")]
+const HYPERLIQUID_CHAIN: &str = "Mainnet";
 
-#[derive(Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct ExchangePayload {
-    action: serde_json::Value,
-    signature: Signature,
-    nonce: u64,
-    vault_address: Option<H160>,
-}
+#[cfg(feature = "testnet")]
+const HYPERLIQUID_CHAIN: &str = "Testnet";
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
@@ -85,234 +62,125 @@ impl Actions {
     }
 }
 
-impl ExchangeClient {
-    pub async fn new(
-        client: Option<Client>,
-        wallet: LocalWallet,
-        base_url: Option<BaseUrl>,
-        meta: Option<Meta>,
-        vault_address: Option<H160>,
-    ) -> Result<ExchangeClient> {
-        let client = client.unwrap_or_default();
-        let base_url = base_url.unwrap_or(BaseUrl::Mainnet);
+pub struct HashGenerator {}
 
-        let info = InfoClient::new(None, Some(base_url)).await?;
-        let meta = if let Some(meta) = meta {
-            meta
-        } else {
-            info.meta().await?
-        };
-
-        let mut coin_to_asset = HashMap::new();
-        for (asset_ind, asset) in meta.universe.iter().enumerate() {
-            coin_to_asset.insert(asset.name.clone(), asset_ind as u32);
-        }
-
-        coin_to_asset = info
-            .spot_meta()
-            .await?
-            .add_pair_and_name_to_index_map(coin_to_asset);
-
-        Ok(ExchangeClient {
-            wallet,
-            meta,
-            vault_address,
-            http_client: HttpClient {
-                client,
-                base_url: base_url.get_url(),
-            },
-            coin_to_asset,
-        })
-    }
-
-    async fn post(
-        &self,
-        action: serde_json::Value,
-        signature: Signature,
-        nonce: u64,
-    ) -> Result<ExchangeResponseStatus> {
-        let exchange_payload = ExchangePayload {
-            action,
-            signature,
-            nonce,
-            vault_address: self.vault_address,
-        };
-        let res = serde_json::to_string(&exchange_payload)
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
-        debug!("Sending request {res:?}");
-
-        let output = &self
-            .http_client
-            .post("/exchange", res)
-            .await
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
-        serde_json::from_str(output).map_err(|e| Error::JsonParse(e.to_string()))
-    }
-
-    pub async fn usdc_transfer(
-        &self,
-        amount: &str,
-        destination: &str,
-        wallet: Option<&LocalWallet>,
-    ) -> Result<ExchangeResponseStatus> {
-        let wallet = wallet.unwrap_or(&self.wallet);
-        let hyperliquid_chain = if self.http_client.is_mainnet() {
-            "Mainnet".to_string()
-        } else {
-            "Testnet".to_string()
-        };
-
+impl HashGenerator {
+    pub async fn usdc_transfer(amount: &str, destination: &str) -> Result<Value> {
         let timestamp = next_nonce();
+
         let usd_send = UsdSend {
             signature_chain_id: 421614.into(),
-            hyperliquid_chain,
+            hyperliquid_chain: HYPERLIQUID_CHAIN.to_string(),
             destination: destination.to_string(),
             amount: amount.to_string(),
             time: timestamp,
         };
-        let signature = sign_typed_data(&usd_send, wallet)?;
         let action = serde_json::to_value(Actions::UsdSend(usd_send))
             .map_err(|e| Error::JsonParse(e.to_string()))?;
 
-        self.post(action, signature, timestamp).await
+        Ok(action)
     }
 
-    pub async fn class_transfer(
-        &self,
-        usdc: f64,
-        to_perp: bool,
-        wallet: Option<&LocalWallet>,
-    ) -> Result<ExchangeResponseStatus> {
+    pub async fn class_transfer(usdc: f64, to_perp: bool) -> Result<Value> {
         // payload expects usdc without decimals
         let usdc = (usdc * 1e6).round() as u64;
-        let wallet = wallet.unwrap_or(&self.wallet);
-
-        let timestamp = next_nonce();
 
         let action = Actions::SpotUser(SpotUser {
             class_transfer: ClassTransfer { usdc, to_perp },
         });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-        let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
-        self.post(action, signature, timestamp).await
+        Ok(action)
     }
 
     pub async fn vault_transfer(
-        &self,
         is_deposit: bool,
         usd: String,
         vault_address: Option<H160>,
-        wallet: Option<&LocalWallet>,
-    ) -> Result<ExchangeResponseStatus> {
-        let vault_address = self
-            .vault_address
-            .or(vault_address)
-            .ok_or(Error::VaultAddressNotFound)?;
-        let wallet = wallet.unwrap_or(&self.wallet);
-
-        let timestamp = next_nonce();
+    ) -> Result<Value> {
+        let vault_address = vault_address.ok_or(Error::VaultAddressNotFound)?;
 
         let action = Actions::VaultTransfer(VaultTransfer {
             vault_address,
             is_deposit,
             usd,
         });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-        let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
-        self.post(action, signature, timestamp).await
+        Ok(action)
     }
 
-    pub async fn market_open(
-        &self,
-        params: MarketOrderParams<'_>,
-    ) -> Result<ExchangeResponseStatus> {
+    pub async fn market_open(params: MarketOrderParams) -> Result<Value> {
         let slippage = params.slippage.unwrap_or(0.05); // Default 5% slippage
-        let (px, sz_decimals) = self
-            .calculate_slippage_price(params.asset, params.is_buy, slippage, params.px)
-            .await?;
+
+        let px = Self::calculate_slippage_price(
+            params.is_buy,
+            slippage,
+            params.px,
+            params.price_decimals,
+        )
+        .await?;
 
         let order = ClientOrderRequest {
-            asset: params.asset.to_string(),
+            asset: params.asset,
             is_buy: params.is_buy,
             reduce_only: false,
             limit_px: px,
-            sz: round_to_decimals(params.sz, sz_decimals),
+            sz: params.sz,
             cloid: params.cloid,
             order_type: ClientOrder::Limit(ClientLimit {
                 tif: "Ioc".to_string(),
             }),
         };
 
-        self.order(order, params.wallet).await
+        Self::get_message_for_order(vec![order])
     }
 
     pub async fn market_open_with_builder(
-        &self,
-        params: MarketOrderParams<'_>,
+        params: MarketOrderParams,
         builder: BuilderInfo,
-    ) -> Result<ExchangeResponseStatus> {
+    ) -> Result<Value> {
         let slippage = params.slippage.unwrap_or(0.05); // Default 5% slippage
-        let (px, sz_decimals) = self
-            .calculate_slippage_price(params.asset, params.is_buy, slippage, params.px)
-            .await?;
+        let px = Self::calculate_slippage_price(
+            params.is_buy,
+            slippage,
+            params.px,
+            params.price_decimals,
+        )
+        .await?;
 
         let order = ClientOrderRequest {
-            asset: params.asset.to_string(),
+            asset: params.asset,
             is_buy: params.is_buy,
             reduce_only: false,
             limit_px: px,
-            sz: round_to_decimals(params.sz, sz_decimals),
+            sz: params.sz,
             cloid: params.cloid,
             order_type: ClientOrder::Limit(ClientLimit {
                 tif: "Ioc".to_string(),
             }),
         };
 
-        self.order_with_builder(order, params.wallet, builder).await
+        let value = Self::bulk_order_with_builder(vec![order], builder)?;
+        Ok(value)
     }
 
-    pub async fn market_close(
-        &self,
-        params: MarketCloseParams<'_>,
-    ) -> Result<ExchangeResponseStatus> {
+    pub async fn market_close(params: MarketCloseParams) -> Result<Value> {
         let slippage = params.slippage.unwrap_or(0.05); // Default 5% slippage
-        let wallet = params.wallet.unwrap_or(&self.wallet);
 
-        let base_url = match self.http_client.base_url.as_str() {
-            "https://api.hyperliquid.xyz" => BaseUrl::Mainnet,
-            "https://api.hyperliquid-testnet.xyz" => BaseUrl::Testnet,
-            _ => return Err(Error::GenericRequest("Invalid base URL".to_string())),
-        };
-        let info_client = InfoClient::new(None, Some(base_url)).await?;
-        let user_state = info_client.user_state(wallet.address()).await?;
+        let px = Self::calculate_slippage_price(
+            params.is_buy,
+            slippage,
+            params.px,
+            params.price_decimals,
+        )
+        .await?;
 
-        let position = user_state
-            .asset_positions
-            .iter()
-            .find(|p| p.position.coin == params.asset)
-            .ok_or(Error::AssetNotFound)?;
-
-        let szi = position
-            .position
-            .szi
-            .parse::<f64>()
-            .map_err(|_| Error::FloatStringParse)?;
-
-        let (px, sz_decimals) = self
-            .calculate_slippage_price(params.asset, szi < 0.0, slippage, params.px)
-            .await?;
-
-        let sz = round_to_decimals(params.sz.unwrap_or_else(|| szi.abs()), sz_decimals);
+        let sz = round_to_decimals(params.sz, params.price_decimals);
 
         let order = ClientOrderRequest {
-            asset: params.asset.to_string(),
-            is_buy: szi < 0.0,
+            asset: params.asset,
+            is_buy: params.is_buy,
             reduce_only: true,
             limit_px: px,
             sz,
@@ -322,50 +190,148 @@ impl ExchangeClient {
             }),
         };
 
-        self.order(order, Some(wallet)).await
+        Self::get_message_for_order(vec![order])
+    }
+
+    pub fn get_message_for_order(orders: Vec<ClientOrderRequest>) -> Result<Value> {
+        let mut transformed_orders = Vec::new();
+
+        for order in orders {
+            transformed_orders.push(order.convert()?);
+        }
+
+        let action = Actions::Order(BulkOrder {
+            orders: transformed_orders,
+            grouping: "na".to_string(),
+            builder: None,
+        });
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        Ok(action)
+    }
+
+    pub fn bulk_order_with_builder(
+        orders: Vec<ClientOrderRequest>,
+        mut builder: BuilderInfo,
+    ) -> Result<Value> {
+        let mut transformed_orders = Vec::new();
+
+        for order in orders {
+            transformed_orders.push(order.convert()?);
+        }
+
+        builder.builder = builder.builder.to_lowercase();
+
+        let action = Actions::Order(BulkOrder {
+            orders: transformed_orders,
+            grouping: "na".to_string(),
+            builder: Some(builder),
+        });
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        Ok(action)
+    }
+
+    pub async fn bulk_cancel(cancels: Vec<ClientCancelRequest>) -> Result<Value> {
+        let mut transformed_cancels = Vec::new();
+        for cancel in cancels.into_iter() {
+            transformed_cancels.push(CancelRequest {
+                asset: cancel.asset,
+                oid: cancel.oid,
+            });
+        }
+
+        let action = Actions::Cancel(BulkCancel {
+            cancels: transformed_cancels,
+        });
+
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        Ok(action)
+    }
+
+    pub async fn bulk_modify(modifies: Vec<ClientModifyRequest>) -> Result<Value> {
+        let mut transformed_modifies = Vec::new();
+        for modify in modifies.into_iter() {
+            transformed_modifies.push(ModifyRequest {
+                oid: modify.oid,
+                order: modify.order.convert()?,
+            });
+        }
+
+        let action = Actions::BatchModify(BulkModify {
+            modifies: transformed_modifies,
+        });
+
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        Ok(action)
+    }
+
+    pub async fn bulk_cancel_by_cloid(cancels: Vec<ClientCancelRequestCloid>) -> Result<Value> {
+        let mut transformed_cancels: Vec<CancelRequestCloid> = Vec::new();
+        for cancel in cancels.into_iter() {
+            transformed_cancels.push(CancelRequestCloid {
+                asset: cancel.asset,
+                cloid: uuid_to_hex_string(cancel.cloid),
+            });
+        }
+
+        let action = Actions::CancelByCloid(BulkCancelCloid {
+            cancels: transformed_cancels,
+        });
+
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        Ok(action)
+    }
+
+    pub async fn update_leverage(leverage: u32, asset: u32, is_cross: bool) -> Result<Value> {
+        let action = Actions::UpdateLeverage(UpdateLeverage {
+            asset,
+            is_cross,
+            leverage,
+        });
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        Ok(action)
+    }
+
+    pub async fn update_isolated_margin(amount: f64, asset: u32, is_buy: bool) -> Result<Value> {
+        // let amount = (amount * 1_000_000.0).round() as i64;
+
+        let action = Actions::UpdateIsolatedMargin(UpdateIsolatedMargin {
+            asset,
+            is_buy,
+            ntli: amount as i64,
+        });
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        Ok(action)
+    }
+
+    pub async fn approve_builder_fee(builder: String, max_fee_rate: String) -> Result<Value> {
+        let timestamp = next_nonce();
+
+        let action = Actions::ApproveBuilderFee(ApproveBuilderFee {
+            signature_chain_id: 421614.into(),
+            hyperliquid_chain: HYPERLIQUID_CHAIN.to_string(),
+            builder,
+            max_fee_rate,
+            nonce: timestamp,
+        });
+
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        Ok(action)
     }
 
     async fn calculate_slippage_price(
-        &self,
-        asset: &str,
         is_buy: bool,
         slippage: f64,
-        px: Option<f64>,
-    ) -> Result<(f64, u32)> {
-        let base_url = match self.http_client.base_url.as_str() {
-            "https://api.hyperliquid.xyz" => BaseUrl::Mainnet,
-            "https://api.hyperliquid-testnet.xyz" => BaseUrl::Testnet,
-            _ => return Err(Error::GenericRequest("Invalid base URL".to_string())),
-        };
-        let info_client = InfoClient::new(None, Some(base_url)).await?;
-        let meta = info_client.meta().await?;
-
-        let asset_meta = meta
-            .universe
-            .iter()
-            .find(|a| a.name == asset)
-            .ok_or(Error::AssetNotFound)?;
-
-        let sz_decimals = asset_meta.sz_decimals;
-        let max_decimals: u32 = if self.coin_to_asset[asset] < 10000 {
-            6
-        } else {
-            8
-        };
-        let price_decimals = max_decimals.saturating_sub(sz_decimals);
-
-        let px = if let Some(px) = px {
-            px
-        } else {
-            let all_mids = info_client.all_mids().await?;
-            all_mids
-                .get(asset)
-                .ok_or(Error::AssetNotFound)?
-                .parse::<f64>()
-                .map_err(|_| Error::FloatStringParse)?
-        };
-
-        debug!("px before slippage: {px:?}");
+        px: f64,
+        price_decimals: u32,
+    ) -> Result<f64> {
         let slippage_factor = if is_buy {
             1.0 + slippage
         } else {
@@ -376,388 +342,7 @@ impl ExchangeClient {
         // Round to the correct number of decimal places and significant figures
         let px = round_to_significant_and_decimal(px, 5, price_decimals);
 
-        debug!("px after slippage: {px:?}");
-        Ok((px, sz_decimals))
-    }
-
-    pub async fn order(
-        &self,
-        order: ClientOrderRequest,
-        wallet: Option<&LocalWallet>,
-    ) -> Result<ExchangeResponseStatus> {
-        self.bulk_order(vec![order], wallet).await
-    }
-
-    pub async fn order_with_builder(
-        &self,
-        order: ClientOrderRequest,
-        wallet: Option<&LocalWallet>,
-        builder: BuilderInfo,
-    ) -> Result<ExchangeResponseStatus> {
-        self.bulk_order_with_builder(vec![order], wallet, builder)
-            .await
-    }
-
-    pub async fn bulk_order(
-        &self,
-        orders: Vec<ClientOrderRequest>,
-        wallet: Option<&LocalWallet>,
-    ) -> Result<ExchangeResponseStatus> {
-        let wallet = wallet.unwrap_or(&self.wallet);
-        let timestamp = next_nonce();
-
-        let mut transformed_orders = Vec::new();
-
-        for order in orders {
-            transformed_orders.push(order.convert(&self.coin_to_asset)?);
-        }
-
-        let action = Actions::Order(BulkOrder {
-            orders: transformed_orders,
-            grouping: "na".to_string(),
-            builder: None,
-        });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
-        self.post(action, signature, timestamp).await
-    }
-
-    pub async fn bulk_order_with_builder(
-        &self,
-        orders: Vec<ClientOrderRequest>,
-        wallet: Option<&LocalWallet>,
-        mut builder: BuilderInfo,
-    ) -> Result<ExchangeResponseStatus> {
-        let wallet = wallet.unwrap_or(&self.wallet);
-        let timestamp = next_nonce();
-
-        builder.builder = builder.builder.to_lowercase();
-
-        let mut transformed_orders = Vec::new();
-
-        for order in orders {
-            transformed_orders.push(order.convert(&self.coin_to_asset)?);
-        }
-
-        let action = Actions::Order(BulkOrder {
-            orders: transformed_orders,
-            grouping: "na".to_string(),
-            builder: Some(builder),
-        });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
-        self.post(action, signature, timestamp).await
-    }
-
-    pub async fn cancel(
-        &self,
-        cancel: ClientCancelRequest,
-        wallet: Option<&LocalWallet>,
-    ) -> Result<ExchangeResponseStatus> {
-        self.bulk_cancel(vec![cancel], wallet).await
-    }
-
-    pub async fn bulk_cancel(
-        &self,
-        cancels: Vec<ClientCancelRequest>,
-        wallet: Option<&LocalWallet>,
-    ) -> Result<ExchangeResponseStatus> {
-        let wallet = wallet.unwrap_or(&self.wallet);
-        let timestamp = next_nonce();
-
-        let mut transformed_cancels = Vec::new();
-        for cancel in cancels.into_iter() {
-            let &asset = self
-                .coin_to_asset
-                .get(&cancel.asset)
-                .ok_or(Error::AssetNotFound)?;
-            transformed_cancels.push(CancelRequest {
-                asset,
-                oid: cancel.oid,
-            });
-        }
-
-        let action = Actions::Cancel(BulkCancel {
-            cancels: transformed_cancels,
-        });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
-
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-        let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
-
-        self.post(action, signature, timestamp).await
-    }
-
-    pub async fn modify(
-        &self,
-        modify: ClientModifyRequest,
-        wallet: Option<&LocalWallet>,
-    ) -> Result<ExchangeResponseStatus> {
-        self.bulk_modify(vec![modify], wallet).await
-    }
-
-    pub async fn bulk_modify(
-        &self,
-        modifies: Vec<ClientModifyRequest>,
-        wallet: Option<&LocalWallet>,
-    ) -> Result<ExchangeResponseStatus> {
-        let wallet = wallet.unwrap_or(&self.wallet);
-        let timestamp = next_nonce();
-
-        let mut transformed_modifies = Vec::new();
-        for modify in modifies.into_iter() {
-            transformed_modifies.push(ModifyRequest {
-                oid: modify.oid,
-                order: modify.order.convert(&self.coin_to_asset)?,
-            });
-        }
-
-        let action = Actions::BatchModify(BulkModify {
-            modifies: transformed_modifies,
-        });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
-
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-        let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
-
-        self.post(action, signature, timestamp).await
-    }
-
-    pub async fn cancel_by_cloid(
-        &self,
-        cancel: ClientCancelRequestCloid,
-        wallet: Option<&LocalWallet>,
-    ) -> Result<ExchangeResponseStatus> {
-        self.bulk_cancel_by_cloid(vec![cancel], wallet).await
-    }
-
-    pub async fn bulk_cancel_by_cloid(
-        &self,
-        cancels: Vec<ClientCancelRequestCloid>,
-        wallet: Option<&LocalWallet>,
-    ) -> Result<ExchangeResponseStatus> {
-        let wallet = wallet.unwrap_or(&self.wallet);
-        let timestamp = next_nonce();
-
-        let mut transformed_cancels: Vec<CancelRequestCloid> = Vec::new();
-        for cancel in cancels.into_iter() {
-            let &asset = self
-                .coin_to_asset
-                .get(&cancel.asset)
-                .ok_or(Error::AssetNotFound)?;
-            transformed_cancels.push(CancelRequestCloid {
-                asset,
-                cloid: uuid_to_hex_string(cancel.cloid),
-            });
-        }
-
-        let action = Actions::CancelByCloid(BulkCancelCloid {
-            cancels: transformed_cancels,
-        });
-
-        let connection_id = action.hash(timestamp, self.vault_address)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-        let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
-
-        self.post(action, signature, timestamp).await
-    }
-
-    pub async fn update_leverage(
-        &self,
-        leverage: u32,
-        coin: &str,
-        is_cross: bool,
-        wallet: Option<&LocalWallet>,
-    ) -> Result<ExchangeResponseStatus> {
-        let wallet = wallet.unwrap_or(&self.wallet);
-
-        let timestamp = next_nonce();
-
-        let &asset_index = self.coin_to_asset.get(coin).ok_or(Error::AssetNotFound)?;
-        let action = Actions::UpdateLeverage(UpdateLeverage {
-            asset: asset_index,
-            is_cross,
-            leverage,
-        });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-        let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
-
-        self.post(action, signature, timestamp).await
-    }
-
-    pub async fn update_isolated_margin(
-        &self,
-        amount: f64,
-        coin: &str,
-        wallet: Option<&LocalWallet>,
-    ) -> Result<ExchangeResponseStatus> {
-        let wallet = wallet.unwrap_or(&self.wallet);
-
-        let amount = (amount * 1_000_000.0).round() as i64;
-        let timestamp = next_nonce();
-
-        let &asset_index = self.coin_to_asset.get(coin).ok_or(Error::AssetNotFound)?;
-        let action = Actions::UpdateIsolatedMargin(UpdateIsolatedMargin {
-            asset: asset_index,
-            is_buy: true,
-            ntli: amount,
-        });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-        let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
-
-        self.post(action, signature, timestamp).await
-    }
-
-    pub async fn approve_agent(
-        &self,
-        wallet: Option<&LocalWallet>,
-    ) -> Result<(String, ExchangeResponseStatus)> {
-        let wallet = wallet.unwrap_or(&self.wallet);
-        let key = H256::from(generate_random_key()?).encode_hex()[2..].to_string();
-
-        let address = key
-            .parse::<LocalWallet>()
-            .map_err(|e| Error::PrivateKeyParse(e.to_string()))?
-            .address();
-
-        let hyperliquid_chain = if self.http_client.is_mainnet() {
-            "Mainnet".to_string()
-        } else {
-            "Testnet".to_string()
-        };
-
-        let nonce = next_nonce();
-        let approve_agent = ApproveAgent {
-            signature_chain_id: 421614.into(),
-            hyperliquid_chain,
-            agent_address: address,
-            agent_name: None,
-            nonce,
-        };
-        let signature = sign_typed_data(&approve_agent, wallet)?;
-        let action = serde_json::to_value(Actions::ApproveAgent(approve_agent))
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
-        Ok((key, self.post(action, signature, nonce).await?))
-    }
-
-    pub async fn withdraw_from_bridge(
-        &self,
-        amount: &str,
-        destination: &str,
-        wallet: Option<&LocalWallet>,
-    ) -> Result<ExchangeResponseStatus> {
-        let wallet = wallet.unwrap_or(&self.wallet);
-        let hyperliquid_chain = if self.http_client.is_mainnet() {
-            "Mainnet".to_string()
-        } else {
-            "Testnet".to_string()
-        };
-
-        let timestamp = next_nonce();
-        let withdraw = Withdraw3 {
-            signature_chain_id: 421614.into(),
-            hyperliquid_chain,
-            destination: destination.to_string(),
-            amount: amount.to_string(),
-            time: timestamp,
-        };
-        let signature = sign_typed_data(&withdraw, wallet)?;
-        let action = serde_json::to_value(Actions::Withdraw3(withdraw))
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        self.post(action, signature, timestamp).await
-    }
-
-    pub async fn spot_transfer(
-        &self,
-        amount: &str,
-        destination: &str,
-        token: &str,
-        wallet: Option<&LocalWallet>,
-    ) -> Result<ExchangeResponseStatus> {
-        let wallet = wallet.unwrap_or(&self.wallet);
-        let hyperliquid_chain = if self.http_client.is_mainnet() {
-            "Mainnet".to_string()
-        } else {
-            "Testnet".to_string()
-        };
-
-        let timestamp = next_nonce();
-        let spot_send = SpotSend {
-            signature_chain_id: 421614.into(),
-            hyperliquid_chain,
-            destination: destination.to_string(),
-            amount: amount.to_string(),
-            time: timestamp,
-            token: token.to_string(),
-        };
-        let signature = sign_typed_data(&spot_send, wallet)?;
-        let action = serde_json::to_value(Actions::SpotSend(spot_send))
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        self.post(action, signature, timestamp).await
-    }
-
-    pub async fn set_referrer(
-        &self,
-        code: String,
-        wallet: Option<&LocalWallet>,
-    ) -> Result<ExchangeResponseStatus> {
-        let wallet = wallet.unwrap_or(&self.wallet);
-        let timestamp = next_nonce();
-
-        let action = Actions::SetReferrer(SetReferrer { code });
-
-        let connection_id = action.hash(timestamp, self.vault_address)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
-        self.post(action, signature, timestamp).await
-    }
-
-    pub async fn approve_builder_fee(
-        &self,
-        builder: String,
-        max_fee_rate: String,
-        wallet: Option<&LocalWallet>,
-    ) -> Result<ExchangeResponseStatus> {
-        let wallet = wallet.unwrap_or(&self.wallet);
-        let timestamp = next_nonce();
-
-        let hyperliquid_chain = if self.http_client.is_mainnet() {
-            "Mainnet".to_string()
-        } else {
-            "Testnet".to_string()
-        };
-
-        let action = Actions::ApproveBuilderFee(ApproveBuilderFee {
-            signature_chain_id: 421614.into(),
-            hyperliquid_chain,
-            builder,
-            max_fee_rate,
-            nonce: timestamp,
-        });
-
-        let connection_id = action.hash(timestamp, self.vault_address)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
-        self.post(action, signature, timestamp).await
+        Ok(px)
     }
 }
 
@@ -778,9 +363,12 @@ fn round_to_significant_and_decimal(value: f64, sig_figs: u32, max_decimals: u32
 mod tests {
     use std::str::FromStr;
 
+    use ethers::signers::LocalWallet;
+
     use super::*;
     use crate::{
         exchange::order::{Limit, OrderRequest, Trigger},
+        signature::sign_l1_action,
         Order,
     };
 
