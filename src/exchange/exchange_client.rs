@@ -133,7 +133,7 @@ impl HashGenerator {
             }),
         };
 
-        Self::get_message_for_order(vec![order])
+        Self::get_message_for_order(vec![order], params.nonce)
     }
 
     pub async fn market_open_with_builder(
@@ -190,10 +190,10 @@ impl HashGenerator {
             }),
         };
 
-        Self::get_message_for_order(vec![order])
+        Self::get_message_for_order(vec![order], params.nonce)
     }
 
-    pub fn get_message_for_order(orders: Vec<ClientOrderRequest>) -> Result<Value> {
+    pub fn get_message_for_order(orders: Vec<ClientOrderRequest>, nonce: u64) -> Result<Value> {
         let mut transformed_orders = Vec::new();
 
         for order in orders {
@@ -205,7 +205,10 @@ impl HashGenerator {
             grouping: "na".to_string(),
             builder: None,
         });
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        let message = action.hash(nonce, None)?;
+
+        let action = serde_json::to_value(&message).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         Ok(action)
     }
@@ -297,7 +300,12 @@ impl HashGenerator {
         Ok(action)
     }
 
-    pub async fn update_isolated_margin(amount: f64, asset: u32, is_buy: bool) -> Result<Value> {
+    pub async fn update_isolated_margin(
+        amount: f64,
+        asset: u32,
+        is_buy: bool,
+        nonce: u64,
+    ) -> Result<Value> {
         // let amount = (amount * 1_000_000.0).round() as i64;
 
         let action = Actions::UpdateIsolatedMargin(UpdateIsolatedMargin {
@@ -305,12 +313,13 @@ impl HashGenerator {
             is_buy,
             ntli: amount as i64,
         });
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+        let message = action.hash(nonce, None)?;
+        let action = serde_json::to_value(&message).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         Ok(action)
     }
 
-    pub async fn approve_builder_fee(builder: String, max_fee_rate: String) -> Result<Value> {
+    pub async fn approve_builder_fee(builder: String, max_fee_rate: String) -> Result<H256> {
         let timestamp = next_nonce();
 
         let action = Actions::ApproveBuilderFee(ApproveBuilderFee {
@@ -320,10 +329,9 @@ impl HashGenerator {
             max_fee_rate,
             nonce: timestamp,
         });
+        let message = action.hash(timestamp, None)?;
 
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        Ok(action)
+        Ok(message)
     }
 
     async fn calculate_slippage_price(

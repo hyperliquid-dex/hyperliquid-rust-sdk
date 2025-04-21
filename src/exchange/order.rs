@@ -66,6 +66,7 @@ pub struct MarketOrderParams {
     pub cloid: Option<Uuid>,
     pub slippage: Option<f64>,
     pub price_decimals: u32,
+    pub nonce: u64,
 }
 
 #[derive(Debug, IntoParams, ToSchema)]
@@ -77,6 +78,7 @@ pub struct MarketCloseParams {
     pub cloid: Option<Uuid>,
     pub is_buy: bool,
     pub price_decimals: u32,
+    pub nonce: u64,
 }
 
 #[derive(Debug, ToSchema)]
