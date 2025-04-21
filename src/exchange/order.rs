@@ -57,7 +57,7 @@ pub struct ClientTrigger {
     pub tpsl: String,
 }
 
-#[derive(Debug, IntoParams, ToSchema)]
+#[derive(Debug, Deserialize, IntoParams, ToSchema)]
 pub struct MarketOrderParams {
     pub asset: u32,
     pub is_buy: bool,
@@ -69,7 +69,7 @@ pub struct MarketOrderParams {
     pub nonce: u64,
 }
 
-#[derive(Debug, IntoParams, ToSchema)]
+#[derive(Debug, Deserialize, IntoParams, ToSchema)]
 pub struct MarketCloseParams {
     pub asset: u32,
     pub sz: f64,
