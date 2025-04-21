@@ -26,7 +26,7 @@ pub enum Order {
     Trigger(Trigger),
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, IntoParams, ToSchema)]
+#[derive(Deserialize, Serialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderRequest {
     #[serde(rename = "a", alias = "asset")]
@@ -45,19 +45,19 @@ pub struct OrderRequest {
     pub cloid: Option<String>,
 }
 
-#[derive(Debug, IntoParams, ToSchema)]
+#[derive(Debug, ToSchema)]
 pub struct ClientLimit {
     pub tif: String,
 }
 
-#[derive(Debug, IntoParams, ToSchema)]
+#[derive(Debug, ToSchema)]
 pub struct ClientTrigger {
     pub is_market: bool,
     pub trigger_px: f64,
     pub tpsl: String,
 }
 
-#[derive(Debug, Deserialize, IntoParams, ToSchema)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct MarketOrderParams {
     pub asset: u32,
     pub is_buy: bool,
@@ -87,7 +87,7 @@ pub enum ClientOrder {
     Trigger(ClientTrigger),
 }
 
-#[derive(Debug, IntoParams, ToSchema)]
+#[derive(Debug, ToSchema)]
 pub struct ClientOrderRequest {
     pub asset: u32,
     pub is_buy: bool,
