@@ -795,14 +795,13 @@ pub fn market_open_payload(
     coin_to_id: &HashMap<String, u32>,
     params: MarketOrderParams<'_>,
     price: f64,
-    size: f64,
 ) -> Result<ExchangePayload> {
     let orders = vec![ClientOrderRequest {
         asset: params.asset.to_string(),
         is_buy: params.is_buy,
         reduce_only: false,
         limit_px: price,
-        sz: size,
+        sz: params.sz,
         cloid: params.cloid,
         order_type: ClientOrder::Limit(ClientLimit {
             tif: "Ioc".to_string(),
