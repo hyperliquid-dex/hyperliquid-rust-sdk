@@ -43,7 +43,7 @@ pub struct ExchangeClient {
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ExchangePayload {
+pub struct ExchangePayload {
     action: serde_json::Value,
     signature: Signature,
     nonce: u64,
