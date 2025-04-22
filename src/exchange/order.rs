@@ -64,8 +64,6 @@ pub struct MarketOrderParams {
     pub sz: f64,
     pub px: f64,
     pub cloid: Option<Uuid>,
-    pub slippage: Option<f64>,
-    pub price_decimals: u32,
     pub nonce: u64,
 }
 

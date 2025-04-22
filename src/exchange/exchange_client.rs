@@ -7,7 +7,11 @@ use crate::{
         cancel::{CancelRequest, CancelRequestCloid},
         modify::{ClientModifyRequest, ModifyRequest},
         ClientCancelRequest, ClientOrderRequest,
-    }, helpers::{next_nonce, uuid_to_hex_string}, prelude::*, signature::create_signature::encode_l1_action, BulkCancelCloid, Error
+    },
+    helpers::{next_nonce, uuid_to_hex_string},
+    prelude::*,
+    signature::create_signature::encode_l1_action,
+    BulkCancelCloid, Error,
 };
 use crate::{ClassTransfer, SpotSend, SpotUser, VaultTransfer, Withdraw3};
 use ethers::types::{H160, H256};
@@ -115,21 +119,11 @@ impl HashGenerator {
     }
 
     pub async fn market_open(params: MarketOrderParams) -> Result<MessageResponse> {
-        let slippage = params.slippage.unwrap_or(0.05); // Default 5% slippage
-
-        let px = Self::calculate_slippage_price(
-            params.is_buy,
-            slippage,
-            params.px,
-            params.price_decimals,
-        )
-        .await?;
-
         let order = ClientOrderRequest {
             asset: params.asset,
             is_buy: params.is_buy,
             reduce_only: false,
-            limit_px: px,
+            limit_px: params.px,
             sz: params.sz,
             cloid: params.cloid,
             order_type: ClientOrder::Limit(ClientLimit {
@@ -144,20 +138,11 @@ impl HashGenerator {
         params: MarketOrderParams,
         builder: BuilderInfo,
     ) -> Result<Value> {
-        let slippage = params.slippage.unwrap_or(0.05); // Default 5% slippage
-        let px = Self::calculate_slippage_price(
-            params.is_buy,
-            slippage,
-            params.px,
-            params.price_decimals,
-        )
-        .await?;
-
         let order = ClientOrderRequest {
             asset: params.asset,
             is_buy: params.is_buy,
             reduce_only: false,
-            limit_px: px,
+            limit_px: params.px,
             sz: params.sz,
             cloid: params.cloid,
             order_type: ClientOrder::Limit(ClientLimit {
