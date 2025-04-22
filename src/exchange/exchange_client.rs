@@ -785,6 +785,49 @@ fn round_to_significant_and_decimal(value: f64, sig_figs: u32, max_decimals: u32
     round_to_decimals(rounded.copysign(value), max_decimals)
 }
 
+pub fn market_open_payload(vault_address: Option<H160>, wallet: &LocalWallet, coin_to_id: HashMap<String, u32>, params: MarketOrderParams<'_>, price: f64, decimals: u32) -> Result<String> {
+    let orders = vec![ClientOrderRequest {
+        asset: params.asset.to_string(),
+        is_buy: params.is_buy,
+        reduce_only: false,
+        limit_px: price,
+        sz: round_to_decimals(params.sz, decimals),
+        cloid: params.cloid,
+        order_type: ClientOrder::Limit(ClientLimit {
+            tif: "Ioc".to_string(),
+        }),
+    }];
+
+    let nonce = next_nonce();
+
+    let mut transformed_orders = Vec::new();
+
+    for order in orders {
+        transformed_orders.push(order.convert(&coin_to_id)?);
+    }
+
+    let action = Actions::Order(BulkOrder {
+        orders: transformed_orders,
+        grouping: "na".to_string(),
+        builder: None,
+    });
+    let connection_id = action.hash(nonce, vault_address)?;
+    let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+    let signature = sign_l1_action(wallet, connection_id, true)?;
+
+    let exchange_payload = ExchangePayload {
+        action,
+        signature,
+        nonce,
+        vault_address,
+    };
+    let res = serde_json::to_string(&exchange_payload)
+        .map_err(|e| Error::JsonParse(e.to_string()))?;
+
+    Ok(res)
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -800,49 +843,6 @@ mod tests {
         priv_key
             .parse::<LocalWallet>()
             .map_err(|e| Error::Wallet(e.to_string()))
-    }
-
-    pub fn market_open_payload(vault_address: Option<H160>, wallet: &LocalWallet, coin_to_id: HashMap<String, u32>, params: MarketOrderParams<'_>, price: f64, decimals: u32) -> Result<String> {
-        let orders = vec![ClientOrderRequest {
-            asset: params.asset.to_string(),
-            is_buy: params.is_buy,
-            reduce_only: false,
-            limit_px: price,
-            sz: round_to_decimals(params.sz, decimals),
-            cloid: params.cloid,
-            order_type: ClientOrder::Limit(ClientLimit {
-                tif: "Ioc".to_string(),
-            }),
-        }];
-
-        let nonce = next_nonce();
-
-        let mut transformed_orders = Vec::new();
-
-        for order in orders {
-            transformed_orders.push(order.convert(&coin_to_id)?);
-        }
-
-        let action = Actions::Order(BulkOrder {
-            orders: transformed_orders,
-            grouping: "na".to_string(),
-            builder: None,
-        });
-        let connection_id = action.hash(nonce, vault_address)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        let signature = sign_l1_action(wallet, connection_id, true)?;
-
-        let exchange_payload = ExchangePayload {
-            action,
-            signature,
-            nonce,
-            vault_address,
-        };
-        let res = serde_json::to_string(&exchange_payload)
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        Ok(res)
     }
 
     #[test]
