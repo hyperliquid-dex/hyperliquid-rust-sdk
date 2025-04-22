@@ -785,7 +785,7 @@ fn round_to_significant_and_decimal(value: f64, sig_figs: u32, max_decimals: u32
     round_to_decimals(rounded.copysign(value), max_decimals)
 }
 
-pub fn market_open_payload(vault_address: Option<H160>, wallet: &LocalWallet, coin_to_id: &HashMap<String, u32>, params: MarketOrderParams<'_>, price: f64) -> Result<String> {
+pub fn market_open_payload(vault_address: Option<H160>, wallet: &LocalWallet, coin_to_id: &HashMap<String, u32>, params: MarketOrderParams<'_>, price: f64) -> Result<ExchangePayload> {
     let orders = vec![ClientOrderRequest {
         asset: params.asset.to_string(),
         is_buy: params.is_buy,
@@ -816,16 +816,12 @@ pub fn market_open_payload(vault_address: Option<H160>, wallet: &LocalWallet, co
 
     let signature = sign_l1_action(wallet, connection_id, true)?;
 
-    let exchange_payload = ExchangePayload {
+    Ok(ExchangePayload {
         action,
         signature,
         nonce,
         vault_address,
-    };
-    let res = serde_json::to_string(&exchange_payload)
-        .map_err(|e| Error::JsonParse(e.to_string()))?;
-
-    Ok(res)
+    })
 }
 
 #[cfg(test)]
