@@ -7,11 +7,7 @@ use crate::{
         cancel::{CancelRequest, CancelRequestCloid},
         modify::{ClientModifyRequest, ModifyRequest},
         ClientCancelRequest, ClientOrderRequest,
-    },
-    helpers::{next_nonce, uuid_to_hex_string},
-    prelude::*,
-    signature::encode_l1_action,
-    BulkCancelCloid, Error,
+    }, helpers::{next_nonce, uuid_to_hex_string}, prelude::*, signature::create_signature::encode_l1_action, BulkCancelCloid, Error
 };
 use crate::{ClassTransfer, SpotSend, SpotUser, VaultTransfer, Withdraw3};
 use ethers::types::{H160, H256};

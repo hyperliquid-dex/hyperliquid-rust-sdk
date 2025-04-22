@@ -8,7 +8,7 @@ const SOURCE: &str = "a";
 #[cfg(feature = "testnet")]
 const SOURCE: &str = "b";
 
-pub(crate) fn encode_l1_action(connection_id: H256) -> Result<H256> {
+pub fn encode_l1_action(connection_id: H256) -> Result<H256> {
     let payload = &l1::Agent {
         source: SOURCE.to_string(),
         connection_id,
