@@ -125,15 +125,19 @@ impl ExchangeClient {
         })
     }
 
-    pub fn post_payload(vault_address: Option<H160>, action: serde_json::Value, signature: Signature, nonce: u64) -> Result<String> {
+    pub fn post_payload(
+        vault_address: Option<H160>,
+        action: serde_json::Value,
+        signature: Signature,
+        nonce: u64,
+    ) -> Result<String> {
         let exchange_payload = ExchangePayload {
             action,
             signature,
             nonce,
             vault_address,
         };
-        serde_json::to_string(&exchange_payload)
-            .map_err(|e| Error::JsonParse(e.to_string()))
+        serde_json::to_string(&exchange_payload).map_err(|e| Error::JsonParse(e.to_string()))
     }
 
     async fn post(
@@ -785,13 +789,20 @@ fn round_to_significant_and_decimal(value: f64, sig_figs: u32, max_decimals: u32
     round_to_decimals(rounded.copysign(value), max_decimals)
 }
 
-pub fn market_open_payload(vault_address: Option<H160>, wallet: &LocalWallet, coin_to_id: &HashMap<String, u32>, params: MarketOrderParams<'_>, price: f64) -> Result<ExchangePayload> {
+pub fn market_open_payload(
+    vault_address: Option<H160>,
+    wallet: &LocalWallet,
+    coin_to_id: &HashMap<String, u32>,
+    params: MarketOrderParams<'_>,
+    price: f64,
+    size: f64,
+) -> Result<ExchangePayload> {
     let orders = vec![ClientOrderRequest {
         asset: params.asset.to_string(),
         is_buy: params.is_buy,
         reduce_only: false,
         limit_px: price,
-        sz: price,
+        sz: size,
         cloid: params.cloid,
         order_type: ClientOrder::Limit(ClientLimit {
             tif: "Ioc".to_string(),
