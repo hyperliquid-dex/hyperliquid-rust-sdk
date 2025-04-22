@@ -23,7 +23,7 @@ use super::cancel::ClientCancelRequestCloid;
 use super::order::{MarketCloseParams, MarketOrderParams};
 use super::{BuilderInfo, ClientLimit, ClientOrder};
 
-#[cfg(feature = "mainnet")]
+#[cfg(not(feature = "testnet"))]
 const HYPERLIQUID_CHAIN: &str = "Mainnet";
 
 #[cfg(feature = "testnet")]

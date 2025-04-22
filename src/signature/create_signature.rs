@@ -2,7 +2,7 @@ use crate::{prelude::*, signature::agent::l1, Error};
 use ethers::types::transaction::eip712::Eip712;
 use ethers::types::H256;
 
-#[cfg(feature = "mainnet")]
+#[cfg(not(feature = "testnet"))]
 const SOURCE: &str = "a";
 
 #[cfg(feature = "testnet")]
