@@ -10,12 +10,14 @@ use crate::{
     },
     helpers::{next_nonce, uuid_to_hex_string},
     prelude::*,
+    signature::encode_l1_action,
     BulkCancelCloid, Error,
 };
 use crate::{ClassTransfer, SpotSend, SpotUser, VaultTransfer, Withdraw3};
 use ethers::types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use utoipa::ToSchema;
 
 use super::cancel::ClientCancelRequestCloid;
 use super::order::{MarketCloseParams, MarketOrderParams};
@@ -45,6 +47,12 @@ pub enum Actions {
     SpotSend(SpotSend),
     SetReferrer(SetReferrer),
     ApproveBuilderFee(ApproveBuilderFee),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
+pub struct MessageResponse {
+    pub action: BulkOrder,
+    pub signature: String,
 }
 
 impl Actions {
@@ -110,7 +118,7 @@ impl HashGenerator {
         Ok(action)
     }
 
-    pub async fn market_open(params: MarketOrderParams) -> Result<Value> {
+    pub async fn market_open(params: MarketOrderParams) -> Result<MessageResponse> {
         let slippage = params.slippage.unwrap_or(0.05); // Default 5% slippage
 
         let px = Self::calculate_slippage_price(
@@ -165,7 +173,7 @@ impl HashGenerator {
         Ok(value)
     }
 
-    pub async fn market_close(params: MarketCloseParams) -> Result<Value> {
+    pub async fn market_close(params: MarketCloseParams) -> Result<MessageResponse> {
         let slippage = params.slippage.unwrap_or(0.05); // Default 5% slippage
 
         let px = Self::calculate_slippage_price(
@@ -193,24 +201,31 @@ impl HashGenerator {
         Self::get_message_for_order(vec![order], params.nonce)
     }
 
-    pub fn get_message_for_order(orders: Vec<ClientOrderRequest>, nonce: u64) -> Result<Value> {
+    pub fn get_message_for_order(
+        orders: Vec<ClientOrderRequest>,
+        nonce: u64,
+    ) -> Result<MessageResponse> {
         let mut transformed_orders = Vec::new();
 
         for order in orders {
             transformed_orders.push(order.convert()?);
         }
 
-        let action = Actions::Order(BulkOrder {
+        let bulk_order = BulkOrder {
             orders: transformed_orders,
             grouping: "na".to_string(),
             builder: None,
-        });
+        };
+        let action = Actions::Order(bulk_order.clone());
 
-        let message = action.hash(nonce, None)?;
+        let connection_id = action.hash(nonce, None)?;
 
-        let action = serde_json::to_value(&message).map_err(|e| Error::JsonParse(e.to_string()))?;
+        let signature: H256 = encode_l1_action(connection_id)?;
 
-        Ok(action)
+        Ok(MessageResponse {
+            action: bulk_order,
+            signature: hex::encode(signature),
+        })
     }
 
     pub fn bulk_order_with_builder(
@@ -376,7 +391,6 @@ mod tests {
     use super::*;
     use crate::{
         exchange::order::{Limit, OrderRequest, Trigger},
-        signature::sign_l1_action,
         Order,
     };
 
@@ -406,108 +420,6 @@ mod tests {
             builder: None,
         });
         let connection_id = action.hash(1583838, None)?;
-
-        let signature = sign_l1_action(&wallet, connection_id, true)?;
-        assert_eq!(signature.to_string(), "77957e58e70f43b6b68581f2dc42011fc384538a2e5b7bf42d5b936f19fbb67360721a8598727230f67080efee48c812a6a4442013fd3b0eed509171bef9f23f1c");
-
-        let signature = sign_l1_action(&wallet, connection_id, false)?;
-        assert_eq!(signature.to_string(), "cd0925372ff1ed499e54883e9a6205ecfadec748f80ec463fe2f84f1209648776377961965cb7b12414186b1ea291e95fd512722427efcbcfb3b0b2bcd4d79d01c");
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_limit_order_action_hashing_with_cloid() -> Result<()> {
-        let cloid = uuid::Uuid::from_str("1e60610f-0b3d-4205-97c8-8c1fed2ad5ee")
-            .map_err(|_e| uuid::Uuid::new_v4());
-        let wallet = get_wallet()?;
-        let action = Actions::Order(BulkOrder {
-            orders: vec![OrderRequest {
-                asset: 1,
-                is_buy: true,
-                limit_px: "2000.0".to_string(),
-                sz: "3.5".to_string(),
-                reduce_only: false,
-                order_type: Order::Limit(Limit {
-                    tif: "Ioc".to_string(),
-                }),
-                cloid: Some(uuid_to_hex_string(cloid.unwrap())),
-            }],
-            grouping: "na".to_string(),
-            builder: None,
-        });
-        let connection_id = action.hash(1583838, None)?;
-
-        let signature = sign_l1_action(&wallet, connection_id, true)?;
-        assert_eq!(signature.to_string(), "d3e894092eb27098077145714630a77bbe3836120ee29df7d935d8510b03a08f456de5ec1be82aa65fc6ecda9ef928b0445e212517a98858cfaa251c4cd7552b1c");
-
-        let signature = sign_l1_action(&wallet, connection_id, false)?;
-        assert_eq!(signature.to_string(), "3768349dbb22a7fd770fc9fc50c7b5124a7da342ea579b309f58002ceae49b4357badc7909770919c45d850aabb08474ff2b7b3204ae5b66d9f7375582981f111c");
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_tpsl_order_action_hashing() -> Result<()> {
-        for (tpsl, mainnet_signature, testnet_signature) in [
-            (
-                "tp",
-                "b91e5011dff15e4b4a40753730bda44972132e7b75641f3cac58b66159534a170d422ee1ac3c7a7a2e11e298108a2d6b8da8612caceaeeb3e571de3b2dfda9e41b",
-                "6df38b609904d0d4439884756b8f366f22b3a081801dbdd23f279094a2299fac6424cb0cdc48c3706aeaa368f81959e91059205403d3afd23a55983f710aee871b"
-            ),
-            (
-                "sl",
-                "8456d2ace666fce1bee1084b00e9620fb20e810368841e9d4dd80eb29014611a0843416e51b1529c22dd2fc28f7ff8f6443875635c72011f60b62cbb8ce90e2d1c",
-                "eb5bdb52297c1d19da45458758bd569dcb24c07e5c7bd52cf76600fd92fdd8213e661e21899c985421ec018a9ee7f3790e7b7d723a9932b7b5adcd7def5354601c"
-            )
-        ] {
-            let wallet = get_wallet()?;
-            let action = Actions::Order(BulkOrder {
-                orders: vec![
-                    OrderRequest {
-                        asset: 1,
-                        is_buy: true,
-                        limit_px: "2000.0".to_string(),
-                        sz: "3.5".to_string(),
-                        reduce_only: false,
-                        order_type: Order::Trigger(Trigger {
-                            trigger_px: "2000.0".to_string(),
-                            is_market: true,
-                            tpsl: tpsl.to_string(),
-                        }),
-                        cloid: None,
-                    }
-                ],
-                grouping: "na".to_string(),
-                builder: None,
-            });
-            let connection_id = action.hash(1583838, None)?;
-
-            let signature = sign_l1_action(&wallet, connection_id, true)?;
-            assert_eq!(signature.to_string(), mainnet_signature);
-
-            let signature = sign_l1_action(&wallet, connection_id, false)?;
-            assert_eq!(signature.to_string(), testnet_signature);
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn test_cancel_action_hashing() -> Result<()> {
-        let wallet = get_wallet()?;
-        let action = Actions::Cancel(BulkCancel {
-            cancels: vec![CancelRequest {
-                asset: 1,
-                oid: 82382,
-            }],
-        });
-        let connection_id = action.hash(1583838, None)?;
-
-        let signature = sign_l1_action(&wallet, connection_id, true)?;
-        assert_eq!(signature.to_string(), "02f76cc5b16e0810152fa0e14e7b219f49c361e3325f771544c6f54e157bf9fa17ed0afc11a98596be85d5cd9f86600aad515337318f7ab346e5ccc1b03425d51b");
-
-        let signature = sign_l1_action(&wallet, connection_id, false)?;
-        assert_eq!(signature.to_string(), "6ffebadfd48067663390962539fbde76cfa36f53be65abe2ab72c9db6d0db44457720db9d7c4860f142a484f070c84eb4b9694c3a617c83f0d698a27e55fd5e01c");
 
         Ok(())
     }

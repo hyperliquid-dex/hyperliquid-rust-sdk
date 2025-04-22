@@ -11,6 +11,7 @@ pub(crate) use ethers::{
     utils::keccak256,
 };
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 use super::{cancel::CancelRequestCloid, BuilderInfo};
 
@@ -94,7 +95,7 @@ pub struct UpdateIsolatedMargin {
     pub ntli: i64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BulkOrder {
     pub orders: Vec<OrderRequest>,
