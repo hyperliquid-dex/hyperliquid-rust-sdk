@@ -785,7 +785,7 @@ fn round_to_significant_and_decimal(value: f64, sig_figs: u32, max_decimals: u32
     round_to_decimals(rounded.copysign(value), max_decimals)
 }
 
-pub fn market_open_payload(vault_address: Option<H160>, wallet: &LocalWallet, coin_to_id: HashMap<String, u32>, params: MarketOrderParams<'_>, price: f64, decimals: u32) -> Result<String> {
+pub fn market_open_payload(vault_address: Option<H160>, wallet: &LocalWallet, coin_to_id: &HashMap<String, u32>, params: MarketOrderParams<'_>, price: f64, decimals: u32) -> Result<String> {
     let orders = vec![ClientOrderRequest {
         asset: params.asset.to_string(),
         is_buy: params.is_buy,
