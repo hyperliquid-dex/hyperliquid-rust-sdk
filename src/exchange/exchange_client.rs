@@ -134,6 +134,22 @@ impl HashGenerator {
         Self::get_message_for_order(vec![order], params.nonce)
     }
 
+    pub async fn limit_open(params: MarketOrderParams) -> Result<MessageResponse> {
+        let order = ClientOrderRequest {
+            asset: params.asset,
+            is_buy: params.is_buy,
+            reduce_only: false,
+            limit_px: params.px,
+            sz: params.sz,
+            cloid: params.cloid,
+            order_type: ClientOrder::Limit(ClientLimit {
+                tif: "Gtc".to_string(),
+            }),
+        };
+
+        Self::get_message_for_order(vec![order], params.nonce)
+    }
+
     pub async fn market_open_with_builder(
         params: MarketOrderParams,
         builder: BuilderInfo,
