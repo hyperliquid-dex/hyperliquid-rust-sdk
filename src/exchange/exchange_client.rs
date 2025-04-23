@@ -202,7 +202,8 @@ impl HashGenerator {
 
     pub fn get_message_for_order(orders: Vec<ClientOrderRequest>) -> Result<MessageResponse> {
         let mut transformed_orders = Vec::new();
-        let nonce = next_nonce();
+        //let nonce = next_nonce();
+        let nonce = 1745419211705;
 
         for order in orders {
             transformed_orders.push(order.convert()?);
