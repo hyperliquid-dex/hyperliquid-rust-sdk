@@ -54,6 +54,7 @@ pub struct MessageResponse {
     pub action: Actions,
     pub message: H256,
     pub signature: Signature,
+    pub nonce: u64,
 }
 
 impl Actions {
@@ -132,7 +133,7 @@ impl HashGenerator {
             }),
         };
 
-        Self::get_message_for_order(vec![order], params.nonce)
+        Self::get_message_for_order(vec![order])
     }
 
     pub async fn limit_open(params: MarketOrderParams) -> Result<MessageResponse> {
@@ -148,7 +149,7 @@ impl HashGenerator {
             }),
         };
 
-        Self::get_message_for_order(vec![order], params.nonce)
+        Self::get_message_for_order(vec![order])
     }
 
     pub async fn market_open_with_builder(
@@ -196,14 +197,12 @@ impl HashGenerator {
             }),
         };
 
-        Self::get_message_for_order(vec![order], params.nonce)
+        Self::get_message_for_order(vec![order])
     }
 
-    pub fn get_message_for_order(
-        orders: Vec<ClientOrderRequest>,
-        nonce: u64,
-    ) -> Result<MessageResponse> {
+    pub fn get_message_for_order(orders: Vec<ClientOrderRequest>) -> Result<MessageResponse> {
         let mut transformed_orders = Vec::new();
+        let nonce = next_nonce();
 
         for order in orders {
             transformed_orders.push(order.convert()?);
@@ -226,6 +225,7 @@ impl HashGenerator {
             action,
             message,
             signature,
+            nonce,
         })
     }
 

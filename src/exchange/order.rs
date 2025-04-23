@@ -64,7 +64,6 @@ pub struct MarketOrderParams {
     pub sz: f64,
     pub px: f64,
     pub cloid: Option<Uuid>,
-    pub nonce: u64,
 }
 
 #[derive(Debug, Deserialize, IntoParams, ToSchema)]
