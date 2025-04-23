@@ -52,7 +52,7 @@ pub enum Actions {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MessageResponse {
     pub action: BulkOrder,
-    pub message: String,
+    pub message: H256,
     pub signature: Signature,
 }
 
@@ -224,7 +224,7 @@ impl HashGenerator {
 
         Ok(MessageResponse {
             action: bulk_order,
-            message: hex::encode(message),
+            message,
             signature,
         })
     }
@@ -396,7 +396,7 @@ mod tests {
     };
 
     fn get_wallet() -> Result<LocalWallet> {
-        let priv_key = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e";
+        let priv_key = "844027a8d05f609402abbc96f6f9cd6ea2b8550e7650274191ad3d8f106fda2c";
         priv_key
             .parse::<LocalWallet>()
             .map_err(|e| Error::Wallet(e.to_string()))
@@ -407,20 +407,25 @@ mod tests {
         let wallet = get_wallet()?;
         let action = Actions::Order(BulkOrder {
             orders: vec![OrderRequest {
-                asset: 1,
+                asset: 3,
                 is_buy: true,
-                limit_px: "2000.0".to_string(),
-                sz: "3.5".to_string(),
+                limit_px: "80000".to_string(),
+                sz: "0.01".to_string(),
                 reduce_only: false,
                 order_type: Order::Limit(Limit {
-                    tif: "Ioc".to_string(),
+                    tif: "Gtc".to_string(),
                 }),
                 cloid: None,
             }],
             grouping: "na".to_string(),
             builder: None,
         });
-        let connection_id = action.hash(1583838, None)?;
+        let connection_id = action.hash(1745347987551, None)?;
+        println!("connection_id: {}", connection_id);
+        let message: H256 = encode_l1_action(connection_id)?;
+
+        let signature = sign_hash(message)?;
+        println!("signature: {}", signature.to_string());
 
         Ok(())
     }
