@@ -53,8 +53,8 @@ pub enum Actions {
 pub struct MessageResponse {
     pub action: Actions,
     pub message: H256,
-    pub signature: Signature,
     pub nonce: u64,
+    pub signature: Signature,
 }
 
 impl Actions {
@@ -420,12 +420,12 @@ mod tests {
             grouping: "na".to_string(),
             builder: None,
         });
-        let connection_id = action.hash(1745347987551, None)?;
+        let connection_id = action.hash(1745418656072, None)?;
         println!("connection_id: {}", connection_id);
         let message: H256 = encode_l1_action(connection_id)?;
 
         let signature = sign_hash(message)?;
-        println!("signature: {}", signature.to_string());
+        println!("signature: {:?}", signature);
 
         Ok(())
     }
