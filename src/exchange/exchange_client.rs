@@ -10,14 +10,13 @@ use crate::{
     },
     helpers::{next_nonce, uuid_to_hex_string},
     prelude::*,
-    signature::create_signature::{encode_l1_action, sign_hash},
+    signature::create_signature::encode_l1_action,
     BulkCancelCloid, Error,
 };
 use crate::{ClassTransfer, SpotSend, SpotUser, VaultTransfer, Withdraw3};
-use ethers::types::{Signature, H160, H256};
+use ethers::types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use utoipa::ToSchema;
 
 use super::cancel::ClientCancelRequestCloid;
 use super::order::{MarketCloseParams, MarketOrderParams};
@@ -54,7 +53,6 @@ pub struct MessageResponse {
     pub action: Actions,
     pub message: H256,
     pub nonce: u64,
-    pub signature: Signature,
 }
 
 impl Actions {
@@ -219,12 +217,9 @@ impl HashGenerator {
 
         let message: H256 = encode_l1_action(connection_id)?;
 
-        let signature = sign_hash(message)?;
-
         Ok(MessageResponse {
             action,
             message,
-            signature,
             nonce,
         })
     }
@@ -385,26 +380,15 @@ fn round_to_significant_and_decimal(value: f64, sig_figs: u32, max_decimals: u32
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
-    use ethers::signers::LocalWallet;
 
     use super::*;
     use crate::{
-        exchange::order::{Limit, OrderRequest, Trigger},
+        exchange::order::{Limit, OrderRequest},
         Order,
     };
 
-    fn get_wallet() -> Result<LocalWallet> {
-        let priv_key = "844027a8d05f609402abbc96f6f9cd6ea2b8550e7650274191ad3d8f106fda2c";
-        priv_key
-            .parse::<LocalWallet>()
-            .map_err(|e| Error::Wallet(e.to_string()))
-    }
-
     #[test]
     fn test_limit_order_action_hashing() -> Result<()> {
-        let wallet = get_wallet()?;
         let action = Actions::Order(BulkOrder {
             orders: vec![OrderRequest {
                 asset: 3,
@@ -424,8 +408,7 @@ mod tests {
         println!("connection_id: {}", connection_id);
         let message: H256 = encode_l1_action(connection_id)?;
 
-        let signature = sign_hash(message)?;
-        println!("signature: {:?}", signature);
+        println!("message: {:?}", message);
 
         Ok(())
     }

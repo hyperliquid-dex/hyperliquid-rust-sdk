@@ -15,8 +15,6 @@ use ethers::{
     types::H256,
 };
 
-pub(crate) type Sha256Proxy = ProxyDigest<sha2::Sha256>;
-
 #[derive(Clone)]
 pub(crate) enum ProxyDigest<D: Digest> {
     Proxy(Output<D>),
