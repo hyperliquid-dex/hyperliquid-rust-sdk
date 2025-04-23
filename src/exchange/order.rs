@@ -61,8 +61,8 @@ pub struct ClientTrigger {
 pub struct MarketOrderParams {
     pub asset: u32,
     pub is_buy: bool,
-    pub sz: f64,
-    pub px: f64,
+    pub sz: String,
+    pub px: String,
     pub cloid: Option<Uuid>,
 }
 

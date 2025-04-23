@@ -123,8 +123,8 @@ impl HashGenerator {
             asset: params.asset,
             is_buy: params.is_buy,
             reduce_only: false,
-            limit_px: params.px,
-            sz: params.sz,
+            limit_px: params.px.parse::<f64>().unwrap(),
+            sz: params.sz.parse::<f64>().unwrap(),
             cloid: params.cloid,
             order_type: ClientOrder::Limit(ClientLimit {
                 tif: "Ioc".to_string(),
@@ -139,8 +139,8 @@ impl HashGenerator {
             asset: params.asset,
             is_buy: params.is_buy,
             reduce_only: false,
-            limit_px: params.px,
-            sz: params.sz,
+            limit_px: params.px.parse::<f64>().unwrap(),
+            sz: params.sz.parse::<f64>().unwrap(),
             cloid: params.cloid,
             order_type: ClientOrder::Limit(ClientLimit {
                 tif: "Gtc".to_string(),
@@ -158,8 +158,8 @@ impl HashGenerator {
             asset: params.asset,
             is_buy: params.is_buy,
             reduce_only: false,
-            limit_px: params.px,
-            sz: params.sz,
+            limit_px: params.px.parse::<f64>().unwrap(),
+            sz: params.sz.parse::<f64>().unwrap(),
             cloid: params.cloid,
             order_type: ClientOrder::Limit(ClientLimit {
                 tif: "Ioc".to_string(),
