@@ -41,7 +41,7 @@ pub struct ExchangeClient {
     pub coin_to_asset: HashMap<String, u32>,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ExchangePayload {
     action: serde_json::Value,
@@ -125,15 +125,19 @@ impl ExchangeClient {
         })
     }
 
-    pub fn post_payload(vault_address: Option<H160>, action: serde_json::Value, signature: Signature, nonce: u64) -> Result<String> {
+    pub fn post_payload(
+        vault_address: Option<H160>,
+        action: serde_json::Value,
+        signature: Signature,
+        nonce: u64,
+    ) -> Result<String> {
         let exchange_payload = ExchangePayload {
             action,
             signature,
             nonce,
             vault_address,
         };
-        serde_json::to_string(&exchange_payload)
-            .map_err(|e| Error::JsonParse(e.to_string()))
+        serde_json::to_string(&exchange_payload).map_err(|e| Error::JsonParse(e.to_string()))
     }
 
     async fn post(
@@ -791,7 +795,7 @@ pub fn market_open_payload(vault_address: Option<H160>, wallet: &LocalWallet, co
         is_buy: params.is_buy,
         reduce_only,
         limit_px: price,
-        sz: price,
+        sz: params.sz,
         cloid: params.cloid,
         order_type: ClientOrder::Limit(ClientLimit {
             tif: "Ioc".to_string(),
