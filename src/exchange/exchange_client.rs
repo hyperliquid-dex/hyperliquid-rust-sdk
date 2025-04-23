@@ -10,11 +10,11 @@ use crate::{
     },
     helpers::{next_nonce, uuid_to_hex_string},
     prelude::*,
-    signature::create_signature::encode_l1_action,
+    signature::create_signature::{encode_l1_action, sign_hash},
     BulkCancelCloid, Error,
 };
 use crate::{ClassTransfer, SpotSend, SpotUser, VaultTransfer, Withdraw3};
-use ethers::types::{H160, H256};
+use ethers::types::{Signature, H160, H256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use utoipa::ToSchema;
@@ -49,10 +49,11 @@ pub enum Actions {
     ApproveBuilderFee(ApproveBuilderFee),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MessageResponse {
     pub action: BulkOrder,
-    pub signature: String,
+    pub message: String,
+    pub signature: Signature,
 }
 
 impl Actions {
@@ -217,11 +218,14 @@ impl HashGenerator {
 
         let connection_id = action.hash(nonce, None)?;
 
-        let signature: H256 = encode_l1_action(connection_id)?;
+        let message: H256 = encode_l1_action(connection_id)?;
+
+        let signature = sign_hash(message)?;
 
         Ok(MessageResponse {
             action: bulk_order,
-            signature: hex::encode(signature),
+            message: hex::encode(message),
+            signature,
         })
     }
 
