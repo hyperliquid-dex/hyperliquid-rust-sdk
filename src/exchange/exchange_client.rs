@@ -51,7 +51,7 @@ pub enum Actions {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct MessageResponse {
-    pub action: BulkOrder,
+    pub action: Actions,
     pub message: H256,
     pub signature: Signature,
 }
@@ -223,7 +223,7 @@ impl HashGenerator {
         let signature = sign_hash(message)?;
 
         Ok(MessageResponse {
-            action: bulk_order,
+            action,
             message,
             signature,
         })
