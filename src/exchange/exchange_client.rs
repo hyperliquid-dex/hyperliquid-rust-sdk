@@ -193,7 +193,6 @@ impl HashGenerator {
 
     pub fn get_message_for_order(orders: Vec<ClientOrderRequest>) -> Result<MessageResponse> {
         let mut transformed_orders = Vec::new();
-        let nonce = next_nonce();
 
         for order in orders {
             transformed_orders.push(order.convert()?);
@@ -206,8 +205,12 @@ impl HashGenerator {
         };
         let action = Actions::Order(bulk_order.clone());
 
-        let connection_id = action.hash(nonce, None)?;
+        Self::get_message_for_action(action)
+    }
 
+    pub fn get_message_for_action(action: Actions) -> Result<MessageResponse> {
+        let nonce = next_nonce();
+        let connection_id = action.hash(nonce, None)?;
         let message: H256 = encode_l1_action(connection_id)?;
 
         Ok(MessageResponse {
@@ -293,11 +296,9 @@ impl HashGenerator {
         Ok(action)
     }
 
-    pub async fn update_leverage(request: UpdateLeverage) -> Result<Value> {
+    pub async fn update_leverage(request: UpdateLeverage) -> Result<MessageResponse> {
         let action = Actions::UpdateLeverage(request);
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        Ok(action)
+        Self::get_message_for_action(action)
     }
 
     pub async fn update_isolated_margin(
