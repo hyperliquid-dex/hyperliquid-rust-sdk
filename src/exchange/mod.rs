@@ -3,8 +3,9 @@ mod builder;
 mod cancel;
 mod exchange_client;
 
-mod modify;
-mod order;
+pub mod dtos;
+pub mod modify;
+pub mod order;
 
 pub use actions::*;
 pub use builder::*;

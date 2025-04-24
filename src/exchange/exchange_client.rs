@@ -18,8 +18,8 @@ use ethers::types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::cancel::ClientCancelRequestCloid;
 use super::order::{MarketCloseParams, MarketOrderParams};
+use super::{cancel::ClientCancelRequestCloid, dtos::MessageResponse};
 use super::{BuilderInfo, ClientLimit, ClientOrder};
 
 #[cfg(not(feature = "testnet"))]
@@ -46,13 +46,6 @@ pub enum Actions {
     SpotSend(SpotSend),
     SetReferrer(SetReferrer),
     ApproveBuilderFee(ApproveBuilderFee),
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct MessageResponse {
-    pub action: Actions,
-    pub message: H256,
-    pub nonce: u64,
 }
 
 impl Actions {
@@ -300,12 +293,8 @@ impl HashGenerator {
         Ok(action)
     }
 
-    pub async fn update_leverage(leverage: u32, asset: u32, is_cross: bool) -> Result<Value> {
-        let action = Actions::UpdateLeverage(UpdateLeverage {
-            asset,
-            is_cross,
-            leverage,
-        });
+    pub async fn update_leverage(request: UpdateLeverage) -> Result<Value> {
+        let action = Actions::UpdateLeverage(request);
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         Ok(action)

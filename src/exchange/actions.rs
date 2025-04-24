@@ -79,7 +79,7 @@ impl Eip712 for UsdSend {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateLeverage {
     pub asset: u32,
