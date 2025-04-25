@@ -203,7 +203,7 @@ impl ExchangeClient {
     pub async fn vault_transfer(
         &self,
         is_deposit: bool,
-        usd: String,
+        usd: u64,
         vault_address: Option<H160>,
         wallet: Option<&LocalWallet>,
     ) -> Result<ExchangeResponseStatus> {
