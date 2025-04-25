@@ -60,23 +60,13 @@ pub struct ClientTrigger {
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct MarketOrderParams {
     pub asset: u32,
+    pub reduce_only: bool,
     pub is_buy: bool,
     pub sz: String,
     pub px: String,
     pub cloid: Option<Uuid>,
 }
 
-#[derive(Debug, Deserialize, IntoParams, ToSchema)]
-pub struct MarketCloseParams {
-    pub asset: u32,
-    pub sz: f64,
-    pub px: f64,
-    pub slippage: Option<f64>,
-    pub cloid: Option<Uuid>,
-    pub is_buy: bool,
-    pub price_decimals: u32,
-    pub nonce: u64,
-}
 
 #[derive(Debug, ToSchema)]
 pub enum ClientOrder {

@@ -18,7 +18,7 @@ use ethers::types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::order::{MarketCloseParams, MarketOrderParams};
+use super::order::MarketOrderParams;
 use super::{cancel::ClientCancelRequestCloid, dtos::MessageResponse};
 use super::{BuilderInfo, ClientLimit, ClientOrder};
 
@@ -115,7 +115,7 @@ impl HashGenerator {
         let order = ClientOrderRequest {
             asset: params.asset,
             is_buy: params.is_buy,
-            reduce_only: false,
+            reduce_only: params.reduce_only,
             limit_px: params.px.parse::<f64>().unwrap(),
             sz: params.sz.parse::<f64>().unwrap(),
             cloid: params.cloid,
@@ -131,7 +131,7 @@ impl HashGenerator {
         let order = ClientOrderRequest {
             asset: params.asset,
             is_buy: params.is_buy,
-            reduce_only: false,
+            reduce_only: params.reduce_only,
             limit_px: params.px.parse::<f64>().unwrap(),
             sz: params.sz.parse::<f64>().unwrap(),
             cloid: params.cloid,
@@ -161,34 +161,6 @@ impl HashGenerator {
 
         let value = Self::bulk_order_with_builder(vec![order], builder)?;
         Ok(value)
-    }
-
-    pub async fn market_close(params: MarketCloseParams) -> Result<MessageResponse> {
-        let slippage = params.slippage.unwrap_or(0.05); // Default 5% slippage
-
-        let px = Self::calculate_slippage_price(
-            params.is_buy,
-            slippage,
-            params.px,
-            params.price_decimals,
-        )
-        .await?;
-
-        let sz = round_to_decimals(params.sz, params.price_decimals);
-
-        let order = ClientOrderRequest {
-            asset: params.asset,
-            is_buy: params.is_buy,
-            reduce_only: true,
-            limit_px: px,
-            sz,
-            cloid: params.cloid,
-            order_type: ClientOrder::Limit(ClientLimit {
-                tif: "Ioc".to_string(),
-            }),
-        };
-
-        Self::get_message_for_order(vec![order])
     }
 
     pub fn get_message_for_order(orders: Vec<ClientOrderRequest>) -> Result<MessageResponse> {

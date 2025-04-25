@@ -13,6 +13,5 @@ pub use cancel::{ClientCancelRequest, ClientCancelRequestCloid};
 pub use exchange_client::*;
 pub use modify::{ClientModifyRequest, ModifyRequest};
 pub use order::{
-    ClientLimit, ClientOrder, ClientOrderRequest, ClientTrigger, MarketCloseParams,
-    MarketOrderParams, Order,
+    ClientLimit, ClientOrder, ClientOrderRequest, ClientTrigger, MarketOrderParams, Order,
 };
