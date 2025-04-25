@@ -40,4 +40,4 @@ pub struct PostResponsePayloadData {
 #[derive(Deserialize, Clone, Debug)]
 pub struct PostResponseStatus {
     pub error: Option<String>,
-} 
+}
