@@ -839,8 +839,8 @@ pub fn set_leverage_payload(
     leverage: u32,
     symbol: &str,
     is_cross: bool,
-    wallet: LocalWallet,
-    symbols_to_id: HashMap<String, u32>,
+    wallet: &LocalWallet,
+    symbols_to_id: &HashMap<String, u32>,
     vault_address: Option<H160>,
 ) -> Result<ExchangePayload> {
     let asset = *symbols_to_id.get(symbol).ok_or(Error::AssetNotFound)?;
