@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ClientCancelRequest {
     pub asset: u32,
     pub oid: u64,

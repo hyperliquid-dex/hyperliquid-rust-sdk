@@ -180,18 +180,6 @@ impl HashGenerator {
         Self::get_message_for_action(action)
     }
 
-    pub fn get_message_for_action(action: Actions) -> Result<MessageResponse> {
-        let nonce = next_nonce();
-        let connection_id = action.hash(nonce, None)?;
-        let message: H256 = encode_l1_action(connection_id)?;
-
-        Ok(MessageResponse {
-            action,
-            message,
-            nonce,
-        })
-    }
-
     pub fn bulk_order_with_builder(
         orders: Vec<ClientOrderRequest>,
         mut builder: BuilderInfo,
@@ -214,22 +202,19 @@ impl HashGenerator {
         Ok(action)
     }
 
-    pub async fn bulk_cancel(cancels: Vec<ClientCancelRequest>) -> Result<Value> {
+    pub async fn cancel_order(cancel: ClientCancelRequest) -> Result<MessageResponse> {
         let mut transformed_cancels = Vec::new();
-        for cancel in cancels.into_iter() {
-            transformed_cancels.push(CancelRequest {
-                asset: cancel.asset,
-                oid: cancel.oid,
-            });
-        }
+
+        transformed_cancels.push(CancelRequest {
+            asset: cancel.asset,
+            oid: cancel.oid,
+        });
 
         let action = Actions::Cancel(BulkCancel {
             cancels: transformed_cancels,
         });
 
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-
-        Ok(action)
+        Self::get_message_for_action(action)
     }
 
     pub async fn bulk_modify(modifies: Vec<ClientModifyRequest>) -> Result<Value> {
@@ -307,37 +292,17 @@ impl HashGenerator {
         Ok(message)
     }
 
-    async fn calculate_slippage_price(
-        is_buy: bool,
-        slippage: f64,
-        px: f64,
-        price_decimals: u32,
-    ) -> Result<f64> {
-        let slippage_factor = if is_buy {
-            1.0 + slippage
-        } else {
-            1.0 - slippage
-        };
-        let px = px * slippage_factor;
+    pub fn get_message_for_action(action: Actions) -> Result<MessageResponse> {
+        let nonce = next_nonce();
+        let connection_id = action.hash(nonce, None)?;
+        let message: H256 = encode_l1_action(connection_id)?;
 
-        // Round to the correct number of decimal places and significant figures
-        let px = round_to_significant_and_decimal(px, 5, price_decimals);
-
-        Ok(px)
+        Ok(MessageResponse {
+            action,
+            message,
+            nonce,
+        })
     }
-}
-
-fn round_to_decimals(value: f64, decimals: u32) -> f64 {
-    let factor = 10f64.powi(decimals as i32);
-    (value * factor).round() / factor
-}
-
-fn round_to_significant_and_decimal(value: f64, sig_figs: u32, max_decimals: u32) -> f64 {
-    let abs_value = value.abs();
-    let magnitude = abs_value.log10().floor() as i32;
-    let scale = 10f64.powi(sig_figs as i32 - magnitude - 1);
-    let rounded = (abs_value * scale).round() / scale;
-    round_to_decimals(rounded.copysign(value), max_decimals)
 }
 
 #[cfg(test)]
