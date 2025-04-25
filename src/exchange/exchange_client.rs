@@ -835,7 +835,7 @@ pub fn market_open_payload(
     })
 }
 
-pub fn update_leverage_payload(
+pub fn set_leverage_payload(
     leverage: u32,
     symbol: &str,
     is_cross: bool,
