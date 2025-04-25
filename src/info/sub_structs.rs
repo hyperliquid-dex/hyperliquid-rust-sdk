@@ -1,7 +1,7 @@
 use ethers::types::H160;
 use serde::Deserialize;
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Leverage {
     #[serde(rename = "type")]
@@ -10,7 +10,7 @@ pub struct Leverage {
     pub raw_usd: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct CumulativeFunding {
     pub all_time: String,
@@ -18,7 +18,7 @@ pub struct CumulativeFunding {
     pub since_change: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PositionData {
     pub coin: String,
@@ -34,7 +34,7 @@ pub struct PositionData {
     pub cum_funding: CumulativeFunding,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Clone, Debug)]
 pub struct AssetPosition {
     pub position: PositionData,
     #[serde(rename = "type")]

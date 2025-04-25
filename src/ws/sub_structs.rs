@@ -2,6 +2,8 @@ use ethers::types::H160;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
+use crate::AssetPosition;
+
 #[derive(Deserialize, Clone, Debug)]
 pub struct Trade {
     pub coin: String,
@@ -309,46 +311,6 @@ pub struct MarginSummary {
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct AssetPosition {
-    #[serde(rename = "type")]
-    pub position_type: String,
-    pub position: Position,
-}
-
-#[derive(Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct Position {
-    pub coin: String,
-    pub szi: String,
-    pub leverage: Leverage,
-    pub entry_px: String,
-    pub position_value: String,
-    pub unrealized_pnl: String,
-    pub return_on_equity: String,
-    pub liquidation_px: Option<String>,
-    pub margin_used: String,
-    pub max_leverage: u64,
-    pub cum_funding: CumFunding,
-}
-
-#[derive(Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct Leverage {
-    #[serde(rename = "type")]
-    pub leverage_type: String,
-    pub value: u64,
-}
-
-#[derive(Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
-pub struct CumFunding {
-    pub all_time: String,
-    pub since_open: String,
-    pub since_change: String,
-}
-
-#[derive(Deserialize, Clone, Debug)]
-#[serde(rename_all = "camelCase")]
 pub struct ActiveAssetCtxData {
     pub coin: String,
     pub ctx: AssetCtx,
@@ -438,7 +400,7 @@ mod tests {
                         "positionValue": "18.412",
                         "unrealizedPnl": "0.014",
                         "returnOnEquity": "0.0038047614",
-                        "liquidationPx": null,
+                        "liquidationPx": null,  
                         "marginUsed": "3.6824",
                         "maxLeverage": 5,
                         "cumFunding": {
