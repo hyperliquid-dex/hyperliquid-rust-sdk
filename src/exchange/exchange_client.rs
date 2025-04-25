@@ -789,7 +789,14 @@ fn round_to_significant_and_decimal(value: f64, sig_figs: u32, max_decimals: u32
     round_to_decimals(rounded.copysign(value), max_decimals)
 }
 
-pub fn market_open_payload(vault_address: Option<H160>, wallet: &LocalWallet, coin_to_id: &HashMap<String, u32>, params: MarketOrderParams<'_>, price: f64, reduce_only: bool) -> Result<ExchangePayload> {
+pub fn market_open_payload(
+    vault_address: Option<H160>,
+    wallet: &LocalWallet,
+    coin_to_id: &HashMap<String, u32>,
+    params: MarketOrderParams<'_>,
+    price: f64,
+    reduce_only: bool,
+) -> Result<ExchangePayload> {
     let orders = vec![ClientOrderRequest {
         asset: params.asset.to_string(),
         is_buy: params.is_buy,
@@ -819,6 +826,34 @@ pub fn market_open_payload(vault_address: Option<H160>, wallet: &LocalWallet, co
     let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
     let signature = sign_l1_action(wallet, connection_id, true)?;
+
+    Ok(ExchangePayload {
+        action,
+        signature,
+        nonce,
+        vault_address,
+    })
+}
+
+pub fn update_leverage_payload(
+    leverage: u32,
+    symbol: &str,
+    is_cross: bool,
+    wallet: LocalWallet,
+    symbols_to_id: HashMap<String, u32>,
+    vault_address: Option<H160>,
+) -> Result<ExchangePayload> {
+    let asset = *symbols_to_id.get(symbol).ok_or(Error::AssetNotFound)?;
+    let nonce = next_nonce();
+    let action = Actions::UpdateLeverage(UpdateLeverage {
+        asset,
+        is_cross,
+        leverage,
+    });
+
+    let connection_id = action.hash(nonce, vault_address)?;
+    let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+    let signature = sign_l1_action(&wallet, connection_id, true)?;
 
     Ok(ExchangePayload {
         action,
