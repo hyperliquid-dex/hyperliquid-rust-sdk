@@ -789,24 +789,56 @@ fn round_to_significant_and_decimal(value: f64, sig_figs: u32, max_decimals: u32
     round_to_decimals(rounded.copysign(value), max_decimals)
 }
 
+/// Open market order
+///
+/// # Arguments
+///
+/// * `vault_address` - The address of the vault to open the order on
+/// * `wallet` - The wallet to sign the order with
+/// * `coin_to_id` - A map of coin symbols to their corresponding asset IDs
+/// * `params` - The parameters for the order
+/// * `px` - The price of the order (will be rounded to the correct number of decimal places and significant figures)
+/// * `reduce_only` - Whether the order is a reduce-only order
+/// * `sz_decimals` - The number of decimal places in the size of the order
+/// * `tif` - The time in force of the order (values possible: "Gtc", "Ioc", others?)
 pub fn market_open_payload(
     vault_address: Option<H160>,
     wallet: &LocalWallet,
     coin_to_id: &HashMap<String, u32>,
     params: MarketOrderParams<'_>,
-    price: f64,
+    px: f64,
     reduce_only: bool,
+    sz_decimals: u32,
+    tif: String,
 ) -> Result<ExchangePayload> {
+    let slippage = params.slippage.unwrap_or(0.05); // Default 5% slippage
+    let is_buy = params.is_buy;
+
+    let max_decimals: u32 = if coin_to_id[params.asset] < 10000 {
+        6
+    } else {
+        8
+    };
+    let price_decimals = max_decimals.saturating_sub(sz_decimals);
+
+    let slippage_factor = if is_buy {
+        1.0 + slippage
+    } else {
+        1.0 - slippage
+    };
+    let px = px * slippage_factor;
+
+    // Round to the correct number of decimal places and significant figures
+    let px = round_to_significant_and_decimal(px, 5, price_decimals);
+
     let orders = vec![ClientOrderRequest {
         asset: params.asset.to_string(),
         is_buy: params.is_buy,
         reduce_only,
-        limit_px: price,
+        limit_px: px,
         sz: params.sz,
         cloid: params.cloid,
-        order_type: ClientOrder::Limit(ClientLimit {
-            tif: "Ioc".to_string(),
-        }),
+        order_type: ClientOrder::Limit(ClientLimit { tif }),
     }];
 
     let nonce = next_nonce();
