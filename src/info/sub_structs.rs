@@ -43,15 +43,6 @@ pub struct AssetPosition {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct MarginSummary {
-    pub account_value: String,
-    pub total_margin_used: String,
-    pub total_ntl_pos: String,
-    pub total_raw_usd: String,
-}
-
-#[derive(Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
 pub struct Level {
     pub n: u64,
     pub px: String,

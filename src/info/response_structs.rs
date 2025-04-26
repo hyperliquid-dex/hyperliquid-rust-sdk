@@ -1,6 +1,7 @@
 use crate::{
-    info::{AssetPosition, Level, MarginSummary},
-    DailyUserVlm, Delta, FeeSchedule, OrderInfo, Referrer, ReferrerState, UserTokenBalance,
+    info::{AssetPosition, Level},
+    DailyUserVlm, Delta, FeeSchedule, MarginSummary, OrderInfo, Referrer, ReferrerState,
+    UserTokenBalance,
 };
 use serde::Deserialize;
 
