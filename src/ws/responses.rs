@@ -40,4 +40,13 @@ pub struct PostResponsePayloadData {
 #[derive(Deserialize, Clone, Debug)]
 pub struct PostResponseStatus {
     pub error: Option<String>,
+    pub filled: Option<FilledStatus>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct FilledStatus {
+    pub total_sz: String,
+    pub avg_px: String,
+    pub oid: u64,
 }
