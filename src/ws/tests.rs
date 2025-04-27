@@ -45,7 +45,14 @@ mod tests {
         );
 
         // Verify the error message
-        let error_status = &error_response.data.response.payload.response.data.statuses[0];
+        let error_status = &error_response
+            .data
+            .response
+            .payload
+            .response
+            .data
+            .unwrap()
+            .statuses[0];
         assert_eq!(
             error_status.error.as_ref().unwrap(),
             "Price must be divisible by tick size. asset=13"
@@ -105,6 +112,7 @@ mod tests {
             .payload
             .response
             .data
+            .unwrap()
             .statuses[0];
         assert!(success_status.error.is_none());
         let filled = success_status.filled.as_ref().unwrap();

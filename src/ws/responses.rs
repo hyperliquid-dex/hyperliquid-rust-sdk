@@ -29,7 +29,7 @@ pub struct PostResponsePayload {
 pub struct PostResponsePayloadResponse {
     #[serde(rename = "type")]
     pub response_type: String,
-    pub data: PostResponsePayloadData,
+    pub data: Option<PostResponsePayloadData>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
