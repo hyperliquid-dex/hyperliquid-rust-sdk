@@ -31,6 +31,8 @@ use tokio_tungstenite::{
 
 use ethers::types::H160;
 
+use super::Bbo;
+
 #[derive(Debug)]
 struct SubscriptionData {
     sending_channel: UnboundedSender<Message>,
@@ -62,6 +64,7 @@ pub enum Subscription {
     UserFundings { user: H160 },
     UserNonFundingLedgerUpdates { user: H160 },
     ActiveAssetCtx { coin: String },
+    Bbo { coin: String },
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -83,6 +86,7 @@ pub enum Message {
     Notification(Notification),
     WebData2(WebData2),
     ActiveAssetCtx(ActiveAssetCtx),
+    Bbo(Bbo),
     Pong,
 }
 
@@ -267,6 +271,10 @@ impl WsManager {
                 })
                 .map_err(|e| Error::JsonParse(e.to_string()))
             }
+            Message::Bbo(bbo) => {
+                serde_json::to_string(&Subscription::Bbo { coin: bbo.data.coin.clone() })
+                .map_err(|e| Error::JsonParse(e.to_string()))
+            },
             Message::SubscriptionResponse | Message::Pong => Ok(String::default()),
             Message::NoData => Ok("".to_string()),
             Message::HyperliquidError(err) => Ok(format!("hyperliquid error: {err:?}")),
