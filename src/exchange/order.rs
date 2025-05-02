@@ -68,6 +68,8 @@ pub struct MarketOrderParams {
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+
 pub struct SetTpSlParams {
     pub asset: u32,
     pub reduce_only: bool,
