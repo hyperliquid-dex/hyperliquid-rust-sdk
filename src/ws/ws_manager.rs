@@ -1,6 +1,6 @@
 use crate::{
     prelude::*,
-    ws::message_types::{AllMids, Candle, L2Book, OrderUpdates, Trades, User},
+    ws::message_types::{AllMids, Candle, L2Book, OrderUpdates, Trades, User, Bbo},
     ActiveAssetCtx, Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
     WebData2,
 };
@@ -30,8 +30,6 @@ use tokio_tungstenite::{
 };
 
 use ethers::types::H160;
-
-use super::Bbo;
 
 #[derive(Debug)]
 struct SubscriptionData {
