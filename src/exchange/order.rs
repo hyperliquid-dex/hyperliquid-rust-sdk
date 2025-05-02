@@ -68,7 +68,6 @@ pub struct MarketOrderParams {
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
 
 pub struct SetTpSlParams {
     pub asset: u32,
@@ -81,6 +80,7 @@ pub struct SetTpSlParams {
 }
 
 #[derive(Debug, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
 pub enum ClientOrder {
     Limit(ClientLimit),
     Trigger(ClientTrigger),
