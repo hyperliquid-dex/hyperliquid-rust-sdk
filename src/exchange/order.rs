@@ -45,12 +45,12 @@ pub struct OrderRequest {
     pub cloid: Option<String>,
 }
 
-#[derive(Debug, ToSchema)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ClientLimit {
     pub tif: String,
 }
 
-#[derive(Debug, ToSchema)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub struct ClientTrigger {
     pub is_market: bool,
     pub trigger_px: f64,
@@ -67,8 +67,18 @@ pub struct MarketOrderParams {
     pub cloid: Option<Uuid>,
 }
 
+#[derive(Debug, Deserialize, ToSchema)]
+pub struct SetTpSlParams {
+    pub asset: u32,
+    pub reduce_only: bool,
+    pub is_buy: bool,
+    pub sz: String,
+    pub px: String,
+    pub cloid: Option<Uuid>,
+    pub order_type: ClientOrder,
+}
 
-#[derive(Debug, ToSchema)]
+#[derive(Debug, Deserialize, ToSchema)]
 pub enum ClientOrder {
     Limit(ClientLimit),
     Trigger(ClientTrigger),

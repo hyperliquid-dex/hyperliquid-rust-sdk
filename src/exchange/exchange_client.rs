@@ -18,7 +18,7 @@ use ethers::types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::order::MarketOrderParams;
+use super::order::{MarketOrderParams, SetTpSlParams};
 use super::{cancel::ClientCancelRequestCloid, dtos::MessageResponse};
 use super::{BuilderInfo, ClientLimit, ClientOrder};
 
@@ -138,6 +138,20 @@ impl HashGenerator {
             order_type: ClientOrder::Limit(ClientLimit {
                 tif: "Gtc".to_string(),
             }),
+        };
+
+        Self::get_message_for_order(vec![order])
+    }
+
+    pub async fn set_tp_sl(params: SetTpSlParams) -> Result<MessageResponse> {
+        let order = ClientOrderRequest {
+            asset: params.asset,
+            is_buy: params.is_buy,
+            reduce_only: params.reduce_only,
+            limit_px: params.px.parse::<f64>().unwrap(),
+            sz: params.sz.parse::<f64>().unwrap(),
+            cloid: params.cloid,
+            order_type: params.order_type,
         };
 
         Self::get_message_for_order(vec![order])
