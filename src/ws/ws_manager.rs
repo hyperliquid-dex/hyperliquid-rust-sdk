@@ -1,6 +1,6 @@
 use crate::{
     prelude::*,
-    ws::message_types::{AllMids, Candle, L2Book, OrderUpdates, Trades, User},
+    ws::message_types::{AllMids, Bbo, Candle, L2Book, OrderUpdates, Trades, User},
     ActiveAssetCtx, Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
     WebData2,
 };
@@ -62,6 +62,7 @@ pub enum Subscription {
     UserFundings { user: H160 },
     UserNonFundingLedgerUpdates { user: H160 },
     ActiveAssetCtx { coin: String },
+    Bbo { coin: String },
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -83,6 +84,7 @@ pub enum Message {
     Notification(Notification),
     WebData2(WebData2),
     ActiveAssetCtx(ActiveAssetCtx),
+    Bbo(Bbo),
     Pong,
 }
 
@@ -267,6 +269,10 @@ impl WsManager {
                 })
                 .map_err(|e| Error::JsonParse(e.to_string()))
             }
+            Message::Bbo(bbo) => serde_json::to_string(&Subscription::Bbo {
+                coin: bbo.data.coin.clone(),
+            })
+            .map_err(|e| Error::JsonParse(e.to_string())),
             Message::SubscriptionResponse | Message::Pong => Ok(String::default()),
             Message::NoData => Ok("".to_string()),
             Message::HyperliquidError(err) => Ok(format!("hyperliquid error: {err:?}")),
