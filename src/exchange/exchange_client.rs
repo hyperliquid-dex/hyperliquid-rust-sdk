@@ -789,6 +789,29 @@ fn round_to_significant_and_decimal(value: f64, sig_figs: u32, max_decimals: u32
     round_to_decimals(rounded.copysign(value), max_decimals)
 }
 
+pub fn modify_order_payload(
+    vault_address: Option<H160>,
+    wallet: &LocalWallet,
+    coin_to_id: &HashMap<String, u32>,
+    params: ModifyRequest,
+) -> Result<ExchangePayload> {
+    let nonce = next_nonce();
+    let action = Actions::BatchModify(BulkModify {
+        modifies: vec![params],
+    });
+    let connection_id = action.hash(nonce, vault_address)?;
+    let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+    let signature = sign_l1_action(wallet, connection_id, true)?;
+
+    Ok(ExchangePayload {
+        action,
+        signature,
+        nonce,
+        vault_address,
+    })
+}
+
 /// Open market order
 ///
 /// # Arguments
