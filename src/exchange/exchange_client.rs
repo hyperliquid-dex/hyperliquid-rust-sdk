@@ -792,11 +792,20 @@ fn round_to_significant_and_decimal(value: f64, sig_figs: u32, max_decimals: u32
 pub fn modify_order_payload(
     vault_address: Option<H160>,
     wallet: &LocalWallet,
-    params: ModifyRequest,
+    params: ClientModifyRequest,
+    coin_to_id: &HashMap<String, u32>,
 ) -> Result<ExchangePayload> {
     let nonce = next_nonce();
+
+    let mut transformed_orders = Vec::new();
+
+    transformed_orders.push(params.order.convert(coin_to_id)?);
+
     let action = Actions::BatchModify(BulkModify {
-        modifies: vec![params],
+        modifies: vec![ModifyRequest {
+            oid: params.oid,
+            order: transformed_orders[0].clone(),
+        }],
     });
     let connection_id = action.hash(nonce, vault_address)?;
     let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
