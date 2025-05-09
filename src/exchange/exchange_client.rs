@@ -792,12 +792,36 @@ fn round_to_significant_and_decimal(value: f64, sig_figs: u32, max_decimals: u32
 pub fn modify_order_payload(
     vault_address: Option<H160>,
     wallet: &LocalWallet,
-    coin_to_id: &HashMap<String, u32>,
     params: ModifyRequest,
 ) -> Result<ExchangePayload> {
     let nonce = next_nonce();
     let action = Actions::BatchModify(BulkModify {
         modifies: vec![params],
+    });
+    let connection_id = action.hash(nonce, vault_address)?;
+    let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+    let signature = sign_l1_action(wallet, connection_id, true)?;
+
+    Ok(ExchangePayload {
+        action,
+        signature,
+        nonce,
+        vault_address,
+    })
+}
+
+pub fn order_payload(order: ClientOrderRequest, coin_to_id: &HashMap<String, u32>, vault_address: Option<H160>, wallet: &LocalWallet) -> Result<ExchangePayload> {
+    let nonce = next_nonce();
+
+    let mut transformed_orders = Vec::new();
+
+    transformed_orders.push(order.convert(&coin_to_id)?);
+
+    let action = Actions::Order(BulkOrder {
+        orders: transformed_orders,
+        grouping: "na".to_string(),
+        builder: None,
     });
     let connection_id = action.hash(nonce, vault_address)?;
     let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
@@ -825,6 +849,72 @@ pub fn modify_order_payload(
 /// * `sz_decimals` - The number of decimal places in the size of the order
 /// * `tif` - The time in force of the order (values possible: "Gtc", "Ioc", others?)
 pub fn market_open_payload(
+    vault_address: Option<H160>,
+    wallet: &LocalWallet,
+    coin_to_id: &HashMap<String, u32>,
+    params: MarketOrderParams<'_>,
+    px: f64,
+    reduce_only: bool,
+    sz_decimals: u32,
+    tif: String,
+) -> Result<ExchangePayload> {
+    let slippage = params.slippage.unwrap_or(0.05); // Default 5% slippage
+    let is_buy = params.is_buy;
+
+    let max_decimals: u32 = if coin_to_id[params.asset] < 10000 {
+        6
+    } else {
+        8
+    };
+    let price_decimals = max_decimals.saturating_sub(sz_decimals);
+
+    let slippage_factor = if is_buy {
+        1.0 + slippage
+    } else {
+        1.0 - slippage
+    };
+    let px = px * slippage_factor;
+
+    // Round to the correct number of decimal places and significant figures
+    let px = round_to_significant_and_decimal(px, 5, price_decimals);
+
+    let orders = vec![ClientOrderRequest {
+        asset: params.asset.to_string(),
+        is_buy: params.is_buy,
+        reduce_only,
+        limit_px: px,
+        sz: params.sz,
+        cloid: params.cloid,
+        order_type: ClientOrder::Limit(ClientLimit { tif }),
+    }];
+
+    let nonce = next_nonce();
+
+    let mut transformed_orders = Vec::new();
+
+    for order in orders {
+        transformed_orders.push(order.convert(&coin_to_id)?);
+    }
+
+    let action = Actions::Order(BulkOrder {
+        orders: transformed_orders,
+        grouping: "na".to_string(),
+        builder: None,
+    });
+    let connection_id = action.hash(nonce, vault_address)?;
+    let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+    let signature = sign_l1_action(wallet, connection_id, true)?;
+
+    Ok(ExchangePayload {
+        action,
+        signature,
+        nonce,
+        vault_address,
+    })
+}
+
+pub fn limit_open_payload(
     vault_address: Option<H160>,
     wallet: &LocalWallet,
     coin_to_id: &HashMap<String, u32>,
