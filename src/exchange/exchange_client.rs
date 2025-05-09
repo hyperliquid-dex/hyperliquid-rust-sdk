@@ -845,6 +845,40 @@ pub fn order_payload(order: ClientOrderRequest, coin_to_id: &HashMap<String, u32
     })
 }
 
+pub fn cancel_order_payload(
+    vault_address: Option<H160>,
+    wallet: &LocalWallet,
+    params: ClientCancelRequest,
+    coin_to_id: &HashMap<String, u32>,
+) -> Result<ExchangePayload> {
+    let nonce = next_nonce();
+
+    let mut transformed_cancels = Vec::new();
+    let &asset = 
+                coin_to_id
+                .get(&params.asset)
+                .ok_or(Error::AssetNotFound)?;
+            transformed_cancels.push(CancelRequest {
+                asset,
+                oid: params.oid,
+            });
+
+    let action = Actions::Cancel(BulkCancel {
+        cancels: transformed_cancels,
+    });
+    let connection_id = action.hash(nonce, vault_address)?;
+    let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+    let signature = sign_l1_action(wallet, connection_id, true)?;
+
+    Ok(ExchangePayload {
+        action,
+        signature,
+        nonce,
+        vault_address,
+    })
+}
+
 /// Open market order
 ///
 /// # Arguments
