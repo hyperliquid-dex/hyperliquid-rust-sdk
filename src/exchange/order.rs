@@ -3,7 +3,7 @@ use crate::{
     prelude::*,
 };
 use serde::{Deserialize, Serialize};
-use utoipa::{IntoParams, ToSchema};
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 #[derive(Deserialize, Serialize, Clone, Debug, ToSchema)]

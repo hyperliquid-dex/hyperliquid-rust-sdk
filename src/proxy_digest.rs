@@ -3,7 +3,6 @@
 use ethers::prelude::k256::{
     elliptic_curve::generic_array::GenericArray,
     sha2::{
-        self,
         digest::{Output, OutputSizeUser},
         Digest,
     },
