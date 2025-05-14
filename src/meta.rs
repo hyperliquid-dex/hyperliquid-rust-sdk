@@ -52,17 +52,13 @@ pub enum SpotMetaAndAssetCtxs {
     Context(Vec<SpotAssetContext>),
 }
 
-#[allow(dead_code)] // Likely used for deserialization only
 #[derive(Deserialize, Debug, Clone)]
 #[serde(untagged)]
 pub enum MetaAndAssetCtxs {
-    #[allow(dead_code)] // Likely used for deserialization only
     Meta(Meta),
-    #[allow(dead_code)] // Likely used for deserialization only
     Context(Vec<AssetContext>),
 }
 
-#[allow(dead_code)] // Likely used for deserialization only
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SpotAssetContext {
@@ -74,7 +70,6 @@ pub struct SpotAssetContext {
     pub coin: String,
 }
 
-#[allow(dead_code)] // Likely used for deserialization only
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct AssetContext {

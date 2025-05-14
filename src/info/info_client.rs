@@ -2,7 +2,13 @@ use crate::{
     info::{
         CandlesSnapshotResponse, FundingHistoryResponse, L2SnapshotResponse, OpenOrdersResponse,
         OrderInfo, RecentTradesResponse, UserFillsResponse, UserStateResponse,
-    }, meta::{Meta, SpotMeta, SpotMetaAndAssetCtxs}, prelude::*, req::HttpClient, ws::{Subscription, WsManager}, BaseUrl, Error, Message, MetaAndAssetCtxs, OrderStatusResponse, ReferralResponse, UserFeesResponse, UserFundingResponse, UserTokenBalanceResponse
+    },
+    meta::{AssetContext, Meta, SpotMeta, SpotMetaAndAssetCtxs},
+    prelude::*,
+    req::HttpClient,
+    ws::{Subscription, WsManager},
+    BaseUrl, Error, Message, OrderStatusResponse, ReferralResponse, UserFeesResponse,
+    UserFundingResponse, UserTokenBalanceResponse,
 };
 
 use ethers::types::H160;
@@ -200,9 +206,23 @@ impl InfoClient {
         self.send_info_request(input).await
     }
 
-    pub async fn meta_and_asset_contexts(&self) -> Result<Vec<MetaAndAssetCtxs>> {
+    pub async fn meta_and_asset_contexts(&self) -> Result<(Meta, Vec<AssetContext>)> {
         let input = InfoRequest::MetaAndAssetCtxs;
-        self.send_info_request(input).await
+        // Deserialize into an intermediate representation
+        let (meta, raw_contexts_values): (Meta, Vec<serde_json::Value>) =
+            self.send_info_request(input).await?;
+
+        let mut contexts: Vec<AssetContext> = Vec::new();
+        for value in raw_contexts_values {
+            match serde_json::from_value::<AssetContext>(value.clone()) {
+                Ok(context) => contexts.push(context),
+                Err(_e) => {
+                    // Optionally log the error:
+                    // log::debug!("Skipping AssetContext due to deserialization error: {}", _e);
+                }
+            }
+        }
+        Ok((meta, contexts))
     }
 
     pub async fn spot_meta(&self) -> Result<SpotMeta> {
