@@ -2,13 +2,7 @@ use crate::{
     info::{
         CandlesSnapshotResponse, FundingHistoryResponse, L2SnapshotResponse, OpenOrdersResponse,
         OrderInfo, RecentTradesResponse, UserFillsResponse, UserStateResponse,
-    },
-    meta::{Meta, SpotMeta, SpotMetaAndAssetCtxs},
-    prelude::*,
-    req::HttpClient,
-    ws::{Subscription, WsManager},
-    BaseUrl, Error, Message, OrderStatusResponse, ReferralResponse, UserFeesResponse,
-    UserFundingResponse, UserTokenBalanceResponse,
+    }, meta::{Meta, SpotMeta, SpotMetaAndAssetCtxs}, prelude::*, req::HttpClient, ws::{Subscription, WsManager}, BaseUrl, Error, Message, MetaAndAssetCtxs, OrderStatusResponse, ReferralResponse, UserFeesResponse, UserFundingResponse, UserTokenBalanceResponse
 };
 
 use ethers::types::H160;
@@ -206,7 +200,7 @@ impl InfoClient {
         self.send_info_request(input).await
     }
 
-    pub async fn meta_and_asset_contexts(&self) -> Result<Vec<Meta>> {
+    pub async fn meta_and_asset_contexts(&self) -> Result<Vec<MetaAndAssetCtxs>> {
         let input = InfoRequest::MetaAndAssetCtxs;
         self.send_info_request(input).await
     }
