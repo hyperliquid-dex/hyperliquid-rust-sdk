@@ -31,14 +31,14 @@ async fn parse_response(response: Response) -> Result<String> {
             Ok(error_data) => Error::ClientRequest {
                 status_code,
                 error_code: Some(error_data.code),
-                error_message: error_data.msg,
-                error_data: Some(error_data.data),
+                error_message: error_data.msg.into(),
+                error_data: Some(error_data.data.into()),
             },
             Err(err) => Error::ClientRequest {
                 status_code,
-                error_message: text,
+                error_message: text.into(),
                 error_code: None,
-                error_data: Some(err.to_string()),
+                error_data: Some(err.to_string().into()),
             },
         };
         return Err(client_error);

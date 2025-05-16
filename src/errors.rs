@@ -7,8 +7,8 @@ pub enum Error {
     ClientRequest {
         status_code: u16,
         error_code: Option<u16>,
-        error_message: String,
-        error_data: Option<String>,
+        error_message: Box<str>,
+        error_data: Option<Box<str>>,
     },
     #[error("Server error: status code: {status_code}, error message: {error_message}")]
     ServerRequest {
