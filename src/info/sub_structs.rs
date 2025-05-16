@@ -1,5 +1,14 @@
 use ethers::types::H160;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
+
+// Custom deserializer for liquidation_px that converts "NaN" to None
+fn deserialize_liquidation_px<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let s: Option<String> = Option::deserialize(deserializer)?;
+    Ok(s.and_then(|s| if s == "NaN" { None } else { Some(s) }))
+}
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -24,6 +33,7 @@ pub struct PositionData {
     pub coin: String,
     pub entry_px: Option<String>,
     pub leverage: Leverage,
+    #[serde(deserialize_with = "deserialize_liquidation_px")]
     pub liquidation_px: Option<String>,
     pub margin_used: String,
     pub position_value: String,
@@ -154,4 +164,65 @@ pub struct ReferrerState {
 #[serde(rename_all = "camelCase")]
 pub struct ReferrerData {
     pub required: String,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_position_data_liquidation_px_deserialization() {
+        // Test case with "NaN" liquidation price
+        let json_with_nan = json!({
+            "coin": "BTC",
+            "entryPx": "50000",
+            "leverage": {
+                "type": "cross",
+                "value": 10,
+                "rawUsd": "500000"
+            },
+            "liquidationPx": "NaN",
+            "marginUsed": "5000",
+            "positionValue": "50000",
+            "returnOnEquity": "0.1",
+            "szi": "1",
+            "unrealizedPnl": "1000",
+            "maxLeverage": 20,
+            "cumFunding": {
+                "allTime": "100",
+                "sinceOpen": "10",
+                "sinceChange": "5"
+            }
+        });
+
+        let position: PositionData = serde_json::from_value(json_with_nan).unwrap();
+        assert!(position.liquidation_px.is_none(), "Expected None for NaN liquidation price");
+
+        // Test case with valid liquidation price
+        let json_with_price = json!({
+            "coin": "BTC",
+            "entryPx": "50000",
+            "leverage": {
+                "type": "cross",
+                "value": 10,
+                "rawUsd": "500000"
+            },
+            "liquidationPx": "45000",
+            "marginUsed": "5000",
+            "positionValue": "50000",
+            "returnOnEquity": "0.1",
+            "szi": "1",
+            "unrealizedPnl": "1000",
+            "maxLeverage": 20,
+            "cumFunding": {
+                "allTime": "100",
+                "sinceOpen": "10",
+                "sinceChange": "5"
+            }
+        });
+
+        let position: PositionData = serde_json::from_value(json_with_price).unwrap();
+        assert_eq!(position.liquidation_px, Some("45000".to_string()), "Expected Some(45000) for valid liquidation price");
+    }
 }
