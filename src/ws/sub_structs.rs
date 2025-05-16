@@ -48,6 +48,7 @@ pub struct TradeInfo {
     pub cloid: Option<String>,
     pub crossed: bool,
     pub fee: String,
+    pub fee_token: String,
     pub tid: u64,
 }
 
