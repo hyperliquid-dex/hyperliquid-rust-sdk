@@ -1,6 +1,6 @@
 [package]
 name = "hyperliquid_rust_sdk"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 license = "MIT"
 description = "Rust SDK for Hyperliquid"
