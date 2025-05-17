@@ -10,4 +10,9 @@ pub struct MessageResponse {
     pub nonce: u64,
 }
 
-
+#[derive(Serialize, Deserialize, Debug, Clone, utoipa::ToSchema)]
+pub struct SpotTransferRequest {
+    pub amount: String,
+    pub destination: String,
+    pub token: String,
+}

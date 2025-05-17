@@ -18,8 +18,11 @@ use ethers::types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use super::order::{MarketOrderParams, SetTpSlParams};
 use super::{cancel::ClientCancelRequestCloid, dtos::MessageResponse};
+use super::{
+    dtos::SpotTransferRequest,
+    order::{MarketOrderParams, SetTpSlParams},
+};
 use super::{BuilderInfo, ClientLimit, ClientOrder};
 
 #[cfg(not(feature = "testnet"))]
@@ -191,7 +194,7 @@ impl HashGenerator {
         };
         let action = Actions::Order(bulk_order.clone());
 
-        Self::get_message_for_action(action)
+        Self::get_message_for_action(action, None)
     }
 
     pub fn bulk_order_with_builder(
@@ -228,7 +231,7 @@ impl HashGenerator {
             cancels: transformed_cancels,
         });
 
-        Self::get_message_for_action(action)
+        Self::get_message_for_action(action, None)
     }
 
     pub async fn bulk_modify(modifies: Vec<ClientModifyRequest>) -> Result<Value> {
@@ -269,7 +272,29 @@ impl HashGenerator {
 
     pub async fn update_leverage(request: UpdateLeverage) -> Result<MessageResponse> {
         let action = Actions::UpdateLeverage(request);
-        Self::get_message_for_action(action)
+        Self::get_message_for_action(action, None)
+    }
+
+    pub async fn spot_transfer(request: SpotTransferRequest) -> Result<MessageResponse> {
+        let SpotTransferRequest {
+            amount,
+            destination,
+            token,
+        } = request;
+
+        let timestamp = next_nonce();
+
+        let spot_send = SpotSend {
+            signature_chain_id: 421614.into(),
+            hyperliquid_chain: HYPERLIQUID_CHAIN.to_string(),
+            destination: destination.to_string(),
+            amount: amount.to_string(),
+            time: timestamp,
+            token: token.to_string(),
+        };
+        let action = Actions::SpotSend(spot_send);
+
+        Self::get_message_for_action(action, Some(timestamp))
     }
 
     pub async fn update_isolated_margin(
@@ -306,8 +331,8 @@ impl HashGenerator {
         Ok(message)
     }
 
-    pub fn get_message_for_action(action: Actions) -> Result<MessageResponse> {
-        let nonce = next_nonce();
+    pub fn get_message_for_action(action: Actions, nonce: Option<u64>) -> Result<MessageResponse> {
+        let nonce = nonce.unwrap_or(next_nonce());
         let connection_id = action.hash(nonce, None)?;
         let message: H256 = encode_l1_action(connection_id)?;
 
