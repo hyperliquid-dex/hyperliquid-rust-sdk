@@ -280,12 +280,13 @@ impl HashGenerator {
             amount,
             destination,
             token,
+            signature_chain_id,
         } = request;
 
         let timestamp = next_nonce();
 
         let spot_send = SpotSend {
-            signature_chain_id: 421614.into(),
+            signature_chain_id: signature_chain_id.into(),
             hyperliquid_chain: HYPERLIQUID_CHAIN.to_string(),
             destination: destination.to_string(),
             amount: amount.to_string(),
@@ -378,4 +379,5 @@ mod tests {
 
         Ok(())
     }
+
 }
