@@ -15,5 +15,4 @@ pub struct SpotTransferRequest {
     pub amount: String,
     pub destination: String,
     pub token: String,
-    pub signature_chain_id: i64,
 }

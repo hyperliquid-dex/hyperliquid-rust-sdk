@@ -31,6 +31,12 @@ const HYPERLIQUID_CHAIN: &str = "Mainnet";
 #[cfg(feature = "testnet")]
 const HYPERLIQUID_CHAIN: &str = "Testnet";
 
+#[cfg(not(feature = "testnet"))]
+const SIGNATURE_CHAIN_ID: i64 = 999;
+
+#[cfg(feature = "testnet")]
+const SIGNATURE_CHAIN_ID: i64 = 998;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
@@ -280,13 +286,12 @@ impl HashGenerator {
             amount,
             destination,
             token,
-            signature_chain_id,
         } = request;
 
         let timestamp = next_nonce();
 
         let spot_send = SpotSend {
-            signature_chain_id: signature_chain_id.into(),
+            signature_chain_id: SIGNATURE_CHAIN_ID.into(),
             hyperliquid_chain: HYPERLIQUID_CHAIN.to_string(),
             destination: destination.to_string(),
             amount: amount.to_string(),
@@ -379,5 +384,4 @@ mod tests {
 
         Ok(())
     }
-
 }
