@@ -105,7 +105,7 @@ impl HashGenerator {
 
     pub async fn vault_transfer(
         is_deposit: bool,
-        usd: String,
+        usd: u64,
         vault_address: Option<H160>,
     ) -> Result<Value> {
         let vault_address = vault_address.ok_or(Error::VaultAddressNotFound)?;
