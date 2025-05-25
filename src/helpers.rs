@@ -67,6 +67,13 @@ pub fn bps_diff(x: f64, y: f64) -> u16 {
     }
 }
 
+#[derive(Copy, Clone)]
+pub enum BaseUrl {
+    Localhost,
+    Testnet,
+    Mainnet,
+}
+
 lazy_static! {
     static ref CUR_NONCE: AtomicU64 = AtomicU64::new(now_timestamp_ms());
 }
