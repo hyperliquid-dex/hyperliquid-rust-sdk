@@ -99,6 +99,8 @@ pub(crate) struct Ping {
 
 impl WsManager {
     const SEND_PING_INTERVAL: u64 = 50;
+    const INITIAL_BACKOFF_SECS: u64 = 1;
+    const MAX_BACKOFF_SECS: u64 = 60;
 
     pub(crate) async fn new(url: String, reconnect: bool) -> Result<WsManager> {
         let stop_flag = Arc::new(AtomicBool::new(false));
@@ -114,8 +116,13 @@ impl WsManager {
             let writer = writer.clone();
             let stop_flag = Arc::clone(&stop_flag);
             let reader_fut = async move {
+                let mut backoff_delay = Self::INITIAL_BACKOFF_SECS;
+
                 while !stop_flag.load(Ordering::Relaxed) {
                     if let Some(data) = reader.next().await {
+                        // Reset backoff on successful message
+                        backoff_delay = Self::INITIAL_BACKOFF_SECS;
+
                         if let Err(err) =
                             WsManager::parse_and_send_data(data, &subscriptions_copy).await
                         {
@@ -132,11 +139,19 @@ impl WsManager {
                             warn!("Error sending disconnection notification err={err}");
                         }
                         if reconnect {
-                            // Always sleep for 1 second before attempting to reconnect so it does not spin during reconnecting. This could be enhanced with exponential backoff.
-                            tokio::time::sleep(Duration::from_secs(1)).await;
+                            // Exponential backoff with jitter
+                            info!(
+                                "WsManager sleeping for {}s before reconnect attempt",
+                                backoff_delay
+                            );
+                            tokio::time::sleep(Duration::from_secs(backoff_delay)).await;
+
                             info!("WsManager attempting to reconnect");
                             match Self::connect(&url).await {
                                 Ok(ws) => {
+                                    // Reset backoff on successful reconnection
+                                    backoff_delay = Self::INITIAL_BACKOFF_SECS;
+
                                     let (new_writer, new_reader) = ws.split();
                                     reader = new_reader;
                                     let mut writer_guard = writer.lock().await;
@@ -167,7 +182,11 @@ impl WsManager {
                                     }
                                     info!("WsManager reconnect finished");
                                 }
-                                Err(err) => error!("Could not connect to websocket {err}"),
+                                Err(err) => {
+                                    error!("Could not connect to websocket {err}");
+                                    // Double the backoff delay for next attempt, with max cap
+                                    backoff_delay = (backoff_delay * 2).min(Self::MAX_BACKOFF_SECS);
+                                }
                             }
                         } else {
                             error!("WsManager reconnection disabled. Will not reconnect and exiting reader task.");
