@@ -31,6 +31,8 @@ use tokio_tungstenite::{
 
 use ethers::types::H160;
 
+use super::ActiveSpotAssetCtx;
+
 #[derive(Debug)]
 struct SubscriptionData {
     sending_channel: UnboundedSender<Message>,
@@ -83,6 +85,7 @@ pub enum Message {
     Notification(Notification),
     WebData2(WebData2),
     ActiveAssetCtx(ActiveAssetCtx),
+    ActiveSpotAssetCtx(ActiveSpotAssetCtx),
     Pong,
 }
 
@@ -266,6 +269,13 @@ impl WsManager {
                     coin: active_asset_ctx.data.coin.clone(),
                 })
                 .map_err(|e| Error::JsonParse(e.to_string()))
+            }
+            Message::ActiveSpotAssetCtx(active_spot_asset_ctx) => {
+                let s = serde_json::to_string(&Subscription::ActiveAssetCtx {
+                    coin: active_spot_asset_ctx.data.coin.clone(),
+                })
+                .map_err(|e| Error::JsonParse(e.to_string()));
+                s
             }
             Message::SubscriptionResponse | Message::Pong => Ok(String::default()),
             Message::NoData => Ok("".to_string()),
