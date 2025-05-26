@@ -1,8 +1,11 @@
 use crate::{
+    message_types::{
+        ActiveAssetCtx, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
+        WebData2,
+    },
     prelude::*,
     ws::message_types::{AllMids, Candle, L2Book, OrderUpdates, Trades, User},
-    ActiveAssetCtx, Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
-    WebData2,
+    Error,
 };
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
 use log::{error, info, warn};
@@ -38,12 +41,12 @@ struct SubscriptionData {
     id: String,
 }
 #[derive(Debug)]
-pub(crate) struct WsManager {
+pub struct WsManager {
     stop_flag: Arc<AtomicBool>,
     writer: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>>>,
     subscriptions: Arc<Mutex<HashMap<String, Vec<SubscriptionData>>>>,
-    subscription_id: u32,
-    subscription_identifiers: HashMap<u32, String>,
+    subscription_id: Arc<Mutex<u32>>,
+    subscription_identifiers: Arc<Mutex<HashMap<u32, String>>>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -87,13 +90,13 @@ pub enum Message {
 }
 
 #[derive(Serialize)]
-pub(crate) struct SubscriptionSendData<'a> {
+pub struct SubscriptionSendData<'a> {
     method: &'static str,
     subscription: &'a serde_json::Value,
 }
 
 #[derive(Serialize)]
-pub(crate) struct Ping {
+pub struct Ping {
     method: &'static str,
 }
 
@@ -102,7 +105,7 @@ impl WsManager {
     const INITIAL_BACKOFF_SECS: u64 = 1;
     const MAX_BACKOFF_SECS: u64 = 60;
 
-    pub(crate) async fn new(url: String, reconnect: bool) -> Result<WsManager> {
+    pub async fn new(url: String, reconnect: bool) -> Result<WsManager> {
         let stop_flag = Arc::new(AtomicBool::new(false));
 
         let (writer, mut reader) = Self::connect(&url).await?.split();
@@ -226,8 +229,8 @@ impl WsManager {
             stop_flag,
             writer,
             subscriptions,
-            subscription_id: 0,
-            subscription_identifiers: HashMap::new(),
+            subscription_id: Arc::new(Mutex::new(0)),
+            subscription_identifiers: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -399,8 +402,8 @@ impl WsManager {
         Self::send_subscription_data("unsubscribe", writer, identifier).await
     }
 
-    pub(crate) async fn add_subscription(
-        &mut self,
+    pub async fn add_subscription(
+        &self,
         identifier: String,
         sending_channel: UnboundedSender<Message>,
     ) -> Result<u32> {
@@ -431,8 +434,14 @@ impl WsManager {
             Self::subscribe(self.writer.lock().await.borrow_mut(), identifier.as_str()).await?;
         }
 
-        let subscription_id = self.subscription_id;
+        let mut subscription_id_guard = self.subscription_id.lock().await;
+        let subscription_id = *subscription_id_guard;
+        *subscription_id_guard += 1;
+        drop(subscription_id_guard);
+
         self.subscription_identifiers
+            .lock()
+            .await
             .insert(subscription_id, identifier.clone());
         subscriptions.push(SubscriptionData {
             sending_channel,
@@ -440,13 +449,14 @@ impl WsManager {
             id: identifier,
         });
 
-        self.subscription_id += 1;
         Ok(subscription_id)
     }
 
-    pub(crate) async fn remove_subscription(&mut self, subscription_id: u32) -> Result<()> {
+    pub async fn remove_subscription(&self, subscription_id: u32) -> Result<()> {
         let identifier = self
             .subscription_identifiers
+            .lock()
+            .await
             .get(&subscription_id)
             .ok_or(Error::SubscriptionNotFound)?
             .clone();
@@ -465,7 +475,10 @@ impl WsManager {
             identifier.clone()
         };
 
-        self.subscription_identifiers.remove(&subscription_id);
+        self.subscription_identifiers
+            .lock()
+            .await
+            .remove(&subscription_id);
 
         let mut subscriptions = self.subscriptions.lock().await;
 
@@ -482,6 +495,53 @@ impl WsManager {
             Self::unsubscribe(self.writer.lock().await.borrow_mut(), identifier.as_str()).await?;
         }
         Ok(())
+    }
+
+    /// Shutdown the WebSocket manager and unsubscribe from all active subscriptions
+    pub async fn shutdown(&self) -> Result<()> {
+        log::info!("Shutting down WebSocket manager...");
+
+        // Set stop flag to stop background tasks
+        self.stop_flag.store(true, Ordering::Relaxed);
+
+        // Get all subscription identifiers
+        let subscription_ids: Vec<u32> = {
+            let identifiers = self.subscription_identifiers.lock().await;
+            identifiers.keys().cloned().collect()
+        };
+
+        // Unsubscribe from all active subscriptions
+        for subscription_id in subscription_ids {
+            if let Err(err) = self.remove_subscription(subscription_id).await {
+                log::warn!("Failed to remove subscription {}: {}", subscription_id, err);
+            }
+        }
+
+        // Clear all subscriptions
+        {
+            let mut subscriptions = self.subscriptions.lock().await;
+            subscriptions.clear();
+        }
+
+        // Clear subscription identifiers
+        {
+            let mut identifiers = self.subscription_identifiers.lock().await;
+            identifiers.clear();
+        }
+
+        log::info!("WebSocket manager shutdown complete");
+        Ok(())
+    }
+
+    /// Get the number of active subscriptions
+    pub async fn get_subscription_count(&self) -> usize {
+        let identifiers = self.subscription_identifiers.lock().await;
+        identifiers.len()
+    }
+
+    /// Check if the WebSocket manager is running
+    pub fn is_running(&self) -> bool {
+        !self.stop_flag.load(Ordering::Relaxed)
     }
 }
 
