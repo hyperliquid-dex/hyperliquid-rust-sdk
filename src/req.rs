@@ -71,4 +71,12 @@ impl HttpClient {
     pub fn is_mainnet(&self) -> bool {
         self.base_url == BaseUrl::Mainnet.get_url()
     }
+
+    pub fn get_network(&self) -> String {
+        if self.is_mainnet() {
+            "Mainnet".to_string()
+        } else {
+            "Testnet".to_string()
+        }
+    }
 }
