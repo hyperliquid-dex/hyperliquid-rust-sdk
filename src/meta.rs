@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ethers::abi::ethereum_types::H128;
+use alloy::primitives::B128;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone)]
@@ -37,7 +37,7 @@ impl SpotMeta {
                 continue;
             };
 
-            coin_to_asset.insert(format!("{}/{}", token_1_name, token_2_name), spot_ind);
+            coin_to_asset.insert(format!("{token_1_name}/{token_2_name}"), spot_ind);
             coin_to_asset.insert(name_to_ind.0, name_to_ind.1);
         }
 
@@ -86,6 +86,6 @@ pub struct TokenInfo {
     pub sz_decimals: u8,
     pub wei_decimals: u8,
     pub index: usize,
-    pub token_id: H128,
+    pub token_id: B128,
     pub is_canonical: bool,
 }

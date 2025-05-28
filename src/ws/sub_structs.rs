@@ -1,4 +1,4 @@
-use ethers::types::H160;
+use alloy::primitives::Address;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -56,7 +56,7 @@ pub struct TradeInfo {
 #[serde(rename_all = "camelCase")]
 pub struct UserFillsData {
     pub is_snapshot: Option<bool>,
-    pub user: H160,
+    pub user: Address,
     pub fills: Vec<TradeInfo>,
 }
 
@@ -133,7 +133,7 @@ pub struct BasicOrder {
 #[serde(rename_all = "camelCase")]
 pub struct UserFundingsData {
     pub is_snapshot: Option<bool>,
-    pub user: H160,
+    pub user: Address,
     pub fundings: Vec<UserFunding>,
 }
 
@@ -151,7 +151,7 @@ pub struct UserFunding {
 #[serde(rename_all = "camelCase")]
 pub struct UserNonFundingLedgerUpdatesData {
     pub is_snapshot: Option<bool>,
-    pub user: H160,
+    pub user: Address,
     pub non_funding_ledger_updates: Vec<LedgerUpdateData>,
 }
 
@@ -196,16 +196,16 @@ pub struct Withdraw {
 #[derive(Deserialize, Clone, Debug)]
 pub struct InternalTransfer {
     pub usdc: String,
-    pub user: H160,
-    pub destination: H160,
+    pub user: Address,
+    pub destination: Address,
     pub fee: String,
 }
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct SubAccountTransfer {
     pub usdc: String,
-    pub user: H160,
-    pub destination: H160,
+    pub user: Address,
+    pub destination: Address,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -224,15 +224,15 @@ pub struct LiquidatedPosition {
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct VaultDelta {
-    pub vault: H160,
+    pub vault: Address,
     pub usdc: String,
 }
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct VaultWithdraw {
-    pub vault: H160,
-    pub user: H160,
+    pub vault: Address,
+    pub user: Address,
     pub requested_usd: String,
     pub commission: String,
     pub closing_cost: String,
@@ -242,7 +242,7 @@ pub struct VaultWithdraw {
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct VaultLeaderCommission {
-    pub user: H160,
+    pub user: Address,
     pub usdc: String,
 }
 
@@ -259,8 +259,8 @@ pub struct SpotTransfer {
     pub token: String,
     pub amount: String,
     pub usdc_value: String,
-    pub user: H160,
-    pub destination: H160,
+    pub user: Address,
+    pub destination: Address,
     pub fee: String,
 }
 
@@ -278,7 +278,7 @@ pub struct NotificationData {
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct WebData2Data {
-    pub user: H160,
+    pub user: Address,
 }
 
 #[derive(Deserialize, Clone, Debug)]
