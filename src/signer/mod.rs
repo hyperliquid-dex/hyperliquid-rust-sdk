@@ -3,48 +3,50 @@ use crate::proxy_digest::Sha256Proxy;
 use crate::Error;
 use async_trait::async_trait;
 use ethers::core::k256::{elliptic_curve::FieldBytes, Secp256k1};
-use ethers::signers::LocalWallet;
-use ethers::types::{Signature, H256, U256};
+use ethers::types::{Address, Signature, H256, U256};
 use ethers::utils::hex::ToHexExt;
 use privy::Privy;
+use std::sync::Arc;
 
 #[async_trait]
-pub trait Signer: Send + Sync {
+pub trait Signer: Send + Sync + std::fmt::Debug {
     async fn secp256k1_sign(&self, message: H256) -> Result<Signature>;
+    fn address(&self) -> Address;
 }
 
 #[async_trait]
-impl Signer for LocalWallet {
+impl<T: Signer + ?Sized> Signer for Arc<T> {
     async fn secp256k1_sign(&self, message: H256) -> Result<Signature> {
-        let (sig, rec_id) = self
-            .signer()
-            .sign_digest_recoverable(Sha256Proxy::from(message))
-            .map_err(|e| Error::SignatureFailure(e.to_string()))?;
-
-        let v = u8::from(rec_id) as u64 + 27;
-
-        let r_bytes: FieldBytes<Secp256k1> = sig.r().into();
-        let s_bytes: FieldBytes<Secp256k1> = sig.s().into();
-        let r = U256::from_big_endian(r_bytes.as_slice());
-        let s = U256::from_big_endian(s_bytes.as_slice());
-
-        Ok(Signature { r, s, v })
+        (**self).secp256k1_sign(message).await
+    }
+    fn address(&self) -> Address {
+        (**self).address()
     }
 }
 
+#[derive(Debug)]
 pub struct PrivySigner {
     pub privy: Privy,
     pub wallet_id: String,
+    pub address: String,
 }
 
 impl PrivySigner {
-    pub fn new(privy: Privy, wallet_id: String) -> Self {
-        Self { privy, wallet_id }
+    pub fn new(privy: Privy, wallet_id: String, address: String) -> Self {
+        Self {
+            privy,
+            wallet_id,
+            address,
+        }
     }
 }
 
 #[async_trait]
 impl Signer for PrivySigner {
+    fn address(&self) -> Address {
+        self.address.parse().unwrap()
+    }
+
     async fn secp256k1_sign(&self, message: H256) -> Result<Signature> {
         println!("Signing message: {}", message.to_string());
         let signature = self
@@ -71,6 +73,29 @@ impl Signer for PrivySigner {
     }
 }
 
+#[async_trait]
+impl Signer for ethers::signers::LocalWallet {
+    async fn secp256k1_sign(&self, message: H256) -> Result<Signature> {
+        let (sig, rec_id) = self
+            .signer()
+            .sign_digest_recoverable(Sha256Proxy::from(message))
+            .map_err(|e| Error::SignatureFailure(e.to_string()))?;
+
+        let v = u8::from(rec_id) as u64 + 27;
+
+        let r_bytes: FieldBytes<Secp256k1> = sig.r().into();
+        let s_bytes: FieldBytes<Secp256k1> = sig.s().into();
+        let r = U256::from_big_endian(r_bytes.as_slice());
+        let s = U256::from_big_endian(s_bytes.as_slice());
+
+        Ok(Signature { r, s, v })
+    }
+
+    fn address(&self) -> Address {
+        ethers::signers::Signer::address(self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -81,17 +106,20 @@ mod tests {
     use super::*;
 
     const TEST_WALLET_ID: &str = "k0pq0k5an1fvo35m5gm3wn8d";
+    const TEST_ADDRESS: &str = "0xCCC48877a33a2C14e40c82da843Cf4c607ABF770";
 
     #[tokio::test]
     #[ignore = "this requires a private key thats also a privy wallet and PRIVY_* env vars"]
     async fn test_secp256k1_sign_convergence() {
         dotenv::dotenv().ok();
-        let privy_signer = PrivySigner::new(
+        let privy_signer = Arc::new(PrivySigner::new(
             Privy::new(PrivyConfig::from_env().unwrap()),
             TEST_WALLET_ID.to_string(),
-        );
+            TEST_ADDRESS.to_string(),
+        ));
         let private_key = std::env::var("PRIVATE_KEY").unwrap();
-        let local_wallet: LocalWallet = private_key.parse().unwrap();
+        let local_wallet: Arc<ethers::signers::LocalWallet> =
+            Arc::new(private_key.parse().unwrap());
 
         let message =
             H256::from_str("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef")

@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use ethers::signers::{LocalWallet, Signer};
 use hyperliquid_rust_sdk::{BaseUrl, ExchangeClient, InfoClient};
 use log::info;
@@ -12,9 +14,10 @@ async fn main() {
         .unwrap();
 
     let address = wallet.address();
-    let exchange_client = ExchangeClient::new(None, wallet, Some(BaseUrl::Testnet), None, None)
-        .await
-        .unwrap();
+    let exchange_client =
+        ExchangeClient::new(None, Arc::new(wallet), Some(BaseUrl::Testnet), None, None)
+            .await
+            .unwrap();
     let info_client = InfoClient::new(None, Some(BaseUrl::Testnet)).await.unwrap();
 
     let response = exchange_client

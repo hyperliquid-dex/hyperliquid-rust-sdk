@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use log::info;
 
 use ethers::signers::{LocalWallet, Signer};
@@ -11,9 +13,10 @@ async fn main() {
         .parse()
         .unwrap();
 
-    let exchange_client = ExchangeClient::new(None, wallet, Some(BaseUrl::Testnet), None, None)
-        .await
-        .unwrap();
+    let exchange_client =
+        ExchangeClient::new(None, Arc::new(wallet), Some(BaseUrl::Testnet), None, None)
+            .await
+            .unwrap();
 
     /*
         Create a new wallet with the agent.
@@ -27,9 +30,10 @@ async fn main() {
 
     info!("Agent address: {:?}", wallet.address());
 
-    let exchange_client = ExchangeClient::new(None, wallet, Some(BaseUrl::Testnet), None, None)
-        .await
-        .unwrap();
+    let exchange_client =
+        ExchangeClient::new(None, Arc::new(wallet), Some(BaseUrl::Testnet), None, None)
+            .await
+            .unwrap();
 
     let order = ClientOrderRequest {
         asset: "ETH".to_string(),
