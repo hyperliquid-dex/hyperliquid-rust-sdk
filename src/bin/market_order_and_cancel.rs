@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use ethers::signers::LocalWallet;
 use log::info;
 
@@ -15,9 +17,10 @@ async fn main() {
         .parse()
         .unwrap();
 
-    let exchange_client = ExchangeClient::new(None, wallet, Some(BaseUrl::Testnet), None, None)
-        .await
-        .unwrap();
+    let exchange_client =
+        ExchangeClient::new(None, Arc::new(wallet), Some(BaseUrl::Testnet), None, None)
+            .await
+            .unwrap();
 
     // Market open order
     let market_open_params = MarketOrderParams {

@@ -1,7 +1,7 @@
 use ethers::types::H160;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Leverage {
     #[serde(rename = "type")]
@@ -10,7 +10,7 @@ pub struct Leverage {
     pub raw_usd: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct CumulativeFunding {
     pub all_time: String,
@@ -18,7 +18,7 @@ pub struct CumulativeFunding {
     pub since_change: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct PositionData {
     pub coin: String,
@@ -34,14 +34,14 @@ pub struct PositionData {
     pub cum_funding: CumulativeFunding,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct AssetPosition {
     pub position: PositionData,
     #[serde(rename = "type")]
     pub type_string: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct MarginSummary {
     pub account_value: String,
@@ -50,7 +50,7 @@ pub struct MarginSummary {
     pub total_raw_usd: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Level {
     pub n: u64,
@@ -58,7 +58,7 @@ pub struct Level {
     pub sz: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Delta {
     #[serde(rename = "type")]
@@ -69,7 +69,7 @@ pub struct Delta {
     pub funding_rate: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct DailyUserVlm {
     pub date: String,
@@ -78,7 +78,7 @@ pub struct DailyUserVlm {
     pub user_cross: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct FeeSchedule {
     pub add: String,
@@ -87,20 +87,20 @@ pub struct FeeSchedule {
     pub tiers: Tiers,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 pub struct Tiers {
     pub mm: Vec<Mm>,
     pub vip: Vec<Vip>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Mm {
     pub add: String,
     pub maker_fraction_cutoff: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Vip {
     pub add: String,
@@ -108,7 +108,7 @@ pub struct Vip {
     pub ntl_cutoff: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct UserTokenBalance {
     pub coin: String,
@@ -117,7 +117,7 @@ pub struct UserTokenBalance {
     pub entry_ntl: String,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderInfo {
     pub order: BasicOrderInfo,
@@ -125,7 +125,7 @@ pub struct OrderInfo {
     pub status_timestamp: u64,
 }
 
-#[derive(Deserialize, Clone, Debug)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct BasicOrderInfo {
     pub coin: String,
@@ -145,21 +145,21 @@ pub struct BasicOrderInfo {
     pub cloid: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Referrer {
     pub referrer: H160,
     pub code: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ReferrerState {
     pub stage: String,
     pub data: ReferrerData,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct ReferrerData {
     pub required: String,

@@ -15,27 +15,29 @@ use crate::{
     prelude::*,
     req::HttpClient,
     signature::sign_l1_action,
+    signer::Signer,
     BaseUrl, BulkCancelCloid, Error, ExchangeResponseStatus,
 };
 use crate::{ClassTransfer, SpotSend, SpotUser, VaultTransfer, Withdraw3};
 use ethers::{
     abi::AbiEncode,
-    signers::{LocalWallet, Signer},
     types::{Signature, H160, H256},
 };
 use log::debug;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use super::cancel::ClientCancelRequestCloid;
 use super::order::{MarketCloseParams, MarketOrderParams};
 use super::{BuilderInfo, ClientLimit, ClientOrder};
+use ethers::signers::LocalWallet;
 
 #[derive(Debug)]
 pub struct ExchangeClient {
     pub http_client: HttpClient,
-    pub wallet: LocalWallet,
+    pub wallet: Arc<dyn Signer>,
     pub meta: Meta,
     pub vault_address: Option<H160>,
     pub coin_to_asset: HashMap<String, u32>,
@@ -88,7 +90,7 @@ impl Actions {
 impl ExchangeClient {
     pub async fn new(
         client: Option<Client>,
-        wallet: LocalWallet,
+        wallet: Arc<dyn Signer>,
         base_url: Option<BaseUrl>,
         meta: Option<Meta>,
         vault_address: Option<H160>,
@@ -153,9 +155,9 @@ impl ExchangeClient {
         &self,
         amount: &str,
         destination: &str,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
     ) -> Result<ExchangeResponseStatus> {
-        let wallet = wallet.unwrap_or(&self.wallet);
+        let wallet = wallet.unwrap_or(self.wallet.as_ref());
         let hyperliquid_chain = if self.http_client.is_mainnet() {
             "Mainnet".to_string()
         } else {
@@ -170,7 +172,7 @@ impl ExchangeClient {
             amount: amount.to_string(),
             time: timestamp,
         };
-        let signature = sign_typed_data(&usd_send, wallet)?;
+        let signature = sign_typed_data(&usd_send, wallet).await?;
         let action = serde_json::to_value(Actions::UsdSend(usd_send))
             .map_err(|e| Error::JsonParse(e.to_string()))?;
 
@@ -181,7 +183,7 @@ impl ExchangeClient {
         &self,
         usdc: f64,
         to_perp: bool,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
     ) -> Result<ExchangeResponseStatus> {
         // payload expects usdc without decimals
         let usdc = (usdc * 1e6).round() as u64;
@@ -195,7 +197,7 @@ impl ExchangeClient {
         let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet).await?;
 
         self.post(action, signature, timestamp).await
     }
@@ -205,7 +207,7 @@ impl ExchangeClient {
         is_deposit: bool,
         usd: u64,
         vault_address: Option<H160>,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
     ) -> Result<ExchangeResponseStatus> {
         let vault_address = self
             .vault_address
@@ -223,7 +225,7 @@ impl ExchangeClient {
         let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet).await?;
 
         self.post(action, signature, timestamp).await
     }
@@ -383,7 +385,7 @@ impl ExchangeClient {
     pub async fn order(
         &self,
         order: ClientOrderRequest,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
     ) -> Result<ExchangeResponseStatus> {
         self.bulk_order(vec![order], wallet).await
     }
@@ -391,7 +393,7 @@ impl ExchangeClient {
     pub async fn order_with_builder(
         &self,
         order: ClientOrderRequest,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
         builder: BuilderInfo,
     ) -> Result<ExchangeResponseStatus> {
         self.bulk_order_with_builder(vec![order], wallet, builder)
@@ -401,9 +403,9 @@ impl ExchangeClient {
     pub async fn bulk_order(
         &self,
         orders: Vec<ClientOrderRequest>,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
     ) -> Result<ExchangeResponseStatus> {
-        let wallet = wallet.unwrap_or(&self.wallet);
+        let wallet = wallet.unwrap_or(self.wallet.as_ref());
         let timestamp = next_nonce();
 
         let mut transformed_orders = Vec::new();
@@ -421,14 +423,14 @@ impl ExchangeClient {
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet).await?;
         self.post(action, signature, timestamp).await
     }
 
     pub async fn bulk_order_with_builder(
         &self,
         orders: Vec<ClientOrderRequest>,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
         mut builder: BuilderInfo,
     ) -> Result<ExchangeResponseStatus> {
         let wallet = wallet.unwrap_or(&self.wallet);
@@ -451,14 +453,14 @@ impl ExchangeClient {
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet).await?;
         self.post(action, signature, timestamp).await
     }
 
     pub async fn cancel(
         &self,
         cancel: ClientCancelRequest,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
     ) -> Result<ExchangeResponseStatus> {
         self.bulk_cancel(vec![cancel], wallet).await
     }
@@ -466,7 +468,7 @@ impl ExchangeClient {
     pub async fn bulk_cancel(
         &self,
         cancels: Vec<ClientCancelRequest>,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
     ) -> Result<ExchangeResponseStatus> {
         let wallet = wallet.unwrap_or(&self.wallet);
         let timestamp = next_nonce();
@@ -490,7 +492,7 @@ impl ExchangeClient {
 
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet).await?;
 
         self.post(action, signature, timestamp).await
     }
@@ -498,7 +500,7 @@ impl ExchangeClient {
     pub async fn modify(
         &self,
         modify: ClientModifyRequest,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
     ) -> Result<ExchangeResponseStatus> {
         self.bulk_modify(vec![modify], wallet).await
     }
@@ -506,7 +508,7 @@ impl ExchangeClient {
     pub async fn bulk_modify(
         &self,
         modifies: Vec<ClientModifyRequest>,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
     ) -> Result<ExchangeResponseStatus> {
         let wallet = wallet.unwrap_or(&self.wallet);
         let timestamp = next_nonce();
@@ -526,7 +528,7 @@ impl ExchangeClient {
 
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet).await?;
 
         self.post(action, signature, timestamp).await
     }
@@ -534,7 +536,7 @@ impl ExchangeClient {
     pub async fn cancel_by_cloid(
         &self,
         cancel: ClientCancelRequestCloid,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
     ) -> Result<ExchangeResponseStatus> {
         self.bulk_cancel_by_cloid(vec![cancel], wallet).await
     }
@@ -542,7 +544,7 @@ impl ExchangeClient {
     pub async fn bulk_cancel_by_cloid(
         &self,
         cancels: Vec<ClientCancelRequestCloid>,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
     ) -> Result<ExchangeResponseStatus> {
         let wallet = wallet.unwrap_or(&self.wallet);
         let timestamp = next_nonce();
@@ -566,7 +568,7 @@ impl ExchangeClient {
         let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet).await?;
 
         self.post(action, signature, timestamp).await
     }
@@ -576,7 +578,7 @@ impl ExchangeClient {
         leverage: u32,
         coin: &str,
         is_cross: bool,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
     ) -> Result<ExchangeResponseStatus> {
         let wallet = wallet.unwrap_or(&self.wallet);
 
@@ -591,7 +593,7 @@ impl ExchangeClient {
         let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet).await?;
 
         self.post(action, signature, timestamp).await
     }
@@ -600,7 +602,7 @@ impl ExchangeClient {
         &self,
         amount: f64,
         coin: &str,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
     ) -> Result<ExchangeResponseStatus> {
         let wallet = wallet.unwrap_or(&self.wallet);
 
@@ -616,16 +618,16 @@ impl ExchangeClient {
         let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet).await?;
 
         self.post(action, signature, timestamp).await
     }
 
     pub async fn approve_agent(
         &self,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
     ) -> Result<(String, ExchangeResponseStatus)> {
-        let wallet = wallet.unwrap_or(&self.wallet);
+        let wallet = wallet.unwrap_or(self.wallet.as_ref());
         let key = H256::from(generate_random_key()?).encode_hex()[2..].to_string();
 
         let address = key
@@ -647,7 +649,7 @@ impl ExchangeClient {
             agent_name: None,
             nonce,
         };
-        let signature = sign_typed_data(&approve_agent, wallet)?;
+        let signature = sign_typed_data(&approve_agent, wallet).await?;
         let action = serde_json::to_value(Actions::ApproveAgent(approve_agent))
             .map_err(|e| Error::JsonParse(e.to_string()))?;
         Ok((key, self.post(action, signature, nonce).await?))
@@ -657,9 +659,9 @@ impl ExchangeClient {
         &self,
         amount: &str,
         destination: &str,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
     ) -> Result<ExchangeResponseStatus> {
-        let wallet = wallet.unwrap_or(&self.wallet);
+        let wallet = wallet.unwrap_or(self.wallet.as_ref());
         let hyperliquid_chain = if self.http_client.is_mainnet() {
             "Mainnet".to_string()
         } else {
@@ -674,7 +676,7 @@ impl ExchangeClient {
             amount: amount.to_string(),
             time: timestamp,
         };
-        let signature = sign_typed_data(&withdraw, wallet)?;
+        let signature = sign_typed_data(&withdraw, wallet).await?;
         let action = serde_json::to_value(Actions::Withdraw3(withdraw))
             .map_err(|e| Error::JsonParse(e.to_string()))?;
 
@@ -686,9 +688,9 @@ impl ExchangeClient {
         amount: &str,
         destination: &str,
         token: &str,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
     ) -> Result<ExchangeResponseStatus> {
-        let wallet = wallet.unwrap_or(&self.wallet);
+        let wallet = wallet.unwrap_or(self.wallet.as_ref());
         let hyperliquid_chain = if self.http_client.is_mainnet() {
             "Mainnet".to_string()
         } else {
@@ -704,7 +706,7 @@ impl ExchangeClient {
             time: timestamp,
             token: token.to_string(),
         };
-        let signature = sign_typed_data(&spot_send, wallet)?;
+        let signature = sign_typed_data(&spot_send, wallet).await?;
         let action = serde_json::to_value(Actions::SpotSend(spot_send))
             .map_err(|e| Error::JsonParse(e.to_string()))?;
 
@@ -714,9 +716,9 @@ impl ExchangeClient {
     pub async fn set_referrer(
         &self,
         code: String,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
     ) -> Result<ExchangeResponseStatus> {
-        let wallet = wallet.unwrap_or(&self.wallet);
+        let wallet = wallet.unwrap_or(self.wallet.as_ref());
         let timestamp = next_nonce();
 
         let action = Actions::SetReferrer(SetReferrer { code });
@@ -725,7 +727,7 @@ impl ExchangeClient {
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet).await?;
         self.post(action, signature, timestamp).await
     }
 
@@ -733,9 +735,9 @@ impl ExchangeClient {
         &self,
         builder: String,
         max_fee_rate: String,
-        wallet: Option<&LocalWallet>,
+        wallet: Option<&dyn Signer>,
     ) -> Result<ExchangeResponseStatus> {
-        let wallet = wallet.unwrap_or(&self.wallet);
+        let wallet = wallet.unwrap_or(self.wallet.as_ref());
         let timestamp = next_nonce();
 
         let hyperliquid_chain = if self.http_client.is_mainnet() {
@@ -756,7 +758,7 @@ impl ExchangeClient {
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet).await?;
         self.post(action, signature, timestamp).await
     }
 }
@@ -783,16 +785,19 @@ mod tests {
         exchange::order::{Limit, OrderRequest, Trigger},
         Order,
     };
+    use ethers::signers::LocalWallet;
 
-    fn get_wallet() -> Result<LocalWallet> {
+    fn get_wallet() -> Result<Arc<LocalWallet>> {
         let priv_key = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e";
-        priv_key
-            .parse::<LocalWallet>()
-            .map_err(|e| Error::Wallet(e.to_string()))
+        Ok(Arc::new(
+            priv_key
+                .parse::<LocalWallet>()
+                .map_err(|e| Error::Wallet(e.to_string()))?,
+        ))
     }
 
-    #[test]
-    fn test_limit_order_action_hashing() -> Result<()> {
+    #[tokio::test]
+    async fn test_limit_order_action_hashing() -> Result<()> {
         let wallet = get_wallet()?;
         let action = Actions::Order(BulkOrder {
             orders: vec![OrderRequest {
@@ -811,17 +816,17 @@ mod tests {
         });
         let connection_id = action.hash(1583838, None)?;
 
-        let signature = sign_l1_action(&wallet, connection_id, true)?;
+        let signature = sign_l1_action(wallet.as_ref(), connection_id, true).await?;
         assert_eq!(signature.to_string(), "77957e58e70f43b6b68581f2dc42011fc384538a2e5b7bf42d5b936f19fbb67360721a8598727230f67080efee48c812a6a4442013fd3b0eed509171bef9f23f1c");
 
-        let signature = sign_l1_action(&wallet, connection_id, false)?;
+        let signature = sign_l1_action(wallet.as_ref(), connection_id, false).await?;
         assert_eq!(signature.to_string(), "cd0925372ff1ed499e54883e9a6205ecfadec748f80ec463fe2f84f1209648776377961965cb7b12414186b1ea291e95fd512722427efcbcfb3b0b2bcd4d79d01c");
 
         Ok(())
     }
 
-    #[test]
-    fn test_limit_order_action_hashing_with_cloid() -> Result<()> {
+    #[tokio::test]
+    async fn test_limit_order_action_hashing_with_cloid() -> Result<()> {
         let cloid = uuid::Uuid::from_str("1e60610f-0b3d-4205-97c8-8c1fed2ad5ee")
             .map_err(|_e| uuid::Uuid::new_v4());
         let wallet = get_wallet()?;
@@ -842,17 +847,17 @@ mod tests {
         });
         let connection_id = action.hash(1583838, None)?;
 
-        let signature = sign_l1_action(&wallet, connection_id, true)?;
+        let signature = sign_l1_action(wallet.as_ref(), connection_id, true).await?;
         assert_eq!(signature.to_string(), "d3e894092eb27098077145714630a77bbe3836120ee29df7d935d8510b03a08f456de5ec1be82aa65fc6ecda9ef928b0445e212517a98858cfaa251c4cd7552b1c");
 
-        let signature = sign_l1_action(&wallet, connection_id, false)?;
+        let signature = sign_l1_action(wallet.as_ref(), connection_id, false).await?;
         assert_eq!(signature.to_string(), "3768349dbb22a7fd770fc9fc50c7b5124a7da342ea579b309f58002ceae49b4357badc7909770919c45d850aabb08474ff2b7b3204ae5b66d9f7375582981f111c");
 
         Ok(())
     }
 
-    #[test]
-    fn test_tpsl_order_action_hashing() -> Result<()> {
+    #[tokio::test]
+    async fn test_tpsl_order_action_hashing() -> Result<()> {
         for (tpsl, mainnet_signature, testnet_signature) in [
             (
                 "tp",
@@ -887,17 +892,17 @@ mod tests {
             });
             let connection_id = action.hash(1583838, None)?;
 
-            let signature = sign_l1_action(&wallet, connection_id, true)?;
+            let signature = sign_l1_action(wallet.as_ref(), connection_id, true).await?;
             assert_eq!(signature.to_string(), mainnet_signature);
 
-            let signature = sign_l1_action(&wallet, connection_id, false)?;
+            let signature = sign_l1_action(wallet.as_ref(), connection_id, false).await?;
             assert_eq!(signature.to_string(), testnet_signature);
         }
         Ok(())
     }
 
-    #[test]
-    fn test_cancel_action_hashing() -> Result<()> {
+    #[tokio::test]
+    async fn test_cancel_action_hashing() -> Result<()> {
         let wallet = get_wallet()?;
         let action = Actions::Cancel(BulkCancel {
             cancels: vec![CancelRequest {
@@ -907,10 +912,10 @@ mod tests {
         });
         let connection_id = action.hash(1583838, None)?;
 
-        let signature = sign_l1_action(&wallet, connection_id, true)?;
+        let signature = sign_l1_action(wallet.as_ref(), connection_id, true).await?;
         assert_eq!(signature.to_string(), "02f76cc5b16e0810152fa0e14e7b219f49c361e3325f771544c6f54e157bf9fa17ed0afc11a98596be85d5cd9f86600aad515337318f7ab346e5ccc1b03425d51b");
 
-        let signature = sign_l1_action(&wallet, connection_id, false)?;
+        let signature = sign_l1_action(wallet.as_ref(), connection_id, false).await?;
         assert_eq!(signature.to_string(), "6ffebadfd48067663390962539fbde76cfa36f53be65abe2ab72c9db6d0db44457720db9d7c4860f142a484f070c84eb4b9694c3a617c83f0d698a27e55fd5e01c");
 
         Ok(())
