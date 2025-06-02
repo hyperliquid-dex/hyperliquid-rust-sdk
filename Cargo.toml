@@ -29,8 +29,8 @@ thiserror = "1.0.44"
 tokio = { version = "1.29.1", features = ["full"] }
 tokio-tungstenite = { version = "0.20.0", features = ["native-tls"] }
 uuid = { version = "1.6.1", features = ["v4"] }
-#privy = "0.7.0"
-privy = { path = "../listen/privy" }
+privy = "0.8.0"
+# privy = { path = "../listen/privy" }
 async-trait = "0.1.88"
 
 [dev-dependencies]
