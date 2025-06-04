@@ -19,7 +19,8 @@ pub(crate) fn next_nonce() -> u64 {
     }
     // more than 300 seconds behind
     if nonce + 300000 < now_ms {
-        CUR_NONCE.fetch_max(now_ms, Ordering::Relaxed);
+        CUR_NONCE.fetch_max(now_ms + 1, Ordering::Relaxed);
+        return now_ms;
     }
     nonce
 }
