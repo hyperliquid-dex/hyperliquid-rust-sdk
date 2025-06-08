@@ -41,6 +41,21 @@ impl PrivySigner {
     }
 }
 
+pub fn signature_string_to_ethers_signature(signature: String) -> Result<Signature> {
+    // Privy returns a hex string like "0x..." that is 65 bytes (130 hex chars + 2 for "0x")
+    let signature = signature.strip_prefix("0x").unwrap_or(&signature);
+
+    // The signature is in format: r (32 bytes) + s (32 bytes) + v (1 byte)
+    let r = U256::from_str_radix(&signature[0..64], 16)
+        .map_err(|e| Error::SignatureFailure(format!("Failed to parse r: {}", e)))?;
+    let s = U256::from_str_radix(&signature[64..128], 16)
+        .map_err(|e| Error::SignatureFailure(format!("Failed to parse s: {}", e)))?;
+    let v = u64::from_str_radix(&signature[128..130], 16)
+        .map_err(|e| Error::SignatureFailure(format!("Failed to parse v: {}", e)))?;
+
+    Ok(Signature { r, s, v })
+}
+
 #[async_trait]
 impl Signer for PrivySigner {
     fn address(&self) -> Address {
@@ -48,7 +63,7 @@ impl Signer for PrivySigner {
     }
 
     async fn secp256k1_sign(&self, message: H256) -> Result<Signature> {
-        println!("Signing message: {}", message.to_string());
+        log::debug!("Signing message: {}", message.to_string());
         let signature = self
             .privy
             .secp256k1_sign(
@@ -58,18 +73,7 @@ impl Signer for PrivySigner {
             .await
             .map_err(|e| Error::SignatureFailure(e.to_string()))?;
 
-        // Privy returns a hex string like "0x..." that is 65 bytes (130 hex chars + 2 for "0x")
-        let signature = signature.strip_prefix("0x").unwrap_or(&signature);
-
-        // The signature is in format: r (32 bytes) + s (32 bytes) + v (1 byte)
-        let r = U256::from_str_radix(&signature[0..64], 16)
-            .map_err(|e| Error::SignatureFailure(format!("Failed to parse r: {}", e)))?;
-        let s = U256::from_str_radix(&signature[64..128], 16)
-            .map_err(|e| Error::SignatureFailure(format!("Failed to parse s: {}", e)))?;
-        let v = u64::from_str_radix(&signature[128..130], 16)
-            .map_err(|e| Error::SignatureFailure(format!("Failed to parse v: {}", e)))?;
-
-        Ok(Signature { r, s, v })
+        signature_string_to_ethers_signature(signature)
     }
 }
 
