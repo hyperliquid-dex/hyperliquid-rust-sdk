@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use ethers::signers::LocalWallet;
 
 use hyperliquid_rust_sdk::{BaseUrl, ExchangeClient};
@@ -11,9 +13,10 @@ async fn main() {
         .parse()
         .unwrap();
 
-    let exchange_client = ExchangeClient::new(None, wallet, Some(BaseUrl::Testnet), None, None)
-        .await
-        .unwrap();
+    let exchange_client =
+        ExchangeClient::new(None, Arc::new(wallet), Some(BaseUrl::Testnet), None, None)
+            .await
+            .unwrap();
 
     let code = "TESTNET".to_string();
 
