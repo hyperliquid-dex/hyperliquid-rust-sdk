@@ -1,4 +1,4 @@
-use ethers::signers::LocalWallet;
+use alloy::signers::local::PrivateKeySigner;
 use log::info;
 
 use hyperliquid_rust_sdk::{
@@ -11,9 +11,10 @@ use std::{thread::sleep, time::Duration};
 async fn main() {
     env_logger::init();
     // Key was randomly generated for testing and shouldn't be used with any real funds
-    let wallet: LocalWallet = "84f77cc056fb165d8081d0f218748122481dfe3d4dfa80ad9420d11f4b7faba5"
-        .parse()
-        .unwrap();
+    let wallet: PrivateKeySigner =
+        "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e"
+            .parse()
+            .unwrap();
 
     let exchange_client = ExchangeClient::new(None, wallet, Some(BaseUrl::Testnet), None, None)
         .await

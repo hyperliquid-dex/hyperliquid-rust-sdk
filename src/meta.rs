@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use ethers::abi::ethereum_types::H128;
+use alloy::primitives::B128;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug, Clone)]
@@ -110,6 +110,6 @@ pub struct TokenInfo {
     pub sz_decimals: u8,
     pub wei_decimals: u8,
     pub index: usize,
-    pub token_id: H128,
+    pub token_id: B128,
     pub is_canonical: bool,
 }
