@@ -1,7 +1,6 @@
-use ethers::types::H160;
+use alloy::primitives::address;
 use hyperliquid_rust_sdk::{BaseUrl, InfoClient, Message, Subscription};
 use log::info;
-use std::str::FromStr;
 use tokio::{
     spawn,
     sync::mpsc::unbounded_channel,
@@ -12,7 +11,7 @@ use tokio::{
 async fn main() {
     env_logger::init();
     let mut info_client = InfoClient::new(None, Some(BaseUrl::Testnet)).await.unwrap();
-    let user = H160::from_str("0xc64cc00b46101bd40aa1c3121195e85c0b0918d8").unwrap();
+    let user = address!("0xc64cc00b46101bd40aa1c3121195e85c0b0918d8");
     let coin = "BTC".to_string();
 
     let (sender, mut receiver) = unbounded_channel();

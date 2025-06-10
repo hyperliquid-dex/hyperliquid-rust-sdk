@@ -1,5 +1,6 @@
 #![deny(unreachable_pub)]
 mod consts;
+mod eip712;
 mod errors;
 mod exchange;
 mod helpers;
@@ -7,7 +8,6 @@ mod info;
 mod market_maker;
 mod meta;
 mod prelude;
-mod proxy_digest;
 mod req;
 mod signature;
 mod ws;
