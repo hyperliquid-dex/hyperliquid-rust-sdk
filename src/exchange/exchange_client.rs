@@ -95,7 +95,7 @@ impl HashGenerator {
     pub async fn perp_dex_class_transfer(
         token: String,
         dex: String,
-        amount: f64,
+        amount: String,
         to_perp: bool,
     ) -> Result<Value> {
         let timestamp = next_nonce();
