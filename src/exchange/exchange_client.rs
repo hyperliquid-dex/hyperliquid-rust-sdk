@@ -50,7 +50,6 @@ pub enum Actions {
     BatchModify(BulkModify),
     ApproveAgent(ApproveAgent),
     Withdraw3(Withdraw3),
-    SpotUser(SpotUser),
     VaultTransfer(VaultTransfer),
     SpotSend(SpotSend),
     SetReferrer(SetReferrer),
@@ -115,18 +114,24 @@ impl HashGenerator {
     }
 
     pub async fn class_transfer(amount: String, to_perp: bool) -> Result<MessageResponse> {
-        // payload expects usdc without decimals
         let timestamp = next_nonce();
 
-        let action = Actions::UsdClassTransfer(ClassTransfer {
+        let class_transfer = ClassTransfer {
             amount,
             to_perp,
             nonce: timestamp,
             hyperliquid_chain: HYPERLIQUID_CHAIN.to_string(),
             signature_chain_id: SIGNATURE_CHAIN_ID.into(),
-        });
+        };
 
-        Self::get_message_for_action(action, Some(timestamp))
+        // Use EIP-712 signing directly (not L1 action hashing)
+        let message = class_transfer.eip712_signing_hash()?;
+        
+        Ok(MessageResponse {
+            action: Actions::UsdClassTransfer(class_transfer),
+            message,
+            nonce: timestamp,
+        })
     }
 
     pub async fn vault_transfer(

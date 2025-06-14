@@ -6,7 +6,7 @@ pub(crate) use ethers::{
             eip712,
             eip712::{encode_eip712_type, EIP712Domain, Eip712, Eip712Error},
         },
-        H160, U256,
+        H160, H256, U256,
     },
     utils::keccak256,
 };
@@ -285,6 +285,7 @@ pub struct ClassTransfer {
     pub hyperliquid_chain: String,
     pub signature_chain_id: U256,
 }
+
 impl Eip712 for ClassTransfer {
     type Error = Eip712Error;
 
@@ -320,6 +321,23 @@ impl Eip712 for ClassTransfer {
             encode_eip712_type(nonce.into_token()),
         ];
         Ok(keccak256(encode(&items)))
+    }
+}
+
+impl ClassTransfer {
+    /// Returns the EIP-712 signing hash for this ClassTransfer
+    pub fn eip712_signing_hash(&self) -> Result<H256, Eip712Error> {
+        use ethers::utils::keccak256;
+
+        let domain_hash = self.domain()?.separator();
+        let struct_hash = self.struct_hash()?;
+
+        let mut message = Vec::with_capacity(66);
+        message.extend_from_slice(b"\x19\x01");
+        message.extend_from_slice(&domain_hash);
+        message.extend_from_slice(&struct_hash);
+
+        Ok(H256(keccak256(message)))
     }
 }
 
