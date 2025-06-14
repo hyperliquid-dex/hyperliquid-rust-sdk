@@ -55,7 +55,9 @@ pub enum Actions {
     SpotSend(SpotSend),
     SetReferrer(SetReferrer),
     ApproveBuilderFee(ApproveBuilderFee),
+    #[serde(rename = "PerpDexClassTransfer")]
     PerpDexClassTransfer(PerpDexClassTransfer),
+    UsdClassTransfer(ClassTransfer),
 }
 
 impl Actions {
@@ -116,14 +118,12 @@ impl HashGenerator {
         // payload expects usdc without decimals
         let timestamp = next_nonce();
 
-        let action = Actions::SpotUser(SpotUser {
-            class_transfer: ClassTransfer {
-                amount,
-                to_perp,
-                nonce: timestamp,
-                hyperliquid_chain: HYPERLIQUID_CHAIN.to_string(),
-                signature_chain_id: SIGNATURE_CHAIN_ID.into(),
-            },
+        let action = Actions::UsdClassTransfer(ClassTransfer {
+            amount,
+            to_perp,
+            nonce: timestamp,
+            hyperliquid_chain: HYPERLIQUID_CHAIN.to_string(),
+            signature_chain_id: SIGNATURE_CHAIN_ID.into(),
         });
 
         Self::get_message_for_action(action, None)
