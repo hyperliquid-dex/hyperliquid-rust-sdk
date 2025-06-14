@@ -11,6 +11,7 @@ pub struct Trade {
     pub time: u64,
     pub hash: String,
     pub tid: u64,
+    pub users: (String, String), // (buyer, seller)
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -321,4 +322,12 @@ pub struct SpotAssetCtx {
     #[serde(flatten)]
     pub shared: SharedAssetCtx,
     pub circulating_supply: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct BboData {
+    pub coin: String,
+    pub time: u64,
+    pub bbo: Vec<Option<BookLevel>>
 }
