@@ -125,8 +125,10 @@ impl HashGenerator {
         };
 
         // Use EIP-712 signing directly (not L1 action hashing)
-        let message = class_transfer.eip712_signing_hash()?;
-        
+        let message = class_transfer
+            .eip712_signing_hash()
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
+
         Ok(MessageResponse {
             action: Actions::UsdClassTransfer(class_transfer),
             message,
