@@ -353,6 +353,22 @@ pub struct PerpDexClassTransfer {
     pub signature_chain_id: U256,
 }
 
+impl PerpDexClassTransfer {
+    pub fn eip712_signing_hash(&self) -> Result<H256, Eip712Error> {
+        use ethers::utils::keccak256;
+
+        let domain_hash = self.domain()?.separator();
+        let struct_hash = self.struct_hash()?;
+
+        let mut message = Vec::with_capacity(66);
+        message.extend_from_slice(b"\x19\x01");
+        message.extend_from_slice(&domain_hash);
+        message.extend_from_slice(&struct_hash);
+
+        Ok(H256(keccak256(message)))
+    }
+}
+
 impl Eip712 for PerpDexClassTransfer {
     type Error = Eip712Error;
 

@@ -13,7 +13,7 @@ use crate::{
     signature::create_signature::encode_l1_action,
     BulkCancelCloid, Error, PerpDexClassTransfer,
 };
-use crate::{ClassTransfer, SpotSend, SpotUser, VaultTransfer, Withdraw3};
+use crate::{ClassTransfer, SpotSend, VaultTransfer, Withdraw3};
 use ethers::types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -100,7 +100,7 @@ impl HashGenerator {
         to_perp: bool,
     ) -> Result<MessageResponse> {
         let timestamp = next_nonce();
-        let action = Actions::PerpDexClassTransfer(PerpDexClassTransfer {
+        let perp_dex_class_transfer = PerpDexClassTransfer {
             token,
             dex,
             amount: amount.to_string(),
@@ -108,9 +108,16 @@ impl HashGenerator {
             nonce: timestamp,
             hyperliquid_chain: HYPERLIQUID_CHAIN.to_string(),
             signature_chain_id: SIGNATURE_CHAIN_ID.into(),
-        });
+        };
+        let message = perp_dex_class_transfer
+            .eip712_signing_hash()
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
 
-        Self::get_message_for_action(action, Some(timestamp))
+        Ok(MessageResponse {
+            action: Actions::PerpDexClassTransfer(perp_dex_class_transfer),
+            message,
+            nonce: timestamp,
+        })
     }
 
     pub async fn class_transfer(amount: String, to_perp: bool) -> Result<MessageResponse> {
