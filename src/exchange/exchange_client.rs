@@ -17,7 +17,6 @@ use crate::{ClassTransfer, SpotSend, SpotUser, VaultTransfer, Withdraw3};
 use ethers::types::{H160, H256};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tokio_tungstenite::tungstenite::Message;
 
 use super::{cancel::ClientCancelRequestCloid, dtos::MessageResponse};
 use super::{
@@ -113,16 +112,21 @@ impl HashGenerator {
         Self::get_message_for_action(action, Some(timestamp))
     }
 
-    pub async fn class_transfer(usdc: f64, to_perp: bool) -> Result<Value> {
+    pub async fn class_transfer(amount: String, to_perp: bool) -> Result<MessageResponse> {
         // payload expects usdc without decimals
-        let usdc = (usdc * 1e6).round() as u64;
+        let timestamp = next_nonce();
 
         let action = Actions::SpotUser(SpotUser {
-            class_transfer: ClassTransfer { usdc, to_perp },
+            class_transfer: ClassTransfer {
+                amount,
+                to_perp,
+                nonce: timestamp,
+                hyperliquid_chain: HYPERLIQUID_CHAIN.to_string(),
+                signature_chain_id: SIGNATURE_CHAIN_ID.into(),
+            },
         });
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
-        Ok(action)
+        Self::get_message_for_action(action, None)
     }
 
     pub async fn vault_transfer(
