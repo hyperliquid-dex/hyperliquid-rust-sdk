@@ -294,7 +294,7 @@ impl Eip712 for ClassTransfer {
 
     fn type_hash() -> Result<[u8; 32], Self::Error> {
         Ok(eip712::make_type_hash(
-            format!("{HYPERLIQUID_EIP_PREFIX}ApproveAgent"),
+            format!("{HYPERLIQUID_EIP_PREFIX}UsdClassTransfer"),
             &[
                 ("hyperliquidChain".to_string(), ParamType::String),
                 ("amount".to_string(), ParamType::String),
@@ -344,7 +344,7 @@ impl Eip712 for PerpDexClassTransfer {
 
     fn type_hash() -> Result<[u8; 32], Self::Error> {
         Ok(eip712::make_type_hash(
-            format!("{HYPERLIQUID_EIP_PREFIX}ApproveAgent"),
+            format!("{HYPERLIQUID_EIP_PREFIX}PerpDexClassTransfer"),
             &[
                 ("hyperliquidChain".to_string(), ParamType::String),
                 ("dex".to_string(), ParamType::String),
