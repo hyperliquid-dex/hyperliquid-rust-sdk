@@ -126,7 +126,7 @@ impl HashGenerator {
             signature_chain_id: SIGNATURE_CHAIN_ID.into(),
         });
 
-        Self::get_message_for_action(action, None)
+        Self::get_message_for_action(action, Some(timestamp))
     }
 
     pub async fn vault_transfer(
