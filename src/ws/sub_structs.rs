@@ -1,3 +1,4 @@
+use crate::Leverage;
 use ethers::types::H160;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -321,4 +322,14 @@ pub struct SpotAssetCtx {
     #[serde(flatten)]
     pub shared: SharedAssetCtx,
     pub circulating_supply: String,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveAssetDataData {
+    pub user: H160,
+    pub coin: String,
+    pub leverage: Leverage,
+    pub max_trade_szs: Vec<String>,
+    pub available_to_trade: Vec<String>,
 }

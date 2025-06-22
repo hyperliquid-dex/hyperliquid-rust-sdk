@@ -1,7 +1,7 @@
 use ethers::types::H160;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Leverage {
     #[serde(rename = "type")]

@@ -1,8 +1,8 @@
 use crate::{
     prelude::*,
     ws::message_types::{AllMids, Candle, L2Book, OrderUpdates, Trades, User},
-    ActiveAssetCtx, Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
-    WebData2,
+    ActiveAssetCtx, ActiveAssetData, Error, Notification, UserFills, UserFundings,
+    UserNonFundingLedgerUpdates, WebData2,
 };
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
 use log::{error, info, warn};
@@ -62,6 +62,7 @@ pub enum Subscription {
     UserFundings { user: H160 },
     UserNonFundingLedgerUpdates { user: H160 },
     ActiveAssetCtx { coin: String },
+    ActiveAssetData { user: H160, coin: String },
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -83,6 +84,7 @@ pub enum Message {
     Notification(Notification),
     WebData2(WebData2),
     ActiveAssetCtx(ActiveAssetCtx),
+    ActiveAssetData(ActiveAssetData),
     Pong,
 }
 
@@ -264,6 +266,13 @@ impl WsManager {
             Message::ActiveAssetCtx(active_asset_ctx) => {
                 serde_json::to_string(&Subscription::ActiveAssetCtx {
                     coin: active_asset_ctx.data.coin.clone(),
+                })
+                .map_err(|e| Error::JsonParse(e.to_string()))
+            }
+            Message::ActiveAssetData(active_asset_data) => {
+                serde_json::to_string(&Subscription::ActiveAssetData {
+                    user: active_asset_data.data.user.clone(),
+                    coin: active_asset_data.data.coin.clone(),
                 })
                 .map_err(|e| Error::JsonParse(e.to_string()))
             }
