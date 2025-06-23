@@ -93,6 +93,30 @@ impl HashGenerator {
         Ok(action)
     }
 
+    pub async fn approve_builder_fee(
+        builder: String,
+        max_fee_rate: String,
+    ) -> Result<MessageResponse> {
+        let timestamp = next_nonce();
+        let action = ApproveBuilderFee {
+            builder,
+            max_fee_rate,
+            nonce: timestamp,
+            signature_chain_id: SIGNATURE_CHAIN_ID.into(),
+            hyperliquid_chain: HYPERLIQUID_CHAIN.to_string(),
+        };
+
+        let message = action
+            .eip712_signing_hash()
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        Ok(MessageResponse {
+            action: Actions::ApproveBuilderFee(action),
+            message,
+            nonce: timestamp,
+        })
+    }
+
     pub async fn perp_dex_class_transfer(
         token: String,
         dex: String,
@@ -361,22 +385,6 @@ impl HashGenerator {
 
         Ok(action)
     }
-
-    pub async fn approve_builder_fee(builder: String, max_fee_rate: String) -> Result<H256> {
-        let timestamp = next_nonce();
-
-        let action = Actions::ApproveBuilderFee(ApproveBuilderFee {
-            signature_chain_id: 421614.into(),
-            hyperliquid_chain: HYPERLIQUID_CHAIN.to_string(),
-            builder,
-            max_fee_rate,
-            nonce: timestamp,
-        });
-        let message = action.hash(timestamp, None)?;
-
-        Ok(message)
-    }
-
     pub fn get_message_for_action(action: Actions, nonce: Option<u64>) -> Result<MessageResponse> {
         let nonce = nonce.unwrap_or(next_nonce());
         let connection_id = action.hash(nonce, None)?;
