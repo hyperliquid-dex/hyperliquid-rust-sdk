@@ -3,6 +3,8 @@ This is an example of a basic market making strategy.
 
 We subscribe to the current mid price and build a market around this price. Whenever our market becomes outdated, we place and cancel orders to renew it.
 */
+use std::sync::Arc;
+
 use ethers::signers::LocalWallet;
 
 use hyperliquid_rust_sdk::{MarketMaker, MarketMakerInput};
@@ -21,7 +23,7 @@ async fn main() {
         half_spread: 1,
         max_absolute_position_size: 0.5,
         decimals: 1,
-        wallet,
+        wallet: Arc::new(wallet),
     };
     MarketMaker::new(market_maker_input).await.start().await
 }

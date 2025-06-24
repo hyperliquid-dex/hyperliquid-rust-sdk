@@ -2,8 +2,8 @@ use crate::{
     errors::Error,
     helpers::{float_to_string_for_hashing, uuid_to_hex_string},
     prelude::*,
+    signer::Signer,
 };
-use ethers::signers::LocalWallet;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -67,7 +67,7 @@ pub struct MarketOrderParams<'a> {
     pub px: Option<f64>,
     pub slippage: Option<f64>,
     pub cloid: Option<Uuid>,
-    pub wallet: Option<&'a LocalWallet>,
+    pub wallet: Option<&'a dyn Signer>,
 }
 
 #[derive(Debug)]
@@ -77,7 +77,7 @@ pub struct MarketCloseParams<'a> {
     pub px: Option<f64>,
     pub slippage: Option<f64>,
     pub cloid: Option<Uuid>,
-    pub wallet: Option<&'a LocalWallet>,
+    pub wallet: Option<&'a dyn Signer>,
 }
 
 #[derive(Debug)]

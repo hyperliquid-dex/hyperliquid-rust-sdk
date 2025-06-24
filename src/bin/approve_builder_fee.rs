@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use ethers::signers::LocalWallet;
 use hyperliquid_rust_sdk::{BaseUrl, ExchangeClient};
 use log::info;
@@ -10,6 +12,8 @@ async fn main() {
         .parse()
         .unwrap();
 
+    let wallet = Arc::new(wallet);
+
     let exchange_client =
         ExchangeClient::new(None, wallet.clone(), Some(BaseUrl::Testnet), None, None)
             .await
@@ -19,7 +23,11 @@ async fn main() {
     let builder = "0x1ab189B7801140900C711E458212F9c76F8dAC79".to_lowercase();
 
     let resp = exchange_client
-        .approve_builder_fee(builder.to_string(), max_fee_rate.to_string(), Some(&wallet))
+        .approve_builder_fee(
+            builder.to_string(),
+            max_fee_rate.to_string(),
+            Some(wallet.as_ref()),
+        )
         .await;
     info!("resp: {resp:#?}");
 }

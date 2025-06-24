@@ -10,6 +10,7 @@ mod prelude;
 mod proxy_digest;
 mod req;
 mod signature;
+pub mod signer;
 mod ws;
 pub use consts::{EPSILON, LOCAL_API_URL, MAINNET_API_URL, TESTNET_API_URL};
 pub use errors::Error;
