@@ -37,6 +37,7 @@ pub struct OpenOrdersResponse {
     pub side: String,
     pub sz: String,
     pub timestamp: u64,
+    pub cloid: Option<String>,
 }
 
 #[derive(serde::Deserialize, Debug)]

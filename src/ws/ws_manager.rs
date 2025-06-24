@@ -31,6 +31,8 @@ use tokio_tungstenite::{
 
 use ethers::types::H160;
 
+use super::ActiveSpotAssetCtx;
+
 #[derive(Debug)]
 struct SubscriptionData {
     sending_channel: UnboundedSender<Message>,
@@ -63,6 +65,7 @@ pub enum Subscription {
     UserNonFundingLedgerUpdates { user: H160 },
     ActiveAssetCtx { coin: String },
     ActiveAssetData { user: H160, coin: String },
+    Bbo { coin: String },
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -85,6 +88,8 @@ pub enum Message {
     WebData2(WebData2),
     ActiveAssetCtx(ActiveAssetCtx),
     ActiveAssetData(ActiveAssetData),
+    ActiveSpotAssetCtx(ActiveSpotAssetCtx),
+    Bbo(Bbo),
     Pong,
 }
 
@@ -269,6 +274,12 @@ impl WsManager {
                 })
                 .map_err(|e| Error::JsonParse(e.to_string()))
             }
+            Message::ActiveSpotAssetCtx(active_spot_asset_ctx) => {
+                serde_json::to_string(&Subscription::ActiveAssetCtx {
+                    coin: active_spot_asset_ctx.data.coin.clone(),
+                })
+                .map_err(|e| Error::JsonParse(e.to_string()))
+            }
             Message::ActiveAssetData(active_asset_data) => {
                 serde_json::to_string(&Subscription::ActiveAssetData {
                     user: active_asset_data.data.user.clone(),
@@ -276,6 +287,10 @@ impl WsManager {
                 })
                 .map_err(|e| Error::JsonParse(e.to_string()))
             }
+            Message::Bbo(bbo) => serde_json::to_string(&Subscription::Bbo {
+                coin: bbo.data.coin.clone(),
+            })
+            .map_err(|e| Error::JsonParse(e.to_string())),
             Message::SubscriptionResponse | Message::Pong => Ok(String::default()),
             Message::NoData => Ok("".to_string()),
             Message::HyperliquidError(err) => Ok(format!("hyperliquid error: {err:?}")),

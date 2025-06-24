@@ -12,6 +12,7 @@ pub struct Trade {
     pub time: u64,
     pub hash: String,
     pub tid: u64,
+    pub users: (String, String),
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -316,6 +317,13 @@ pub struct PerpsAssetCtx {
     pub oracle_px: String,
 }
 
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveSpotAssetCtxData {
+    pub coin: String,
+    pub ctx: SpotAssetCtx,
+}
+
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SpotAssetCtx {
@@ -332,4 +340,12 @@ pub struct ActiveAssetDataData {
     pub leverage: Leverage,
     pub max_trade_szs: Vec<String>,
     pub available_to_trade: Vec<String>,
+}
+  
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct BboData {
+    pub coin: String,
+    pub time: u64,
+    pub bbo: Vec<Option<BookLevel>>,
 }
