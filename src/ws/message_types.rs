@@ -62,6 +62,11 @@ pub struct ActiveAssetCtx {
 }
 
 #[derive(Deserialize, Clone, Debug)]
+pub struct ActiveSpotAssetCtx {
+    pub data: ActiveSpotAssetCtxData,
+}
+
+#[derive(Deserialize, Clone, Debug)]
 pub struct Bbo {
     pub data: BboData,
 }

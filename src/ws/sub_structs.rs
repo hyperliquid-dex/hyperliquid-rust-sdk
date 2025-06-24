@@ -316,6 +316,13 @@ pub struct PerpsAssetCtx {
     pub oracle_px: String,
 }
 
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveSpotAssetCtxData {
+    pub coin: String,
+    pub ctx: SpotAssetCtx,
+}
+
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SpotAssetCtx {
