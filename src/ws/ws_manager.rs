@@ -1,6 +1,6 @@
 use crate::{
     prelude::*,
-    ws::message_types::{AllMids, Candle, L2Book, OrderUpdates, Trades, User},
+    ws::message_types::{AllMids, Bbo, Candle, L2Book, OrderUpdates, Trades, User},
     ActiveAssetCtx, ActiveAssetData, Error, Notification, UserFills, UserFundings,
     UserNonFundingLedgerUpdates, WebData2,
 };
