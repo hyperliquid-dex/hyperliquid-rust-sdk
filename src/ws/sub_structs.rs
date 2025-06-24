@@ -11,6 +11,7 @@ pub struct Trade {
     pub time: u64,
     pub hash: String,
     pub tid: u64,
+    pub users: (String, String),
 }
 
 #[derive(Deserialize, Clone, Debug)]
