@@ -287,7 +287,7 @@ pub struct ClassTransfer {
 pub struct VaultTransfer {
     pub vault_address: H160,
     pub is_deposit: bool,
-    pub usd: String,
+    pub usd: u64,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -304,4 +304,40 @@ pub struct ApproveBuilderFee {
     pub nonce: u64,
     pub signature_chain_id: U256,
     pub hyperliquid_chain: String,
+}
+
+impl Eip712 for ApproveBuilderFee {
+    type Error = Eip712Error;
+
+    fn domain(&self) -> Result<EIP712Domain, Self::Error> {
+        Ok(eip_712_domain(self.signature_chain_id))
+    }
+
+    fn type_hash() -> Result<[u8; 32], Self::Error> {
+        Ok(eip712::make_type_hash(
+            format!("{HYPERLIQUID_EIP_PREFIX}ApproveBuilderFee"),
+            &[
+                ("hyperliquidChain".to_string(), ParamType::String),
+                ("maxFeeRate".to_string(), ParamType::String),
+                ("builder".to_string(), ParamType::Address),
+                ("nonce".to_string(), ParamType::Uint(64)),
+            ],
+        ))
+    }
+
+    fn struct_hash(&self) -> Result<[u8; 32], Self::Error> {
+        let type_hash = Self::type_hash()?;
+        let builder_addr = self
+            .builder
+            .parse::<H160>()
+            .map_err(|e| Eip712Error::Message(e.to_string()))?;
+        let items = vec![
+            ethers::abi::Token::Uint(type_hash.into()),
+            encode_eip712_type(self.hyperliquid_chain.clone().into_token()),
+            encode_eip712_type(self.max_fee_rate.clone().into_token()),
+            encode_eip712_type(builder_addr.into_token()),
+            encode_eip712_type(self.nonce.into_token()),
+        ];
+        Ok(keccak256(encode(&items)))
+    }
 }
