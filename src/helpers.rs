@@ -52,6 +52,18 @@ pub(crate) fn uuid_to_hex_string(uuid: Uuid) -> String {
     format!("0x{}", hex_string)
 }
 
+pub(crate) fn hex_string_to_uuid(hex_string: &str) -> Result<Uuid> {
+    if let Some(hex_string) = hex_string.strip_prefix("0x") {
+        Ok(Uuid::from_u128(
+            u128::from_str_radix(hex_string, 16).unwrap(),
+        ))
+    } else {
+        Err(Error::JsonParse(format!(
+            "Invalid hex string: {hex_string}"
+        )))
+    }
+}
+
 pub(crate) fn generate_random_key() -> Result<[u8; 32]> {
     let mut arr = [0u8; 32];
     thread_rng()
