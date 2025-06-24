@@ -341,7 +341,7 @@ pub struct ActiveAssetDataData {
     pub max_trade_szs: Vec<String>,
     pub available_to_trade: Vec<String>,
 }
-  
+
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct BboData {
