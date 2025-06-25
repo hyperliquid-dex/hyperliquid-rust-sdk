@@ -468,7 +468,7 @@ impl Eip712 for ApproveBuilderFee {
         // Parse builder as address
         let builder_address: H160 = builder
             .parse()
-            .map_err(|_| Eip712Error::InvalidStructure("Invalid builder address".to_string()))?;
+            .map_err(|_| Eip712Error::FromHexError(hex::FromHexError::InvalidStringLength))?;
 
         let items = vec![
             ethers::abi::Token::Uint(Self::type_hash()?.into()),
