@@ -282,7 +282,7 @@ impl WsManager {
             }
             Message::ActiveAssetData(active_asset_data) => {
                 serde_json::to_string(&Subscription::ActiveAssetData {
-                    user: active_asset_data.data.user.clone(),
+                    user: active_asset_data.data.user,
                     coin: active_asset_data.data.coin.clone(),
                 })
                 .map_err(|e| Error::JsonParse(e.to_string()))
