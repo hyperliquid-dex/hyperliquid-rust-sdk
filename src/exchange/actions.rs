@@ -450,7 +450,7 @@ impl Eip712 for ApproveBuilderFee {
             &[
                 ("hyperliquidChain".to_string(), ParamType::String),
                 ("maxFeeRate".to_string(), ParamType::String),
-                ("builder".to_string(), ParamType::String),
+                ("builder".to_string(), ParamType::Address),
                 ("nonce".to_string(), ParamType::Uint(64)),
             ],
         ))
@@ -464,11 +464,17 @@ impl Eip712 for ApproveBuilderFee {
             builder,
             nonce,
         } = self;
+
+        // Parse builder as address
+        let builder_address: H160 = builder
+            .parse()
+            .map_err(|_| Eip712Error::InvalidStructure("Invalid builder address".to_string()))?;
+
         let items = vec![
             ethers::abi::Token::Uint(Self::type_hash()?.into()),
             encode_eip712_type(hyperliquid_chain.clone().into_token()),
             encode_eip712_type(max_fee_rate.clone().into_token()),
-            encode_eip712_type(builder.clone().into_token()),
+            encode_eip712_type(builder_address.into_token()),
             encode_eip712_type(nonce.into_token()),
         ];
         Ok(keccak256(encode(&items)))
