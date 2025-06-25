@@ -20,10 +20,10 @@ use tokio::sync::mpsc::UnboundedSender;
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CandleSnapshotRequest {
-    coin: String,
-    interval: String,
-    start_time: u64,
-    end_time: u64,
+    pub coin: String,
+    pub interval: String,
+    pub start_time: u64,
+    pub end_time: u64,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
