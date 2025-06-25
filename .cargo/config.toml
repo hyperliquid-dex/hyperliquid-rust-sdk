@@ -1,0 +1,2 @@
+[registries.pragma]
+index = "sparse+https://registry.devnet.pragma.build/api/v1/crates/"
