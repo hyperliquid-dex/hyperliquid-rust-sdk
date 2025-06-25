@@ -112,6 +112,27 @@ pub struct CandleData {
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderUpdate {
+    pub order: BasicOrder,
+    pub status: String,
+    pub status_timestamp: u64,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct BasicOrder {
+    pub coin: String,
+    pub side: String,
+    pub limit_px: String,
+    pub sz: String,
+    pub oid: u64,
+    pub timestamp: u64,
+    pub orig_sz: String,
+    pub cloid: Option<String>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct OpenOrder {
     pub coin: String,
     pub side: String,
     pub limit_px: String,
@@ -283,7 +304,7 @@ pub struct WebData2Data {
     pub clearinghouse_state: ClearinghouseState,
     pub leading_vaults: Vec<Vault>,
     pub total_vault_equity: String,
-    pub open_orders: Vec<OrderUpdate>,
+    pub open_orders: Vec<OpenOrder>,
     pub agent_address: Option<String>,
     pub agent_valid_until: Option<u64>,
     pub cum_ledger: String,
@@ -406,7 +427,10 @@ mod tests {
         assert_eq!(order_update.order_type, "Limit");
         assert_eq!(order_update.orig_sz, "1144.0");
         assert_eq!(order_update.tif, "Gtc");
-        assert_eq!(order_update.cloid, Some("0x00000000000000001dc7976527a4de18".to_string()));
+        assert_eq!(
+            order_update.cloid,
+            Some("0x00000000000000001dc7976527a4de18".to_string())
+        );
     }
 
     #[test]
