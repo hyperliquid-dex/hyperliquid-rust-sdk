@@ -208,21 +208,7 @@ impl InfoClient {
 
     pub async fn meta_and_asset_contexts(&self) -> Result<(Meta, Vec<AssetContext>)> {
         let input = InfoRequest::MetaAndAssetCtxs;
-        // Deserialize into an intermediate representation
-        let (meta, raw_contexts_values): (Meta, Vec<serde_json::Value>) =
-            self.send_info_request(input).await?;
-
-        let mut contexts: Vec<AssetContext> = Vec::new();
-        for value in raw_contexts_values {
-            match serde_json::from_value::<AssetContext>(value.clone()) {
-                Ok(context) => contexts.push(context),
-                Err(_e) => {
-                    // Optionally log the error:
-                    // log::debug!("Skipping AssetContext due to deserialization error: {}", _e);
-                }
-            }
-        }
-        Ok((meta, contexts))
+		self.send_info_request(input).await
     }
 
     pub async fn spot_meta(&self) -> Result<SpotMeta> {

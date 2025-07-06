@@ -13,7 +13,7 @@ async fn main() {
     user_states_example(&info_client).await;
     recent_trades(&info_client).await;
     meta_example(&info_client).await;
-    meta_and_contexts_example(&info_client).await;
+    meta_and_asset_contexts_example(&info_client).await;
     all_mids_example(&info_client).await;
     user_fills_example(&info_client).await;
     funding_history_example(&info_client).await;
@@ -88,12 +88,12 @@ async fn recent_trades(info_client: &InfoClient) {
 }
 
 async fn meta_example(info_client: &InfoClient) {
-    info!("Metadata: {:?}", info_client.meta().await.unwrap());
+    info!("Meta: {:?}", info_client.meta().await.unwrap());
 }
 
-async fn meta_and_contexts_example(info_client: &InfoClient) {
+async fn meta_and_asset_contexts_example(info_client: &InfoClient) {
     info!(
-        "Metadata and contexts: {:?}",
+        "Meta and asset contexts: {:?}",
         info_client.meta_and_asset_contexts().await.unwrap()
     );
 }
