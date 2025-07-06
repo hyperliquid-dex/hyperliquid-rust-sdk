@@ -1,3 +1,4 @@
+use crate::Leverage;
 use ethers::types::H160;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -11,6 +12,7 @@ pub struct Trade {
     pub time: u64,
     pub hash: String,
     pub tid: u64,
+    pub users: (String, String),
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -48,6 +50,7 @@ pub struct TradeInfo {
     pub cloid: Option<String>,
     pub crossed: bool,
     pub fee: String,
+    pub fee_token: String,
     pub tid: u64,
 }
 
@@ -314,10 +317,35 @@ pub struct PerpsAssetCtx {
     pub oracle_px: String,
 }
 
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveSpotAssetCtxData {
+    pub coin: String,
+    pub ctx: SpotAssetCtx,
+}
+
 #[derive(Deserialize, Serialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct SpotAssetCtx {
     #[serde(flatten)]
     pub shared: SharedAssetCtx,
     pub circulating_supply: String,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveAssetDataData {
+    pub user: H160,
+    pub coin: String,
+    pub leverage: Leverage,
+    pub max_trade_szs: Vec<String>,
+    pub available_to_trade: Vec<String>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct BboData {
+    pub coin: String,
+    pub time: u64,
+    pub bbo: Vec<Option<BookLevel>>,
 }

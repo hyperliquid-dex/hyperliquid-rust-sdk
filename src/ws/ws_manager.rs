@@ -1,8 +1,8 @@
 use crate::{
     prelude::*,
-    ws::message_types::{AllMids, Candle, L2Book, OrderUpdates, Trades, User},
-    ActiveAssetCtx, Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
-    WebData2,
+    ws::message_types::{AllMids, Bbo, Candle, L2Book, OrderUpdates, Trades, User},
+    ActiveAssetCtx, ActiveAssetData, Error, Notification, UserFills, UserFundings,
+    UserNonFundingLedgerUpdates, WebData2,
 };
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
 use log::{error, info, warn};
@@ -30,6 +30,8 @@ use tokio_tungstenite::{
 };
 
 use ethers::types::H160;
+
+use super::ActiveSpotAssetCtx;
 
 #[derive(Debug)]
 struct SubscriptionData {
@@ -62,6 +64,8 @@ pub enum Subscription {
     UserFundings { user: H160 },
     UserNonFundingLedgerUpdates { user: H160 },
     ActiveAssetCtx { coin: String },
+    ActiveAssetData { user: H160, coin: String },
+    Bbo { coin: String },
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -83,6 +87,9 @@ pub enum Message {
     Notification(Notification),
     WebData2(WebData2),
     ActiveAssetCtx(ActiveAssetCtx),
+    ActiveAssetData(ActiveAssetData),
+    ActiveSpotAssetCtx(ActiveSpotAssetCtx),
+    Bbo(Bbo),
     Pong,
 }
 
@@ -267,6 +274,23 @@ impl WsManager {
                 })
                 .map_err(|e| Error::JsonParse(e.to_string()))
             }
+            Message::ActiveSpotAssetCtx(active_spot_asset_ctx) => {
+                serde_json::to_string(&Subscription::ActiveAssetCtx {
+                    coin: active_spot_asset_ctx.data.coin.clone(),
+                })
+                .map_err(|e| Error::JsonParse(e.to_string()))
+            }
+            Message::ActiveAssetData(active_asset_data) => {
+                serde_json::to_string(&Subscription::ActiveAssetData {
+                    user: active_asset_data.data.user,
+                    coin: active_asset_data.data.coin.clone(),
+                })
+                .map_err(|e| Error::JsonParse(e.to_string()))
+            }
+            Message::Bbo(bbo) => serde_json::to_string(&Subscription::Bbo {
+                coin: bbo.data.coin.clone(),
+            })
+            .map_err(|e| Error::JsonParse(e.to_string())),
             Message::SubscriptionResponse | Message::Pong => Ok(String::default()),
             Message::NoData => Ok("".to_string()),
             Message::HyperliquidError(err) => Ok(format!("hyperliquid error: {err:?}")),
