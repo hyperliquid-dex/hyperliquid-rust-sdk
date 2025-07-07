@@ -380,12 +380,12 @@ impl Eip712 for SendAsset {
 
     fn type_hash() -> Result<[u8; 32], Self::Error> {
         Ok(eip712::make_type_hash(
-            format!("{HYPERLIQUID_EIP_PREFIX}PerpDexClassTransfer"),
+            format!("{HYPERLIQUID_EIP_PREFIX}SendAsset"),
             &[
                 ("hyperliquidChain".to_string(), ParamType::String),
+                ("destination".to_string(), ParamType::String),
                 ("sourceDex".to_string(), ParamType::String),
                 ("destinationDex".to_string(), ParamType::String),
-                ("destination".to_string(), ParamType::Address),
                 ("token".to_string(), ParamType::String),
                 ("amount".to_string(), ParamType::String),
                 ("fromSubAccount".to_string(), ParamType::String),
@@ -409,9 +409,9 @@ impl Eip712 for SendAsset {
         let items = vec![
             ethers::abi::Token::Uint(Self::type_hash()?.into()),
             encode_eip712_type(hyperliquid_chain.clone().into_token()),
+            encode_eip712_type(destination.clone().into_token()),
             encode_eip712_type(source_dex.clone().into_token()),
             encode_eip712_type(destination_dex.clone().into_token()),
-            encode_eip712_type(destination.clone().into_token()),
             encode_eip712_type(token.clone().into_token()),
             encode_eip712_type(amount.clone().into_token()),
             encode_eip712_type(from_sub_account.clone().into_token()),
