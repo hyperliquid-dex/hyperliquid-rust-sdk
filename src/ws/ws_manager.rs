@@ -24,9 +24,7 @@ use tokio::{
     time,
 };
 use tokio_tungstenite::{
-    connect_async,
-    tungstenite::{self, protocol},
-    MaybeTlsStream, WebSocketStream,
+    connect_async_with_config, tungstenite::{self, protocol::{self, WebSocketConfig}}, MaybeTlsStream, WebSocketStream
 };
 
 use ethers::types::H160;
@@ -190,7 +188,7 @@ impl WsManager {
                     match serde_json::to_string(&Ping { method: "ping" }) {
                         Ok(payload) => {
                             let mut writer = writer.lock().await;
-                            if let Err(err) = writer.send(protocol::Message::Text(payload)).await {
+                            if let Err(err) = writer.send(protocol::Message::Text(payload.into())).await {
                                 error!("Error pinging server: {err}")
                             }
                         }
@@ -213,8 +211,12 @@ impl WsManager {
     }
 
     async fn connect(url: &str) -> Result<WebSocketStream<MaybeTlsStream<TcpStream>>> {
-        Ok(connect_async(url)
-            .await
+        // Create a WebSocket connection optimized for low-latency trading
+        Ok(connect_async_with_config(
+            url,
+            Some(create_optimized_websocket_config()),
+            true // disable_nagle - enable TCP_NODELAY for low latency
+        ).await
             .map_err(|e| Error::Websocket(e.to_string()))?
             .0)
     }
@@ -364,7 +366,7 @@ impl WsManager {
         .map_err(|e| Error::JsonParse(e.to_string()))?;
 
         writer
-            .send(protocol::Message::Text(payload))
+            .send(protocol::Message::Text(payload.into()))
             .await
             .map_err(|e| Error::Websocket(e.to_string()))?;
         Ok(())
@@ -474,4 +476,33 @@ impl Drop for WsManager {
     fn drop(&mut self) {
         self.stop_flag.store(true, Ordering::Relaxed);
     }
+}
+
+/// Create optimized WebSocket configuration for low-latency trading
+fn create_optimized_websocket_config() -> WebSocketConfig {
+    let mut config = WebSocketConfig::default();
+    
+    // Optimize for high-frequency trading with smaller read buffer for lower latency
+    // 64KB reduces memory usage while maintaining good performance for trading messages
+    config.read_buffer_size = 64 * 1024;
+    
+    // Immediate write for ultra-low latency - critical for order submissions
+    // Setting to 0 ensures messages are written immediately without buffering
+    config.write_buffer_size = 0;
+    
+    // Set reasonable backpressure limit to prevent memory issues
+    // Should be larger than typical message size but prevent runaway growth
+    config.max_write_buffer_size = 512 * 1024;
+    
+    // No limit on message size for flexibility in handling large messages
+    config.max_message_size = None;
+    
+    // Smaller frame size for better streaming performance (128KB)
+    // Balances efficiency with memory usage for real-time data
+    config.max_frame_size = Some(128 * 1024);
+    
+    // Enforce frame masking for security compliance
+    config.accept_unmasked_frames = false;
+    
+    config
 }
