@@ -11,7 +11,7 @@ use crate::{
     helpers::{next_nonce, uuid_to_hex_string},
     prelude::*,
     signature::create_signature::encode_l1_action,
-    BulkCancelCloid, Error, PerpDexClassTransfer,
+    BulkCancelCloid, Error, SendAsset,
 };
 use crate::{ClassTransfer, SpotSend, VaultTransfer, Withdraw3};
 use ethers::types::{H160, H256};
@@ -54,8 +54,7 @@ pub enum Actions {
     SpotSend(SpotSend),
     SetReferrer(SetReferrer),
     ApproveBuilderFee(ApproveBuilderFee),
-    #[serde(rename = "PerpDexClassTransfer")]
-    PerpDexClassTransfer(PerpDexClassTransfer),
+    SendAsset(SendAsset),
     UsdClassTransfer(ClassTransfer),
 }
 
@@ -117,18 +116,22 @@ impl HashGenerator {
         })
     }
 
-    pub async fn perp_dex_class_transfer(
+pub async fn send_asset(
         token: String,
-        dex: String,
+        source_dex: String,
+        destination_dex: String,
+        destination: String,
         amount: String,
-        to_perp: bool,
+        from_sub_account: String,
     ) -> Result<MessageResponse> {
         let timestamp = next_nonce();
-        let perp_dex_class_transfer = PerpDexClassTransfer {
+        let perp_dex_class_transfer = SendAsset {
             token,
-            dex,
+            source_dex,
+            destination_dex,
+            destination,
             amount: amount.to_string(),
-            to_perp,
+            from_sub_account,
             nonce: timestamp,
             hyperliquid_chain: HYPERLIQUID_CHAIN.to_string(),
             signature_chain_id: SIGNATURE_CHAIN_ID.into(),
@@ -138,7 +141,7 @@ impl HashGenerator {
             .map_err(|e| Error::JsonParse(e.to_string()))?;
 
         Ok(MessageResponse {
-            action: Actions::PerpDexClassTransfer(perp_dex_class_transfer),
+            action: Actions::SendAsset(perp_dex_class_transfer),
             message,
             nonce: timestamp,
         })
