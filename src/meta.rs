@@ -53,6 +53,13 @@ pub enum SpotMetaAndAssetCtxs {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+#[serde(untagged)]
+pub enum MetaAndAssetCtxs {
+    Meta(Meta),
+    Context(Vec<AssetContext>),
+}
+
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct SpotAssetContext {
     pub day_ntl_vlm: String,
@@ -65,9 +72,26 @@ pub struct SpotAssetContext {
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct AssetContext {
+    pub day_ntl_vlm: String,
+    pub funding: String,
+    pub impact_pxs: Vec<String>,
+    pub mark_px: String,
+    pub mid_px: Option<String>,
+    pub open_interest: String,
+    pub oracle_px: String,
+    pub premium: String,
+    pub prev_day_px: String,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct AssetMeta {
     pub name: String,
     pub sz_decimals: u32,
+    pub max_leverage: usize,
+    #[serde(default)]
+    pub only_isolated: Option<bool>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
