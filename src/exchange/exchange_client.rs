@@ -17,7 +17,7 @@ use crate::{
     signature::sign_l1_action,
     BaseUrl, BulkCancelCloid, Error, ExchangeResponseStatus,
 };
-use crate::{ClassTransfer, SpotSend, SpotUser, VaultTransfer, Withdraw3};
+use crate::{ClassTransfer, SetOracleResponseStatus, SpotSend, SpotUser, VaultTransfer, Withdraw3};
 use ethers::{
     abi::AbiEncode,
     signers::{LocalWallet, Signer},
@@ -27,6 +27,7 @@ use log::debug;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::str::FromStr;
 
 use super::cancel::ClientCancelRequestCloid;
 use super::order::{MarketCloseParams, MarketOrderParams};
@@ -51,6 +52,22 @@ struct ExchangePayload {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SetOracle {
+    pub dex: String,
+    #[serde(rename = "oraclePxs")]
+    pub oracle_pxs: Vec<(String, String)>,
+    #[serde(rename = "markPxs")]
+    pub mark_pxs: Vec<Vec<(String, String)>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PerpDeploy {
+    pub set_oracle: SetOracle,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
 pub enum Actions {
@@ -69,6 +86,7 @@ pub enum Actions {
     SetReferrer(SetReferrer),
     ApproveBuilderFee(ApproveBuilderFee),
     EvmUserModify(EvmUserModify),
+    PerpDeploy(PerpDeploy),
 }
 
 impl Actions {
@@ -126,6 +144,62 @@ impl ExchangeClient {
         })
     }
 
+    pub async fn perp_deploy_set_oracle(
+        &self,
+        dex: &str,
+        oracle_pxs: HashMap<String, String>,
+        all_mark_pxs: Vec<HashMap<String, String>>,
+    ) -> Result<SetOracleResponseStatus> {
+        // Convert HashMaps to sorted Vec<(String, String)> like Python implementation
+        let mut oracle_pxs_wire: Vec<(String, String)> = oracle_pxs.into_iter().collect();
+        oracle_pxs_wire.sort_by(|a, b| a.0.cmp(&b.0));
+
+        let mark_pxs_wire: Vec<Vec<(String, String)>> = all_mark_pxs
+            .into_iter()
+            .map(|mark_pxs| {
+                let mut sorted: Vec<(String, String)> = mark_pxs.into_iter().collect();
+                sorted.sort_by(|a, b| a.0.cmp(&b.0));
+                sorted
+            })
+            .collect();
+
+        let action = Actions::PerpDeploy(PerpDeploy {
+            set_oracle: SetOracle {
+                dex: dex.to_string(),
+                oracle_pxs: oracle_pxs_wire,
+                mark_pxs: mark_pxs_wire,
+            },
+        });
+
+        let timestamp = next_nonce();
+        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let is_mainnet = self.http_client.is_mainnet();
+        let signature = sign_l1_action(&self.wallet, connection_id, is_mainnet)?;
+
+        let action_json =
+            serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        // Post and get raw response
+        let exchange_payload = ExchangePayload {
+            action: action_json,
+            signature,
+            nonce: timestamp,
+            vault_address: self.vault_address,
+        };
+        let payload_str = serde_json::to_string(&exchange_payload)
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
+        debug!("Sending request {payload_str:?}");
+
+        let output = &self
+            .http_client
+            .post("/exchange", payload_str)
+            .await
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        // Parse as SetOracleResponseStatus
+        serde_json::from_str(output).map_err(|e| Error::JsonParse(e.to_string()))
+    }
+
     async fn post(
         &self,
         action: serde_json::Value,
@@ -159,9 +233,7 @@ impl ExchangeClient {
 
         let timestamp = next_nonce();
 
-        let action = Actions::EvmUserModify(EvmUserModify {
-            using_big_blocks,
-        });
+        let action = Actions::EvmUserModify(EvmUserModify { using_big_blocks });
         let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
@@ -994,6 +1066,149 @@ mod tests {
             "0x63d953995809b97e9bfc754917b14d19eeef680dbf7d707e68dfa0b0484bafd2"
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_perp_deploy_set_oracle_action_hashing() -> Result<()> {
+        let wallet = get_wallet()?;
+        
+        // Create oracle prices HashMap
+        let mut oracle_pxs = HashMap::new();
+        oracle_pxs.insert("BTC".to_string(), "50000.0".to_string());
+        oracle_pxs.insert("ETH".to_string(), "3000.0".to_string());
+        oracle_pxs.insert("SOL".to_string(), "100.0".to_string());
+        
+        // Create mark prices
+        let mut mark_pxs_1 = HashMap::new();
+        mark_pxs_1.insert("BTC".to_string(), "50100.0".to_string());
+        mark_pxs_1.insert("ETH".to_string(), "3010.0".to_string());
+        
+        let mut mark_pxs_2 = HashMap::new();
+        mark_pxs_2.insert("SOL".to_string(), "101.0".to_string());
+        mark_pxs_2.insert("AVAX".to_string(), "35.0".to_string());
+        
+        let all_mark_pxs = vec![mark_pxs_1, mark_pxs_2];
+        
+        // Convert to sorted vectors as the function does
+        let mut oracle_pxs_wire: Vec<(String, String)> = oracle_pxs.into_iter().collect();
+        oracle_pxs_wire.sort_by(|a, b| a.0.cmp(&b.0));
+        
+        let mark_pxs_wire: Vec<Vec<(String, String)>> = all_mark_pxs
+            .into_iter()
+            .map(|mark_pxs| {
+                let mut sorted: Vec<(String, String)> = mark_pxs.into_iter().collect();
+                sorted.sort_by(|a, b| a.0.cmp(&b.0));
+                sorted
+            })
+            .collect();
+        
+        let action = Actions::PerpDeploy(PerpDeploy {
+            set_oracle: SetOracle {
+                dex: "hyperliquid".to_string(),
+                oracle_pxs: oracle_pxs_wire,
+                mark_pxs: mark_pxs_wire,
+            },
+        });
+        
+        let timestamp = 1583838;
+        let connection_id = action.hash(timestamp, None)?;
+        
+        // Test mainnet signature
+        let mainnet_signature = sign_l1_action(&wallet, connection_id, true)?;
+        assert!(!mainnet_signature.to_string().is_empty());
+        
+        // Test testnet signature
+        let testnet_signature = sign_l1_action(&wallet, connection_id, false)?;
+        assert!(!testnet_signature.to_string().is_empty());
+        
+        // Verify signatures are different for mainnet vs testnet
+        assert_ne!(mainnet_signature, testnet_signature);
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_perp_deploy_set_oracle_sorting() -> Result<()> {
+        // Test that oracle prices and mark prices are properly sorted
+        let mut oracle_pxs = HashMap::new();
+        oracle_pxs.insert("ZZZ".to_string(), "1.0".to_string());
+        oracle_pxs.insert("AAA".to_string(), "2.0".to_string());
+        oracle_pxs.insert("MMM".to_string(), "3.0".to_string());
+        
+        let mut mark_pxs = HashMap::new();
+        mark_pxs.insert("ZZZ".to_string(), "1.1".to_string());
+        mark_pxs.insert("BBB".to_string(), "2.1".to_string());
+        mark_pxs.insert("AAA".to_string(), "3.1".to_string());
+        
+        // Convert and sort
+        let mut oracle_pxs_wire: Vec<(String, String)> = oracle_pxs.into_iter().collect();
+        oracle_pxs_wire.sort_by(|a, b| a.0.cmp(&b.0));
+        
+        let mut mark_pxs_wire: Vec<(String, String)> = mark_pxs.into_iter().collect();
+        mark_pxs_wire.sort_by(|a, b| a.0.cmp(&b.0));
+        
+        // Verify sorting
+        assert_eq!(oracle_pxs_wire[0].0, "AAA");
+        assert_eq!(oracle_pxs_wire[1].0, "MMM");
+        assert_eq!(oracle_pxs_wire[2].0, "ZZZ");
+        
+        assert_eq!(mark_pxs_wire[0].0, "AAA");
+        assert_eq!(mark_pxs_wire[1].0, "BBB");
+        assert_eq!(mark_pxs_wire[2].0, "ZZZ");
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_perp_deploy_set_oracle_empty_prices() -> Result<()> {
+        let wallet = get_wallet()?;
+        
+        // Test with empty oracle prices
+        let _empty_oracle_pxs: HashMap<String, String> = HashMap::new();
+        let _empty_mark_pxs = vec![HashMap::<String, String>::new()];
+        
+        let action = Actions::PerpDeploy(PerpDeploy {
+            set_oracle: SetOracle {
+                dex: "test_dex".to_string(),
+                oracle_pxs: vec![],
+                mark_pxs: vec![vec![]],
+            },
+        });
+        
+        let timestamp = 1583838;
+        let connection_id = action.hash(timestamp, None)?;
+        
+        // Should be able to hash and sign even with empty data
+        let signature = sign_l1_action(&wallet, connection_id, true)?;
+        assert!(!signature.to_string().is_empty());
+        
+        Ok(())
+    }
+
+    #[test]
+    fn test_perp_deploy_set_oracle_with_vault() -> Result<()> {
+        let wallet = get_wallet()?;
+        let vault_address = Some(H160::from_str("0x1234567890123456789012345678901234567890").map_err(|e| Error::GenericParse(format!("Invalid vault address: {}", e)))?);
+        
+        let mut oracle_pxs = HashMap::new();
+        oracle_pxs.insert("BTC".to_string(), "45000.0".to_string());
+        
+        let action = Actions::PerpDeploy(PerpDeploy {
+            set_oracle: SetOracle {
+                dex: "vault_test".to_string(),
+                oracle_pxs: vec![("BTC".to_string(), "45000.0".to_string())],
+                mark_pxs: vec![],
+            },
+        });
+        
+        let timestamp = 1583838;
+        let connection_id = action.hash(timestamp, vault_address)?;
+        
+        // Hash should be different when vault address is provided
+        let connection_id_no_vault = action.hash(timestamp, None)?;
+        assert_ne!(connection_id, connection_id_no_vault);
+        
         Ok(())
     }
 }

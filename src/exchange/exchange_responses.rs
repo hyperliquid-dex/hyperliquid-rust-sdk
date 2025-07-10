@@ -43,3 +43,13 @@ pub enum ExchangeResponseStatus {
     Ok(ExchangeResponse),
     Err(String),
 }
+
+pub type SetOracleResponse = serde_json::Value;
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+#[serde(tag = "status", content = "response")]
+pub enum SetOracleResponseStatus {
+    Ok(SetOracleResponse),
+    Err(String),
+}
