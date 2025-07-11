@@ -87,6 +87,8 @@ pub enum InfoRequest {
     HistoricalOrders {
         user: H160,
     },
+    #[serde(rename = "perpDeployAuctionStatus")]
+    PerpDeployAuctionStatus,
 }
 
 #[derive(Debug)]
@@ -293,6 +295,11 @@ impl InfoClient {
 
     pub async fn historical_orders(&self, address: H160) -> Result<Vec<OrderInfo>> {
         let input = InfoRequest::HistoricalOrders { user: address };
+        self.send_info_request(input).await
+    }
+
+    pub async fn query_perp_deploy_auction_status(&self) -> Result<serde_json::Value> {
+        let input = InfoRequest::PerpDeployAuctionStatus;
         self.send_info_request(input).await
     }
 }

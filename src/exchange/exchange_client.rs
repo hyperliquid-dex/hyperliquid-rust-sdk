@@ -27,11 +27,17 @@ use log::debug;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::str::FromStr;
 
 use super::cancel::ClientCancelRequestCloid;
 use super::order::{MarketCloseParams, MarketOrderParams};
 use super::{BuilderInfo, ClientLimit, ClientOrder, EvmUserModify};
+
+#[derive(Debug, Clone)]
+pub struct PerpDexSchemaInput {
+    pub full_name: String,
+    pub collateral_token: u32,
+    pub oracle_updater: Option<String>,
+}
 
 #[derive(Debug)]
 pub struct ExchangeClient {
@@ -63,8 +69,43 @@ pub struct SetOracle {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct PerpDeploy {
-    pub set_oracle: SetOracle,
+pub struct AssetRequest {
+    pub coin: String,
+    pub sz_decimals: u32,
+    pub oracle_px: String,
+    pub margin_table_id: u32,
+    pub only_isolated: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PerpDexSchemaWire {
+    pub full_name: String,
+    pub collateral_token: u32,
+    pub oracle_updater: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct RegisterAsset {
+    pub max_gas: Option<u32>,
+    pub asset_request: AssetRequest,
+    pub dex: String,
+    pub schema: Option<PerpDexSchemaWire>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+#[serde(untagged)]
+pub enum PerpDeploy {
+    SetOracle { 
+        #[serde(rename = "setOracle")]
+        set_oracle: SetOracle 
+    },
+    RegisterAsset { 
+        #[serde(rename = "registerAsset")]
+        register_asset: RegisterAsset 
+    },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -163,7 +204,7 @@ impl ExchangeClient {
             })
             .collect();
 
-        let action = Actions::PerpDeploy(PerpDeploy {
+        let action = Actions::PerpDeploy(PerpDeploy::SetOracle {
             set_oracle: SetOracle {
                 dex: dex.to_string(),
                 oracle_pxs: oracle_pxs_wire,
@@ -198,6 +239,49 @@ impl ExchangeClient {
 
         // Parse as SetOracleResponseStatus
         serde_json::from_str(output).map_err(|e| Error::JsonParse(e.to_string()))
+    }
+
+    pub async fn perp_deploy_register_asset(
+        &self,
+        dex: &str,
+        max_gas: Option<u32>,
+        coin: &str,
+        sz_decimals: u32,
+        oracle_px: &str,
+        margin_table_id: u32,
+        only_isolated: bool,
+        schema: Option<PerpDexSchemaInput>,
+    ) -> Result<ExchangeResponseStatus> {
+        let schema_wire = schema.map(|s| PerpDexSchemaWire {
+            full_name: s.full_name,
+            collateral_token: s.collateral_token,
+            oracle_updater: s.oracle_updater.map(|u| u.to_lowercase()),
+        });
+
+        let action = Actions::PerpDeploy(PerpDeploy::RegisterAsset {
+            register_asset: RegisterAsset {
+                max_gas,
+                asset_request: AssetRequest {
+                    coin: coin.to_string(),
+                    sz_decimals,
+                    oracle_px: oracle_px.to_string(),
+                    margin_table_id,
+                    only_isolated,
+                },
+                dex: dex.to_string(),
+                schema: schema_wire,
+            },
+        });
+
+        let timestamp = next_nonce();
+        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let is_mainnet = self.http_client.is_mainnet();
+        let signature = sign_l1_action(&self.wallet, connection_id, is_mainnet)?;
+
+        let action_json =
+            serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        self.post(action_json, signature, timestamp).await
     }
 
     async fn post(
@@ -870,9 +954,8 @@ fn round_to_significant_and_decimal(value: f64, sig_figs: u32, max_decimals: u32
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-
     use super::*;
+    use std::str::FromStr;
     use crate::{
         exchange::order::{Limit, OrderRequest, Trigger},
         Order,
@@ -1072,28 +1155,28 @@ mod tests {
     #[test]
     fn test_perp_deploy_set_oracle_action_hashing() -> Result<()> {
         let wallet = get_wallet()?;
-        
+
         // Create oracle prices HashMap
         let mut oracle_pxs = HashMap::new();
         oracle_pxs.insert("BTC".to_string(), "50000.0".to_string());
         oracle_pxs.insert("ETH".to_string(), "3000.0".to_string());
         oracle_pxs.insert("SOL".to_string(), "100.0".to_string());
-        
+
         // Create mark prices
         let mut mark_pxs_1 = HashMap::new();
         mark_pxs_1.insert("BTC".to_string(), "50100.0".to_string());
         mark_pxs_1.insert("ETH".to_string(), "3010.0".to_string());
-        
+
         let mut mark_pxs_2 = HashMap::new();
         mark_pxs_2.insert("SOL".to_string(), "101.0".to_string());
         mark_pxs_2.insert("AVAX".to_string(), "35.0".to_string());
-        
+
         let all_mark_pxs = vec![mark_pxs_1, mark_pxs_2];
-        
+
         // Convert to sorted vectors as the function does
         let mut oracle_pxs_wire: Vec<(String, String)> = oracle_pxs.into_iter().collect();
         oracle_pxs_wire.sort_by(|a, b| a.0.cmp(&b.0));
-        
+
         let mark_pxs_wire: Vec<Vec<(String, String)>> = all_mark_pxs
             .into_iter()
             .map(|mark_pxs| {
@@ -1102,29 +1185,29 @@ mod tests {
                 sorted
             })
             .collect();
-        
-        let action = Actions::PerpDeploy(PerpDeploy {
+
+        let action = Actions::PerpDeploy(PerpDeploy::SetOracle {
             set_oracle: SetOracle {
                 dex: "hyperliquid".to_string(),
                 oracle_pxs: oracle_pxs_wire,
                 mark_pxs: mark_pxs_wire,
             },
         });
-        
+
         let timestamp = 1583838;
         let connection_id = action.hash(timestamp, None)?;
-        
+
         // Test mainnet signature
         let mainnet_signature = sign_l1_action(&wallet, connection_id, true)?;
         assert!(!mainnet_signature.to_string().is_empty());
-        
+
         // Test testnet signature
         let testnet_signature = sign_l1_action(&wallet, connection_id, false)?;
         assert!(!testnet_signature.to_string().is_empty());
-        
+
         // Verify signatures are different for mainnet vs testnet
         assert_ne!(mainnet_signature, testnet_signature);
-        
+
         Ok(())
     }
 
@@ -1135,80 +1218,154 @@ mod tests {
         oracle_pxs.insert("ZZZ".to_string(), "1.0".to_string());
         oracle_pxs.insert("AAA".to_string(), "2.0".to_string());
         oracle_pxs.insert("MMM".to_string(), "3.0".to_string());
-        
+
         let mut mark_pxs = HashMap::new();
         mark_pxs.insert("ZZZ".to_string(), "1.1".to_string());
         mark_pxs.insert("BBB".to_string(), "2.1".to_string());
         mark_pxs.insert("AAA".to_string(), "3.1".to_string());
-        
+
         // Convert and sort
         let mut oracle_pxs_wire: Vec<(String, String)> = oracle_pxs.into_iter().collect();
         oracle_pxs_wire.sort_by(|a, b| a.0.cmp(&b.0));
-        
+
         let mut mark_pxs_wire: Vec<(String, String)> = mark_pxs.into_iter().collect();
         mark_pxs_wire.sort_by(|a, b| a.0.cmp(&b.0));
-        
+
         // Verify sorting
         assert_eq!(oracle_pxs_wire[0].0, "AAA");
         assert_eq!(oracle_pxs_wire[1].0, "MMM");
         assert_eq!(oracle_pxs_wire[2].0, "ZZZ");
-        
+
         assert_eq!(mark_pxs_wire[0].0, "AAA");
         assert_eq!(mark_pxs_wire[1].0, "BBB");
         assert_eq!(mark_pxs_wire[2].0, "ZZZ");
-        
+
         Ok(())
     }
 
     #[test]
     fn test_perp_deploy_set_oracle_empty_prices() -> Result<()> {
         let wallet = get_wallet()?;
-        
+
         // Test with empty oracle prices
         let _empty_oracle_pxs: HashMap<String, String> = HashMap::new();
         let _empty_mark_pxs = vec![HashMap::<String, String>::new()];
-        
-        let action = Actions::PerpDeploy(PerpDeploy {
+
+        let action = Actions::PerpDeploy(PerpDeploy::SetOracle {
             set_oracle: SetOracle {
                 dex: "test_dex".to_string(),
                 oracle_pxs: vec![],
                 mark_pxs: vec![vec![]],
             },
         });
-        
+
         let timestamp = 1583838;
         let connection_id = action.hash(timestamp, None)?;
-        
+
         // Should be able to hash and sign even with empty data
         let signature = sign_l1_action(&wallet, connection_id, true)?;
         assert!(!signature.to_string().is_empty());
-        
+
         Ok(())
     }
 
     #[test]
     fn test_perp_deploy_set_oracle_with_vault() -> Result<()> {
-        let wallet = get_wallet()?;
-        let vault_address = Some(H160::from_str("0x1234567890123456789012345678901234567890").map_err(|e| Error::GenericParse(format!("Invalid vault address: {}", e)))?);
-        
+        let _wallet = get_wallet()?;
+        let vault_address = Some(
+            H160::from_str("0x1234567890123456789012345678901234567890")
+                .map_err(|e| Error::GenericParse(format!("Invalid vault address: {}", e)))?,
+        );
+
         let mut oracle_pxs = HashMap::new();
         oracle_pxs.insert("BTC".to_string(), "45000.0".to_string());
-        
-        let action = Actions::PerpDeploy(PerpDeploy {
+
+        let action = Actions::PerpDeploy(PerpDeploy::SetOracle {
             set_oracle: SetOracle {
                 dex: "vault_test".to_string(),
                 oracle_pxs: vec![("BTC".to_string(), "45000.0".to_string())],
                 mark_pxs: vec![],
             },
         });
-        
+
         let timestamp = 1583838;
         let connection_id = action.hash(timestamp, vault_address)?;
-        
+
         // Hash should be different when vault address is provided
         let connection_id_no_vault = action.hash(timestamp, None)?;
         assert_ne!(connection_id, connection_id_no_vault);
-        
+
         Ok(())
     }
+
+    #[test]
+    fn test_perp_deploy_register_asset_action_hashing() -> Result<()> {
+        let wallet = get_wallet()?;
+
+        // Test with schema
+        let action = Actions::PerpDeploy(PerpDeploy::RegisterAsset {
+            register_asset: RegisterAsset {
+                max_gas: Some(1000000),
+                asset_request: AssetRequest {
+                    coin: "NEWCOIN".to_string(),
+                    sz_decimals: 6,
+                    oracle_px: "1.5".to_string(),
+                    margin_table_id: 1,
+                    only_isolated: false,
+                },
+                dex: "testdex".to_string(),
+                schema: Some(PerpDexSchemaWire {
+                    full_name: "New Coin".to_string(),
+                    collateral_token: 0,  // 0 for USDC
+                    oracle_updater: Some("0x1234567890123456789012345678901234567890".to_string()),
+                }),
+            },
+        });
+
+        let timestamp = 1583838;
+        let connection_id = action.hash(timestamp, None)?;
+
+        // Test mainnet signature
+        let mainnet_signature = sign_l1_action(&wallet, connection_id, true)?;
+        assert!(!mainnet_signature.to_string().is_empty());
+
+        // Test testnet signature
+        let testnet_signature = sign_l1_action(&wallet, connection_id, false)?;
+        assert!(!testnet_signature.to_string().is_empty());
+
+        // Verify signatures are different for mainnet vs testnet
+        assert_ne!(mainnet_signature, testnet_signature);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_perp_deploy_register_asset_without_schema() -> Result<()> {
+        let wallet = get_wallet()?;
+
+        // Test without schema
+        let action = Actions::PerpDeploy(PerpDeploy::RegisterAsset {
+            register_asset: RegisterAsset {
+                max_gas: None,
+                asset_request: AssetRequest {
+                    coin: "BTC".to_string(),
+                    sz_decimals: 8,
+                    oracle_px: "45000.0".to_string(),
+                    margin_table_id: 0,
+                    only_isolated: true,
+                },
+                dex: "hyperliquid".to_string(),
+                schema: None,
+            },
+        });
+
+        let timestamp = 1583838;
+        let connection_id = action.hash(timestamp, None)?;
+
+        let signature = sign_l1_action(&wallet, connection_id, true)?;
+        assert!(!signature.to_string().is_empty());
+
+        Ok(())
+    }
+
 }
