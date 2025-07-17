@@ -1,6 +1,7 @@
+use std::collections::HashMap;
+
 use alloy::primitives::Address;
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 use crate::Leverage;
 

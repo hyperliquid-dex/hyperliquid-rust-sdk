@@ -1,7 +1,6 @@
-use log::info;
-
 use alloy::primitives::address;
 use hyperliquid_rust_sdk::{BaseUrl, InfoClient, Message, Subscription};
+use log::info;
 use tokio::{
     spawn,
     sync::mpsc::unbounded_channel,

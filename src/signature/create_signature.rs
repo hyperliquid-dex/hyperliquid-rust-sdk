@@ -29,9 +29,10 @@ pub(crate) fn sign_typed_data<T: Eip712>(
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
     use crate::{UsdSend, Withdraw3};
-    use std::str::FromStr;
 
     fn get_wallet() -> Result<PrivateKeySigner> {
         let priv_key = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e";
