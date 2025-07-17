@@ -1,10 +1,11 @@
-use crate::{consts::*, prelude::*, Error};
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use chrono::prelude::Utc;
 use lazy_static::lazy_static;
 use log::info;
-use rand::{thread_rng, Rng};
-use std::sync::atomic::{AtomicU64, Ordering};
 use uuid::Uuid;
+
+use crate::consts::*;
 
 fn now_timestamp_ms() -> u64 {
     let now = Utc::now();
@@ -46,18 +47,10 @@ pub(crate) fn uuid_to_hex_string(uuid: Uuid) -> String {
     let hex_string = uuid
         .as_bytes()
         .iter()
-        .map(|byte| format!("{:02x}", byte))
+        .map(|byte| format!("{byte:02x}"))
         .collect::<Vec<String>>()
         .join("");
-    format!("0x{}", hex_string)
-}
-
-pub(crate) fn generate_random_key() -> Result<[u8; 32]> {
-    let mut arr = [0u8; 32];
-    thread_rng()
-        .try_fill(&mut arr[..])
-        .map_err(|e| Error::RandGen(e.to_string()))?;
-    Ok(arr)
+    format!("0x{hex_string}")
 }
 
 pub fn truncate_float(float: f64, decimals: u32, round_up: bool) -> f64 {
