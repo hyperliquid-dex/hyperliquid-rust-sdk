@@ -1,3 +1,10 @@
+use std::collections::HashMap;
+
+use alloy::primitives::Address;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc::UnboundedSender;
+
 use crate::{
     info::{
         CandlesSnapshotResponse, FundingHistoryResponse, L2SnapshotResponse, OpenOrdersResponse,
@@ -10,12 +17,6 @@ use crate::{
     BaseUrl, Error, Message, OrderStatusResponse, ReferralResponse, UserFeesResponse,
     UserFundingResponse, UserTokenBalanceResponse,
 };
-
-use alloy::primitives::Address;
-use reqwest::Client;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -208,7 +209,7 @@ impl InfoClient {
 
     pub async fn meta_and_asset_contexts(&self) -> Result<(Meta, Vec<AssetContext>)> {
         let input = InfoRequest::MetaAndAssetCtxs;
-		self.send_info_request(input).await
+        self.send_info_request(input).await
     }
 
     pub async fn spot_meta(&self) -> Result<SpotMeta> {

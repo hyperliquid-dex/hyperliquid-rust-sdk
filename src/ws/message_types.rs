@@ -1,5 +1,6 @@
-use crate::ws::sub_structs::*;
 use serde::Deserialize;
+
+use crate::ws::sub_structs::*;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Trades {

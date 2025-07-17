@@ -1,11 +1,11 @@
-use alloy::signers::local::PrivateKeySigner;
-use log::info;
+use std::{thread::sleep, time::Duration};
 
+use alloy::signers::local::PrivateKeySigner;
 use hyperliquid_rust_sdk::{
     BaseUrl, ExchangeClient, ExchangeDataStatus, ExchangeResponseStatus, MarketCloseParams,
     MarketOrderParams,
 };
-use std::{thread::sleep, time::Duration};
+use log::info;
 
 #[tokio::main]
 async fn main() {

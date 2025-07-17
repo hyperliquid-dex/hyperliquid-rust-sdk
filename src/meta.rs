@@ -37,7 +37,7 @@ impl SpotMeta {
                 continue;
             };
 
-            coin_to_asset.insert(format!("{}/{}", token_1_name, token_2_name), spot_ind);
+            coin_to_asset.insert(format!("{token_1_name}/{token_2_name}"), spot_ind);
             coin_to_asset.insert(name_to_ind.0, name_to_ind.1);
         }
 

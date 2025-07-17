@@ -1,7 +1,3 @@
-use alloy::primitives::Address;
-use futures_util::{stream::SplitSink, SinkExt, StreamExt};
-use log::{error, info, warn};
-use serde::{Deserialize, Serialize};
 use std::{
     borrow::BorrowMut,
     collections::HashMap,
@@ -12,6 +8,11 @@ use std::{
     },
     time::Duration,
 };
+
+use alloy::primitives::Address;
+use futures_util::{stream::SplitSink, SinkExt, StreamExt};
+use log::{error, info, warn};
+use serde::{Deserialize, Serialize};
 use tokio::{
     net::TcpStream,
     spawn,

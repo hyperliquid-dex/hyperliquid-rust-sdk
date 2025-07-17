@@ -1,10 +1,10 @@
-use alloy::signers::local::PrivateKeySigner;
-use log::info;
+use std::{thread::sleep, time::Duration};
 
+use alloy::signers::local::PrivateKeySigner;
 use hyperliquid_rust_sdk::{
     BaseUrl, ClientCancelRequestCloid, ClientLimit, ClientOrder, ClientOrderRequest, ExchangeClient,
 };
-use std::{thread::sleep, time::Duration};
+use log::info;
 use uuid::Uuid;
 
 #[tokio::main]

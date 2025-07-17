@@ -1,5 +1,4 @@
 use alloy::signers::local::PrivateKeySigner;
-
 use hyperliquid_rust_sdk::{BaseUrl, ExchangeClient};
 use log::info;
 

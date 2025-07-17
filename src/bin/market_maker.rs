@@ -4,7 +4,6 @@ This is an example of a basic market making strategy.
 We subscribe to the current mid price and build a market around this price. Whenever our market becomes outdated, we place and cancel orders to renew it.
 */
 use alloy::signers::local::PrivateKeySigner;
-
 use hyperliquid_rust_sdk::{MarketMaker, MarketMakerInput};
 
 #[tokio::main]
