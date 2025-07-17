@@ -1017,7 +1017,7 @@ mod tests {
         let connection_id = action.hash(1583838, None)?;
         assert_eq!(
             connection_id.to_string(),
-            "0x63d953995809b97e9bfc754917b14d19eeef680dbf7d707e68dfa0b0484bafd2"
+            "0xbe889a23135fce39a37315424cc4ae910edea7b42a075457b15bf4a9f0a8cfa4"
         );
 
         Ok(())
