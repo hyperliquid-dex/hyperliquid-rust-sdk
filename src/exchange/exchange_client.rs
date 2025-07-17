@@ -159,9 +159,7 @@ impl ExchangeClient {
 
         let timestamp = next_nonce();
 
-        let action = Actions::EvmUserModify(EvmUserModify {
-            using_big_blocks,
-        });
+        let action = Actions::EvmUserModify(EvmUserModify { using_big_blocks });
         let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
@@ -360,14 +358,29 @@ impl ExchangeClient {
         };
         let info_client = InfoClient::new(None, Some(base_url)).await?;
         let meta = info_client.meta().await?;
+        let spot_meta = info_client.spot_meta().await?;
+        let index_for_asset = self.coin_to_asset.get(asset).ok_or(Error::AssetNotFound)?;
 
-        let asset_meta = meta
-            .universe
-            .iter()
-            .find(|a| a.name == asset)
-            .ok_or(Error::AssetNotFound)?;
+        let mut spot_asset = false;
+        let mut spot_name = "";
+        let sz_decimals = if let Some(perp_meta) = meta.universe.iter().find(|a| a.name == asset) {
+            perp_meta.sz_decimals
+        } else {
+            let spot_asset_meta = spot_meta
+                .universe
+                .iter()
+                .find(|a| a.index == *index_for_asset as usize - 10_000)
+                .ok_or(Error::AssetNotFound)?;
+            spot_name = spot_asset_meta.name.as_str();
+            let token_index = spot_asset_meta
+                .tokens
+                .iter()
+                .find(|t| **t != 0)
+                .ok_or(Error::AssetNotFound)?;
+            spot_asset = true;
+            spot_meta.tokens[*token_index].sz_decimals as u32
+        };
 
-        let sz_decimals = asset_meta.sz_decimals;
         let max_decimals: u32 = if self.coin_to_asset[asset] < 10000 {
             6
         } else {
@@ -379,11 +392,21 @@ impl ExchangeClient {
             px
         } else {
             let all_mids = info_client.all_mids().await?;
-            all_mids
-                .get(asset)
-                .ok_or(Error::AssetNotFound)?
-                .parse::<f64>()
-                .map_err(|_| Error::FloatStringParse)?
+            let res;
+            if !spot_asset {
+                res = all_mids
+                    .get(asset)
+                    .ok_or(Error::AssetNotFound)?
+                    .parse::<f64>()
+                    .map_err(|_| Error::FloatStringParse)?;
+            } else {
+                res = all_mids
+                    .get(spot_name)
+                    .ok_or(Error::AssetNotFound)?
+                    .parse::<f64>()
+                    .map_err(|_| Error::FloatStringParse)?;
+            }
+            res
         };
 
         debug!("px before slippage: {px:?}");
