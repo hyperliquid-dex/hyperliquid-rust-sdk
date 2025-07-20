@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     sync::{
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
     },
     time::Duration,
@@ -23,7 +23,7 @@ use tokio::{
     net::TcpStream,
     spawn,
     sync::{Mutex, oneshot},
-    time::timeout,
+    time::{timeout, sleep},
 };
 use tokio_tungstenite::{
     connect_async_with_config,
@@ -85,6 +85,11 @@ struct WsSignature {
     v: u8,
 }
 
+#[derive(Serialize)]
+struct Ping {
+    method: &'static str,
+}
+
 type ResponseSender = oneshot::Sender<Result<ExchangeResponseStatus, Error>>;
 
 #[derive(Debug)]
@@ -92,9 +97,12 @@ pub struct WsPostClient {
     writer: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>>>,
     pending_requests: Arc<Mutex<HashMap<u64, ResponseSender>>>,
     request_id_counter: AtomicU64,
+    stop_flag: Arc<AtomicBool>,
 }
 
 impl WsPostClient {
+    const SEND_PING_INTERVAL: u64 = 50;
+
     pub async fn new(base_url: BaseUrl) -> Result<Self, Error> {
         let url = match base_url {
             BaseUrl::Mainnet => "wss://api.hyperliquid.xyz/ws",
@@ -114,40 +122,68 @@ impl WsPostClient {
         let writer = Arc::new(Mutex::new(writer));
         let pending_requests: Arc<Mutex<HashMap<u64, ResponseSender>>> =
             Arc::new(Mutex::new(HashMap::new()));
+        let stop_flag = Arc::new(AtomicBool::new(false));
 
         // Spawn reader task to handle responses
         let pending_requests_clone = pending_requests.clone();
+        let stop_flag_clone = stop_flag.clone();
         spawn(async move {
-            while let Some(msg) = reader.next().await {
-                match msg {
-                    Ok(protocol::Message::Text(text)) => {
-                        if let Err(e) = Self::handle_response(text.to_string(), &pending_requests_clone).await {
-                            error!("Error handling websocket response: {}", e);
+            while !stop_flag_clone.load(Ordering::Relaxed) {
+                if let Some(msg) = reader.next().await {
+                    match msg {
+                        Ok(protocol::Message::Text(text)) => {
+                            if let Err(e) = Self::handle_response(text.to_string(), &pending_requests_clone).await {
+                                error!("Error handling websocket response: {}", e);
+                            }
+                        }
+                        Ok(protocol::Message::Pong(_)) => {
+                            debug!("Received pong");
+                        }
+                        Ok(_) => {
+                            debug!("Received non-text message");
+                        }
+                        Err(e) => {
+                            error!("WebSocket error: {}", e);
+                            // Notify all pending requests about the error
+                            let mut pending = pending_requests_clone.lock().await;
+                            for (_, sender) in pending.drain() {
+                                let _ = sender.send(Err(Error::Websocket(e.to_string())));
+                            }
+                            break;
                         }
                     }
-                    Ok(protocol::Message::Pong(_)) => {
-                        debug!("Received pong");
-                    }
-                    Ok(_) => {
-                        debug!("Received non-text message");
-                    }
-                    Err(e) => {
-                        error!("WebSocket error: {}", e);
-                        // Notify all pending requests about the error
-                        let mut pending = pending_requests_clone.lock().await;
-                        for (_, sender) in pending.drain() {
-                            let _ = sender.send(Err(Error::Websocket(e.to_string())));
-                        }
-                        break;
-                    }
+                } else {
+                    error!("WebSocket connection closed");
+                    break;
                 }
             }
         });
+
+        // Spawn ping task to keep connection alive
+        {
+            let stop_flag_clone = stop_flag.clone();
+            let writer_clone = writer.clone();
+            spawn(async move {
+                while !stop_flag_clone.load(Ordering::Relaxed) {
+                    match serde_json::to_string(&Ping { method: "ping" }) {
+                        Ok(payload) => {
+                            let mut writer = writer_clone.lock().await;
+                            if let Err(err) = writer.send(protocol::Message::Text(payload.into())).await {
+                                error!("Error pinging server: {}", err);
+                            }
+                        }
+                        Err(err) => error!("Error serializing ping message: {}", err),
+                    }
+                    sleep(Duration::from_secs(Self::SEND_PING_INTERVAL)).await;
+                }
+            });
+        }
 
         Ok(Self {
             writer,
             pending_requests,
             request_id_counter: AtomicU64::new(1),
+            stop_flag,
         })
     }
 
@@ -296,6 +332,12 @@ impl WsPostClient {
             bytes.push(0);
         }
         Ok(H256(ethers::utils::keccak256(bytes)))
+    }
+}
+
+impl Drop for WsPostClient {
+    fn drop(&mut self) {
+        self.stop_flag.store(true, Ordering::Relaxed);
     }
 }
 
