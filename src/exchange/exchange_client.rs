@@ -15,6 +15,7 @@ use crate::{
     prelude::*,
     req::HttpClient,
     signature::sign_l1_action,
+    ws::WsPostClient,
     BaseUrl, BulkCancelCloid, Error, ExchangeResponseStatus,
 };
 use crate::{ClassTransfer, SpotSend, SpotUser, VaultTransfer, Withdraw3};
@@ -39,6 +40,7 @@ pub struct ExchangeClient {
     pub meta: Meta,
     pub vault_address: Option<H160>,
     pub coin_to_asset: HashMap<String, u32>,
+    pub ws_post_client: Option<WsPostClient>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -122,6 +124,7 @@ impl ExchangeClient {
                 base_url: base_url.get_url(),
             },
             coin_to_asset,
+            ws_post_client: None,
         })
     }
 
@@ -758,6 +761,75 @@ impl ExchangeClient {
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
         self.post(action, signature, timestamp).await
+    }
+
+    /// Initialize WebSocket post client for faster order execution
+    pub async fn init_ws_post_client(&mut self) -> Result<()> {
+        let base_url = match self.http_client.base_url.as_str() {
+            "https://api.hyperliquid.xyz" => BaseUrl::Mainnet,
+            "https://api.hyperliquid-testnet.xyz" => BaseUrl::Testnet,
+            _ => return Err(Error::GenericRequest("Invalid base URL".to_string())),
+        };
+        
+        self.ws_post_client = Some(WsPostClient::new(base_url).await?);
+        Ok(())
+    }
+
+    /// Execute bulk order via WebSocket for lower latency
+    pub async fn bulk_order_ws(
+        &self,
+        orders: Vec<ClientOrderRequest>,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        let ws_client = self.ws_post_client.as_ref()
+            .ok_or_else(|| Error::GenericRequest("WebSocket client not initialized. Call init_ws_post_client() first.".to_string()))?;
+        
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let mut transformed_orders = Vec::new();
+
+        for order in orders {
+            transformed_orders.push(order.convert(&self.coin_to_asset)?);
+        }
+
+        let action = BulkOrder {
+            orders: transformed_orders,
+            grouping: "na".to_string(),
+            builder: None,
+        };
+
+        let is_mainnet = self.http_client.is_mainnet();
+        ws_client.bulk_order(action, wallet, is_mainnet, self.vault_address).await
+    }
+
+    /// Execute bulk cancel by cloid via WebSocket for lower latency
+    pub async fn bulk_cancel_by_cloid_ws(
+        &self,
+        cancels: Vec<ClientCancelRequestCloid>,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        let ws_client = self.ws_post_client.as_ref()
+            .ok_or_else(|| Error::GenericRequest("WebSocket client not initialized. Call init_ws_post_client() first.".to_string()))?;
+            
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let mut transformed_cancels: Vec<CancelRequestCloid> = Vec::new();
+        
+        for cancel in cancels.into_iter() {
+            let &asset = self
+                .coin_to_asset
+                .get(&cancel.asset)
+                .ok_or(Error::AssetNotFound)?;
+            transformed_cancels.push(CancelRequestCloid {
+                asset,
+                cloid: uuid_to_hex_string(cancel.cloid),
+            });
+        }
+
+        let action = BulkCancelCloid {
+            cancels: transformed_cancels,
+        };
+
+        let is_mainnet = self.http_client.is_mainnet();
+        ws_client.bulk_cancel_by_cloid(action, wallet, is_mainnet, self.vault_address).await
     }
 }
 
