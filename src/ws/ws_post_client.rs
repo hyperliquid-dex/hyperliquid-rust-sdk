@@ -56,6 +56,12 @@ struct WsPostResponse {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
+struct WsPongResponse {
+    channel: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 struct WsResponseData {
     id: u64,
     response: WsResponse,
@@ -204,6 +210,14 @@ impl WsPostClient {
                 }
             }
             return Ok(());
+        }
+
+        // Then try to parse as a pong response
+        if let Ok(pong_response) = serde_json::from_str::<WsPongResponse>(&text) {
+            if pong_response.channel == "pong" {
+                debug!("Received pong from server");
+                return Ok(());
+            }
         }
 
         // If that fails, it might be an error string - log it
