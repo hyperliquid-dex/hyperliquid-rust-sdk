@@ -2,8 +2,8 @@ use crate::signature::sign_typed_data;
 use crate::{
     exchange::{
         actions::{
-            ApproveAgent, ApproveBuilderFee, BulkCancel, BulkModify, BulkOrder, SetReferrer,
-            UpdateIsolatedMargin, UpdateLeverage, UsdSend,
+            ApproveAgent, ApproveBuilderFee, BulkCancel, BulkModify, BulkOrder, ScheduleCancel,
+            SetReferrer, UpdateIsolatedMargin, UpdateLeverage, UsdSend,
         },
         cancel::{CancelRequest, CancelRequestCloid},
         modify::{ClientModifyRequest, ModifyRequest},
@@ -69,6 +69,7 @@ pub enum Actions {
     SetReferrer(SetReferrer),
     ApproveBuilderFee(ApproveBuilderFee),
     EvmUserModify(EvmUserModify),
+    ScheduleCancel(ScheduleCancel),
 }
 
 impl Actions {
@@ -778,6 +779,23 @@ impl ExchangeClient {
         let signature = sign_typed_data(&approve_builder_fee, wallet)?;
         let action = serde_json::to_value(Actions::ApproveBuilderFee(approve_builder_fee))
             .map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        self.post(action, signature, timestamp).await
+    }
+
+    pub async fn schedule_cancel(
+        &self,
+        time: Option<u64>,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let timestamp = next_nonce();
+
+        let action = Actions::ScheduleCancel(ScheduleCancel { time });
+        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+        let is_mainnet = self.http_client.is_mainnet();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
         self.post(action, signature, timestamp).await
     }
