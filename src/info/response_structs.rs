@@ -133,3 +133,53 @@ pub struct ReferralResponse {
     pub claimed_rewards: String,
     pub referrer_state: ReferrerState,
 }
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct FrontendOpenOrdersResponse {
+    pub coin: String,
+    pub is_position_tpsl: bool,
+    pub is_trigger: bool,
+    pub limit_px: String,
+    pub oid: u64,
+    pub order_type: String,
+    pub orig_sz: String,
+    pub reduce_only: bool,
+    pub side: String,
+    pub sz: String,
+    pub timestamp: u64,
+    pub trigger_condition: String,
+    pub trigger_px: String,
+    pub cloid: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UserRoleResponse {
+    pub role: String,
+    pub data: Option<UserRoleData>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UserRoleData {
+    pub user: Option<String>,
+    pub master: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct PortfolioResponse {
+    pub period: String,
+    pub data: PortfolioData,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct PortfolioData {
+    pub account_value_history: Vec<PortfolioDataPoint>,
+    pub pnl_history: Vec<PortfolioDataPoint>,
+    pub vlm: String,
+}
+
+#[derive(Deserialize, Debug)]
+pub struct PortfolioDataPoint(pub u64, pub String);

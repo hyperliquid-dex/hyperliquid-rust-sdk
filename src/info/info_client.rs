@@ -1,7 +1,7 @@
 use crate::{
     info::{
-        CandlesSnapshotResponse, FundingHistoryResponse, L2SnapshotResponse, OpenOrdersResponse,
-        OrderInfo, RecentTradesResponse, UserFillsResponse, UserStateResponse,
+        CandlesSnapshotResponse, FrontendOpenOrdersResponse, FundingHistoryResponse, L2SnapshotResponse, OpenOrdersResponse,
+        OrderInfo, PortfolioResponse, RecentTradesResponse, UserFillsResponse, UserRoleResponse, UserStateResponse,
     },
     meta::{AssetContext, Meta, SpotMeta, SpotMetaAndAssetCtxs},
     prelude::*,
@@ -48,6 +48,9 @@ pub enum InfoRequest {
     OpenOrders {
         user: H160,
     },
+    FrontendOpenOrders {
+        user: H160,
+    },
     OrderStatus {
         user: H160,
         oid: u64,
@@ -59,6 +62,12 @@ pub enum InfoRequest {
     AllMids,
     UserFills {
         user: H160,
+    },
+    #[serde(rename_all = "camelCase")]
+    UserFillsByTime {
+        user: H160,
+        start_time: u64,
+        end_time: Option<u64>,
     },
     #[serde(rename_all = "camelCase")]
     FundingHistory {
@@ -86,6 +95,12 @@ pub enum InfoRequest {
         user: H160,
     },
     HistoricalOrders {
+        user: H160,
+    },
+    UserRole {
+        user: H160,
+    },
+    Portfolio {
         user: H160,
     },
 }
@@ -299,6 +314,35 @@ impl InfoClient {
 
     pub async fn historical_orders(&self, address: H160) -> Result<Vec<OrderInfo>> {
         let input = InfoRequest::HistoricalOrders { user: address };
+        self.send_info_request(input).await
+    }
+
+    pub async fn frontend_open_orders(&self, address: H160) -> Result<Vec<FrontendOpenOrdersResponse>> {
+        let input = InfoRequest::FrontendOpenOrders { user: address };
+        self.send_info_request(input).await
+    }
+
+    pub async fn user_fills_by_time(
+        &self,
+        address: H160,
+        start_time: u64,
+        end_time: Option<u64>,
+    ) -> Result<Vec<UserFillsResponse>> {
+        let input = InfoRequest::UserFillsByTime {
+            user: address,
+            start_time,
+            end_time,
+        };
+        self.send_info_request(input).await
+    }
+
+    pub async fn user_role(&self, address: H160) -> Result<UserRoleResponse> {
+        let input = InfoRequest::UserRole { user: address };
+        self.send_info_request(input).await
+    }
+
+    pub async fn portfolio(&self, address: H160) -> Result<Vec<PortfolioResponse>> {
+        let input = InfoRequest::Portfolio { user: address };
         self.send_info_request(input).await
     }
 }
