@@ -349,3 +349,56 @@ pub struct BboData {
     pub time: u64,
     pub bbo: Vec<Option<BookLevel>>,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UserTwapSliceFillsData {
+    pub is_snapshot: Option<bool>,
+    pub user: H160,
+    pub twap_slice_fills: Vec<TwapSliceFillData>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct TwapSliceFillData {
+    pub fill: TradeInfo,
+    pub twap_id: u32,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UserTwapHistoryData {
+    pub is_snapshot: Option<bool>,
+    pub user: H160,
+    pub history: Vec<TwapHistoryData>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct TwapHistoryData {
+    pub state: TwapState,
+    pub status: TwapStatus,
+    pub time: u64,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct TwapState {
+    pub coin: String,
+    pub user: H160,
+    pub side: String,
+    pub sz: String,
+    pub executed_sz: String,
+    pub executed_ntl: String,
+    pub minutes: u32,
+    pub reduce_only: bool,
+    pub randomize: bool,
+    pub timestamp: u64,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct TwapStatus {
+    pub status: String,
+    pub description: String,
+}

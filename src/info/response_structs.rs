@@ -183,3 +183,29 @@ pub struct PortfolioData {
 
 #[derive(Deserialize, Debug)]
 pub struct PortfolioDataPoint(pub u64, pub String);
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UserTwapSliceFillsResponse {
+    pub fill: TwapSliceFill,
+    pub twap_id: u32,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct TwapSliceFill {
+    pub closed_pnl: String,
+    pub coin: String,
+    pub crossed: bool,
+    pub dir: String,
+    pub hash: String,
+    pub oid: u64,
+    pub px: String,
+    pub side: String,
+    pub start_position: String,
+    pub sz: String,
+    pub time: u64,
+    pub fee: String,
+    pub fee_token: String,
+    pub tid: u64,
+}

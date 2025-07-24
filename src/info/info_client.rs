@@ -2,6 +2,7 @@ use crate::{
     info::{
         CandlesSnapshotResponse, FrontendOpenOrdersResponse, FundingHistoryResponse, L2SnapshotResponse, OpenOrdersResponse,
         OrderInfo, PortfolioResponse, RecentTradesResponse, UserFillsResponse, UserRoleResponse, UserStateResponse,
+        UserTwapSliceFillsResponse,
     },
     meta::{AssetContext, Meta, SpotMeta, SpotMetaAndAssetCtxs},
     prelude::*,
@@ -101,6 +102,9 @@ pub enum InfoRequest {
         user: H160,
     },
     Portfolio {
+        user: H160,
+    },
+    UserTwapSliceFills {
         user: H160,
     },
 }
@@ -343,6 +347,11 @@ impl InfoClient {
 
     pub async fn portfolio(&self, address: H160) -> Result<Vec<PortfolioResponse>> {
         let input = InfoRequest::Portfolio { user: address };
+        self.send_info_request(input).await
+    }
+
+    pub async fn user_twap_slice_fills(&self, address: H160) -> Result<Vec<UserTwapSliceFillsResponse>> {
+        let input = InfoRequest::UserTwapSliceFills { user: address };
         self.send_info_request(input).await
     }
 }

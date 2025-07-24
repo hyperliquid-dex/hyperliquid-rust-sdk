@@ -320,6 +320,32 @@ pub struct ScheduleCancel {
     pub time: Option<u64>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TwapOrder {
+    #[serde(rename = "a")]
+    pub asset: u32,
+    #[serde(rename = "b")]
+    pub is_buy: bool,
+    #[serde(rename = "s")]
+    pub sz: String,
+    #[serde(rename = "r")]
+    pub reduce_only: bool,
+    #[serde(rename = "m")]
+    pub minutes: u32,
+    #[serde(rename = "t")]
+    pub randomize: bool,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct TwapCancel {
+    #[serde(rename = "a")]
+    pub asset: u32,
+    #[serde(rename = "t")]
+    pub twap_id: u32,
+}
+
 impl Eip712 for ApproveBuilderFee {
     type Error = Eip712Error;
 
