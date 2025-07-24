@@ -1,6 +1,6 @@
 use crate::{
     prelude::*,
-    ws::message_types::{AllMids, Bbo, Candle, L2Book, OrderUpdates, Trades, User},
+    ws::message_types::{AllMids, Bbo, Candle, L2Book, OrderUpdates, Trades, User, UserTwapHistory, UserTwapSliceFills},
     ActiveAssetCtx, ActiveAssetData, Error, Notification, UserFills, UserFundings,
     UserNonFundingLedgerUpdates, WebData2,
 };
@@ -66,6 +66,8 @@ pub enum Subscription {
     ActiveAssetCtx { coin: String },
     ActiveAssetData { user: H160, coin: String },
     Bbo { coin: String },
+    UserTwapSliceFills { user: H160 },
+    UserTwapHistory { user: H160 },
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -90,6 +92,8 @@ pub enum Message {
     ActiveAssetData(ActiveAssetData),
     ActiveSpotAssetCtx(ActiveSpotAssetCtx),
     Bbo(Bbo),
+    UserTwapSliceFills(UserTwapSliceFills),
+    UserTwapHistory(UserTwapHistory),
     Pong,
 }
 
@@ -291,6 +295,18 @@ impl WsManager {
                 coin: bbo.data.coin.clone(),
             })
             .map_err(|e| Error::JsonParse(e.to_string())),
+            Message::UserTwapSliceFills(twap_slice_fills) => {
+                serde_json::to_string(&Subscription::UserTwapSliceFills {
+                    user: twap_slice_fills.data.user,
+                })
+                .map_err(|e| Error::JsonParse(e.to_string()))
+            }
+            Message::UserTwapHistory(twap_history) => {
+                serde_json::to_string(&Subscription::UserTwapHistory {
+                    user: twap_history.data.user,
+                })
+                .map_err(|e| Error::JsonParse(e.to_string()))
+            }
             Message::SubscriptionResponse | Message::Pong => Ok(String::default()),
             Message::NoData => Ok("".to_string()),
             Message::HyperliquidError(err) => Ok(format!("hyperliquid error: {err:?}")),

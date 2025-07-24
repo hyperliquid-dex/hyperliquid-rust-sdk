@@ -3,7 +3,7 @@ use crate::{
     exchange::{
         actions::{
             ApproveAgent, ApproveBuilderFee, BulkCancel, BulkModify, BulkOrder, ScheduleCancel,
-            SetReferrer, UpdateIsolatedMargin, UpdateLeverage, UsdSend,
+            SetReferrer, TwapCancel, TwapOrder, UpdateIsolatedMargin, UpdateLeverage, UsdSend,
         },
         cancel::{CancelRequest, CancelRequestCloid},
         modify::{ClientModifyRequest, ModifyRequest},
@@ -70,6 +70,8 @@ pub enum Actions {
     ApproveBuilderFee(ApproveBuilderFee),
     EvmUserModify(EvmUserModify),
     ScheduleCancel(ScheduleCancel),
+    TwapOrder(TwapOrder),
+    TwapCancel(TwapCancel),
 }
 
 impl Actions {
@@ -798,6 +800,75 @@ impl ExchangeClient {
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
         self.post(action, signature, timestamp).await
+    }
+
+    pub async fn twap_order(
+        &self,
+        asset: &str,
+        is_buy: bool,
+        sz: f64,
+        reduce_only: bool,
+        minutes: u32,
+        randomize: bool,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let timestamp = next_nonce();
+
+        let &asset_index = self.coin_to_asset.get(asset).ok_or(Error::AssetNotFound)?;
+        let sz = self.format_size_for_asset(asset, sz)?;
+
+        let action = Actions::TwapOrder(TwapOrder {
+            asset: asset_index,
+            is_buy,
+            sz,
+            reduce_only,
+            minutes,
+            randomize,
+        });
+        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+        let is_mainnet = self.http_client.is_mainnet();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+        self.post(action, signature, timestamp).await
+    }
+
+    pub async fn twap_cancel(
+        &self,
+        asset: &str,
+        twap_id: u32,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let timestamp = next_nonce();
+
+        let &asset_index = self.coin_to_asset.get(asset).ok_or(Error::AssetNotFound)?;
+
+        let action = Actions::TwapCancel(TwapCancel {
+            asset: asset_index,
+            twap_id,
+        });
+        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+        let is_mainnet = self.http_client.is_mainnet();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+        self.post(action, signature, timestamp).await
+    }
+
+    fn format_size_for_asset(&self, asset: &str, sz: f64) -> Result<String> {
+        // Get the asset metadata to determine size decimals
+        let asset_meta = self
+            .meta
+            .universe
+            .iter()
+            .find(|a| a.name == asset)
+            .ok_or(Error::AssetNotFound)?;
+
+        let sz_decimals = asset_meta.sz_decimals;
+        let rounded_sz = round_to_decimals(sz, sz_decimals);
+        Ok(crate::helpers::float_to_string_for_hashing(rounded_sz))
     }
 }
 

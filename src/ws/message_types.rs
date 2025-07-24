@@ -75,3 +75,13 @@ pub struct ActiveAssetData {
 pub struct Bbo {
     pub data: BboData,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct UserTwapSliceFills {
+    pub data: UserTwapSliceFillsData,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct UserTwapHistory {
+    pub data: UserTwapHistoryData,
+}
