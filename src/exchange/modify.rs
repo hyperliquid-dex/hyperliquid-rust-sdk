@@ -1,5 +1,6 @@
-use super::{order::OrderRequest, ClientOrderRequest};
 use serde::{Deserialize, Serialize};
+
+use super::{order::OrderRequest, ClientOrderRequest};
 
 #[derive(Debug)]
 pub struct ClientModifyRequest {

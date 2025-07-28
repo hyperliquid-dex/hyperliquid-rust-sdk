@@ -1,8 +1,9 @@
+use serde::Deserialize;
+
 use crate::{
     info::{AssetPosition, Level, MarginSummary},
     DailyUserVlm, Delta, FeeSchedule, OrderInfo, Referrer, ReferrerState, UserTokenBalance,
 };
-use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]

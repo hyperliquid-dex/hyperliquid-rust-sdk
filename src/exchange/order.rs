@@ -1,12 +1,14 @@
+use std::collections::HashMap;
+
+use alloy::signers::local::PrivateKeySigner;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
 use crate::{
     errors::Error,
     helpers::{float_to_string_for_hashing, uuid_to_hex_string},
     prelude::*,
 };
-use ethers::signers::LocalWallet;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use uuid::Uuid;
 
 #[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Limit {
@@ -67,7 +69,7 @@ pub struct MarketOrderParams<'a> {
     pub px: Option<f64>,
     pub slippage: Option<f64>,
     pub cloid: Option<Uuid>,
-    pub wallet: Option<&'a LocalWallet>,
+    pub wallet: Option<&'a PrivateKeySigner>,
 }
 
 #[derive(Debug)]
@@ -77,7 +79,7 @@ pub struct MarketCloseParams<'a> {
     pub px: Option<f64>,
     pub slippage: Option<f64>,
     pub cloid: Option<Uuid>,
-    pub wallet: Option<&'a LocalWallet>,
+    pub wallet: Option<&'a PrivateKeySigner>,
 }
 
 #[derive(Debug)]
