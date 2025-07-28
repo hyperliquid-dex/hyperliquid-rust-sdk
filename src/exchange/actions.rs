@@ -313,6 +313,13 @@ pub struct ApproveBuilderFee {
     pub hyperliquid_chain: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ScheduleCancel {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub time: Option<u64>,
+}
+
 impl Eip712 for ApproveBuilderFee {
     type Error = Eip712Error;
 
