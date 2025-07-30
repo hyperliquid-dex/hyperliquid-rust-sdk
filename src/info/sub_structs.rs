@@ -141,7 +141,7 @@ pub struct BasicOrderInfo {
     pub reduce_only: bool,
     pub order_type: String,
     pub orig_sz: String,
-    pub tif: String,
+    pub tif: Option<String>,
     pub cloid: Option<String>,
 }
 
