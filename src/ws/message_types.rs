@@ -1,5 +1,6 @@
-use crate::ws::sub_structs::*;
 use serde::Deserialize;
+
+use crate::ws::sub_structs::*;
 
 #[derive(Deserialize, Clone, Debug)]
 pub struct Trades {
@@ -59,4 +60,19 @@ pub struct WebData2 {
 #[derive(Deserialize, Clone, Debug)]
 pub struct ActiveAssetCtx {
     pub data: ActiveAssetCtxData,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct ActiveSpotAssetCtx {
+    pub data: ActiveSpotAssetCtxData,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct ActiveAssetData {
+    pub data: ActiveAssetDataData,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct Bbo {
+    pub data: BboData,
 }

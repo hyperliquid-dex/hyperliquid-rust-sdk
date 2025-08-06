@@ -1,17 +1,21 @@
+use std::collections::HashMap;
+
+use alloy::signers::local::PrivateKeySigner;
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
+
 use crate::{
+    errors::Error,
     helpers::{float_to_string_for_hashing, uuid_to_hex_string},
     prelude::*,
 };
-use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
-use uuid::Uuid;
 
-#[derive(Deserialize, Serialize, Clone, Debug, ToSchema)]
+#[derive(Deserialize, Serialize, Clone, Debug)]
 pub struct Limit {
     pub tif: String,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, ToSchema)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Trigger {
     pub is_market: bool,
@@ -19,14 +23,14 @@ pub struct Trigger {
     pub tpsl: String,
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, ToSchema)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub enum Order {
     Limit(Limit),
     Trigger(Trigger),
 }
 
-#[derive(Deserialize, Serialize, Debug, Clone, ToSchema)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct OrderRequest {
     #[serde(rename = "a", alias = "asset")]
@@ -45,50 +49,48 @@ pub struct OrderRequest {
     pub cloid: Option<String>,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug)]
 pub struct ClientLimit {
     pub tif: String,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug)]
 pub struct ClientTrigger {
     pub is_market: bool,
     pub trigger_px: f64,
     pub tpsl: String,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
-pub struct MarketOrderParams {
-    pub asset: u32,
-    pub reduce_only: bool,
+#[derive(Debug)]
+pub struct MarketOrderParams<'a> {
+    pub asset: &'a str,
     pub is_buy: bool,
-    pub sz: String,
-    pub px: String,
+    pub sz: f64,
+    pub px: Option<f64>,
+    pub slippage: Option<f64>,
     pub cloid: Option<Uuid>,
+    pub wallet: Option<&'a PrivateKeySigner>,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
-
-pub struct SetTpSlParams {
-    pub asset: u32,
-    pub reduce_only: bool,
-    pub is_buy: bool,
-    pub sz: String,
-    pub px: String,
+#[derive(Debug)]
+pub struct MarketCloseParams<'a> {
+    pub asset: &'a str,
+    pub sz: Option<f64>,
+    pub px: Option<f64>,
+    pub slippage: Option<f64>,
     pub cloid: Option<Uuid>,
-    pub order_type: ClientOrder,
+    pub wallet: Option<&'a PrivateKeySigner>,
 }
 
-#[derive(Debug, Deserialize, ToSchema)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug)]
 pub enum ClientOrder {
     Limit(ClientLimit),
     Trigger(ClientTrigger),
 }
 
-#[derive(Debug, ToSchema)]
+#[derive(Debug)]
 pub struct ClientOrderRequest {
-    pub asset: u32,
+    pub asset: String,
     pub is_buy: bool,
     pub reduce_only: bool,
     pub limit_px: f64,
@@ -98,7 +100,7 @@ pub struct ClientOrderRequest {
 }
 
 impl ClientOrderRequest {
-    pub(crate) fn convert(self) -> Result<OrderRequest> {
+    pub(crate) fn convert(self, coin_to_asset: &HashMap<String, u32>) -> Result<OrderRequest> {
         let order_type = match self.order_type {
             ClientOrder::Limit(limit) => Order::Limit(Limit { tif: limit.tif }),
             ClientOrder::Trigger(trigger) => Order::Trigger(Trigger {
@@ -107,11 +109,12 @@ impl ClientOrderRequest {
                 tpsl: trigger.tpsl,
             }),
         };
+        let &asset = coin_to_asset.get(&self.asset).ok_or(Error::AssetNotFound)?;
 
         let cloid = self.cloid.map(uuid_to_hex_string);
 
         Ok(OrderRequest {
-            asset: self.asset,
+            asset,
             is_buy: self.is_buy,
             reduce_only: self.reduce_only,
             limit_px: float_to_string_for_hashing(self.limit_px),
