@@ -14,6 +14,7 @@ async fn main() {
     recent_trades(&info_client).await;
     meta_example(&info_client).await;
     meta_and_asset_contexts_example(&info_client).await;
+    active_asset_data_example(&info_client).await;
     all_mids_example(&info_client).await;
     user_fills_example(&info_client).await;
     funding_history_example(&info_client).await;
@@ -181,6 +182,19 @@ async fn query_referral_state_example(info_client: &InfoClient) {
     info!(
         "Referral state for {user}: {:?}",
         info_client.query_referral_state(user).await.unwrap()
+    );
+}
+
+async fn active_asset_data_example(info_client: &InfoClient) {
+    let user = address();
+    let coin = "ETH";
+
+    info!(
+        "Active asset data for {user} and coin {coin}: {:?}",
+        info_client
+            .active_asset_data(user, coin.to_string())
+            .await
+            .unwrap()
     );
 }
 

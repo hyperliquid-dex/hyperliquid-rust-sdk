@@ -8,7 +8,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use crate::{
     info::{
         CandlesSnapshotResponse, FundingHistoryResponse, L2SnapshotResponse, OpenOrdersResponse,
-        OrderInfo, RecentTradesResponse, UserFillsResponse, UserStateResponse,
+        OrderInfo, RecentTradesResponse, UserFillsResponse, UserStateResponse, ActiveAssetDataResponse,
     },
     meta::{AssetContext, Meta, SpotMeta, SpotMetaAndAssetCtxs},
     prelude::*,
@@ -88,6 +88,10 @@ pub enum InfoRequest {
     },
     HistoricalOrders {
         user: Address,
+    },
+    ActiveAssetData {
+        user: Address,
+        coin: String,
     },
 }
 
@@ -304,6 +308,11 @@ impl InfoClient {
 
     pub async fn historical_orders(&self, address: Address) -> Result<Vec<OrderInfo>> {
         let input = InfoRequest::HistoricalOrders { user: address };
+        self.send_info_request(input).await
+    }
+
+    pub async fn active_asset_data(&self, user: Address, coin: String) -> Result<ActiveAssetDataResponse> {
+        let input = InfoRequest::ActiveAssetData { user, coin };
         self.send_info_request(input).await
     }
 }
