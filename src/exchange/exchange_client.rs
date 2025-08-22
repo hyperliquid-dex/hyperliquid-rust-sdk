@@ -11,8 +11,9 @@ use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
 use crate::{
     exchange::{
         actions::{
-            ApproveAgent, ApproveBuilderFee, BulkCancel, BulkModify, BulkOrder, EvmUserModify,
-            ScheduleCancel, SetReferrer, UpdateIsolatedMargin, UpdateLeverage, UsdSend,
+            ApproveAgent, ApproveBuilderFee, BulkCancel, BulkModify, BulkOrder, ClaimRewards,
+            EvmUserModify, ScheduleCancel, SetReferrer, UpdateIsolatedMargin, UpdateLeverage,
+            UsdSend,
         },
         cancel::{CancelRequest, CancelRequestCloid, ClientCancelRequestCloid},
         modify::{ClientModifyRequest, ModifyRequest},
@@ -79,6 +80,7 @@ pub enum Actions {
     ApproveBuilderFee(ApproveBuilderFee),
     EvmUserModify(EvmUserModify),
     ScheduleCancel(ScheduleCancel),
+    ClaimRewards(ClaimRewards),
 }
 
 impl Actions {
@@ -805,6 +807,22 @@ impl ExchangeClient {
 
         self.post(action, signature, timestamp).await
     }
+
+    pub async fn claim_rewards(
+        &self,
+        wallet: Option<&PrivateKeySigner>,
+    ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let timestamp = next_nonce();
+
+        let action = Actions::ClaimRewards(ClaimRewards {});
+        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+        let is_mainnet = self.http_client.is_mainnet();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+        self.post(action, signature, timestamp).await
+    }
 }
 
 fn round_to_decimals(value: f64, decimals: u32) -> f64 {
@@ -1018,6 +1036,29 @@ mod tests {
         assert_eq!(
             connection_id.to_string(),
             "0xbe889a23135fce39a37315424cc4ae910edea7b42a075457b15bf4a9f0a8cfa4"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_claim_rewards_action_hashing() -> Result<()> {
+        let wallet = get_wallet()?;
+        let action = Actions::ClaimRewards(ClaimRewards {});
+        let connection_id = action.hash(1583838, None)?;
+
+        // Test mainnet signature
+        let signature = sign_l1_action(&wallet, connection_id, true)?;
+        assert_eq!(
+            signature.to_string(),
+            "0xe13542800ba5ec821153401e1cafac484d1f861adbbb86c00b580ec2560c153248b8d9f0e004ecc86959c07d44b591861ebab2167b54651a81367e2c3d472d4e1c"
+        );
+
+        // Test testnet signature
+        let signature = sign_l1_action(&wallet, connection_id, false)?;
+        assert_eq!(
+            signature.to_string(),
+            "0x16de9b346ddd8e200492a2db45ec9104dcdfc7fbfdbcd85890a6063bdd56df2c44846714c261a431de7095ad52e07143346eb26d9e66c6aed4674f120a1048131c"
         );
 
         Ok(())
