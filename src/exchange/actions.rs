@@ -237,7 +237,7 @@ pub struct ScheduleCancel {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct ClaimRewards {}
+pub struct ClaimRewards;
 
 impl Eip712 for ApproveBuilderFee {
     fn domain(&self) -> Eip712Domain {
