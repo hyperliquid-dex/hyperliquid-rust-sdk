@@ -235,6 +235,10 @@ pub struct ScheduleCancel {
     pub time: Option<u64>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ClaimRewards;
+
 impl Eip712 for ApproveBuilderFee {
     fn domain(&self) -> Eip712Domain {
         eip_712_domain(self.signature_chain_id)
