@@ -59,6 +59,9 @@ pub struct UserFillsResponse {
     pub sz: String,
     pub time: u64,
     pub fee: String,
+    pub tid: u64,
+    pub fee_token: String,
+    pub twap_id: Option<u64>,
 }
 
 #[derive(serde::Deserialize, Debug)]
