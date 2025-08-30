@@ -83,7 +83,10 @@ pub struct DailyUserVlm {
 pub struct FeeSchedule {
     pub add: String,
     pub cross: String,
+    pub spot_cross: String,
+    pub spot_add: String,
     pub referral_discount: String,
+    pub staking_discount_tiers: Vec<StakingDiscountTier>,
     pub tiers: Tiers,
 }
 
@@ -105,6 +108,8 @@ pub struct Mm {
 pub struct Vip {
     pub add: String,
     pub cross: String,
+    pub spot_cross: String,
+    pub spot_add: String,
     pub ntl_cutoff: String,
 }
 
@@ -115,6 +120,28 @@ pub struct UserTokenBalance {
     pub hold: String,
     pub total: String,
     pub entry_ntl: String,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct StakingLink {
+    #[serde(rename = "type")]
+    pub link_type: String,
+    pub staking_user: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct StakingDiscountTier {
+    pub bps_of_max_supply: String,
+    pub discount: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveStakingDiscount {
+    pub bps_of_max_supply: String,
+    pub discount: String,
 }
 
 #[derive(Deserialize, Clone, Debug)]
