@@ -7,7 +7,8 @@ use crate::{
     ActiveStakingDiscount, DailyUserVlm, Delta, FeeSchedule, Leverage, OrderInfo, Referrer,
     ReferrerState, StakingLink, UserTokenBalance,
 };
-use serde_json::Value;
+// NOTE: Docs mention a trial field, but its format is unclear and we have not
+// observed it in practice. Omitting the field for now to avoid guessing.
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -33,7 +34,6 @@ pub struct UserFeesResponse {
     pub user_cross_rate: String,
     pub user_spot_cross_rate: String,
     pub user_spot_add_rate: String,
-    pub trial: Option<Value>,
     pub fee_trial_reward: String,
     pub next_trial_available_timestamp: Option<u64>,
     pub staking_link: Option<StakingLink>,
