@@ -123,11 +123,14 @@ pub struct UserTokenBalance {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct StakingLink {
-    #[serde(rename = "type")]
-    pub link_type: String,
-    pub staking_user: String,
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum StakingLink {
+    // {"type":"stakingUser","tradingUser":"0x..."}
+    StakingUser { trading_user: String },
+    // {"type":"tradingUser","stakingUser":"0x..."}
+    TradingUser { staking_user: String },
+    // {"type":"requested","stakingUser":"0x..."}
+    Requested { staking_user: String },
 }
 
 #[derive(Deserialize, Debug)]
