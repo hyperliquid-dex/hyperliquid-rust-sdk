@@ -44,6 +44,17 @@ pub struct PostResponseStatus {
     pub resting: Option<RestingStatus>,
 }
 
+impl PostResponseStatus {
+    // Returns the oid of the order either from the filled or resting status
+    // If neither is present, returns `None`
+    pub fn get_oid(&self) -> Option<String> {
+        self.filled
+            .as_ref()
+            .map(|filled| filled.oid.to_string())
+            .or_else(|| self.resting.as_ref().map(|resting| resting.oid.to_string()))
+    }
+}
+
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct FilledStatus {
