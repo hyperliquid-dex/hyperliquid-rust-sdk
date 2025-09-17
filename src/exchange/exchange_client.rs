@@ -13,7 +13,7 @@ use crate::{
         actions::{
             ApproveAgent, ApproveBuilderFee, BulkCancel, BulkModify, BulkOrder, ClaimRewards,
             EvmUserModify, ScheduleCancel, SendAsset, SetReferrer, UpdateIsolatedMargin,
-            UpdateLeverage, UsdSend,
+            UpdateLeverage, UsdClassTransfer, UsdSend,
         },
         cancel::{CancelRequest, CancelRequestCloid, ClientCancelRequestCloid},
         modify::{ClientModifyRequest, ModifyRequest},
@@ -26,8 +26,7 @@ use crate::{
     prelude::*,
     req::HttpClient,
     signature::{sign_l1_action, sign_typed_data},
-    BaseUrl, BulkCancelCloid, ClassTransfer, Error, ExchangeResponseStatus, SpotSend, SpotUser,
-    VaultTransfer, Withdraw3,
+    BaseUrl, BulkCancelCloid, Error, ExchangeResponseStatus, SpotSend, VaultTransfer, Withdraw3,
 };
 
 #[derive(Debug)]
@@ -57,6 +56,8 @@ struct ExchangePayload {
     #[serde(serialize_with = "serialize_sig")]
     signature: Signature,
     nonce: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    // TODO: check if skip is needed
     vault_address: Option<Address>,
 }
 
@@ -73,7 +74,6 @@ pub enum Actions {
     BatchModify(BulkModify),
     ApproveAgent(ApproveAgent),
     Withdraw3(Withdraw3),
-    SpotUser(SpotUser),
     SendAsset(SendAsset),
     VaultTransfer(VaultTransfer),
     SpotSend(SpotSend),
@@ -82,6 +82,7 @@ pub enum Actions {
     EvmUserModify(EvmUserModify),
     ScheduleCancel(ScheduleCancel),
     ClaimRewards(ClaimRewards),
+    UsdClassTransfer(UsdClassTransfer),
 }
 
 impl Actions {
@@ -218,25 +219,30 @@ impl ExchangeClient {
 
     pub async fn class_transfer(
         &self,
-        usdc: f64,
+        usd_amount: f64,
         to_perp: bool,
         wallet: Option<&PrivateKeySigner>,
     ) -> Result<ExchangeResponseStatus> {
-        // payload expects usdc without decimals
-        let usdc = (usdc * 1e6).round() as u64;
         let wallet = wallet.unwrap_or(&self.wallet);
+        let hyperliquid_chain = if self.http_client.is_mainnet() {
+            "Mainnet".to_string()
+        } else {
+            "Testnet".to_string()
+        };
 
-        let timestamp = next_nonce();
+        let nonce = next_nonce();
+        let payload = UsdClassTransfer {
+            signature_chain_id: 421614,
+            hyperliquid_chain,
+            amount: format!("{}", usd_amount),
+            to_perp,
+            nonce,
+        };
+        let signature = sign_typed_data(&payload, wallet)?;
+        let action = serde_json::to_value(Actions::UsdClassTransfer(payload))
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
 
-        let action = Actions::SpotUser(SpotUser {
-            class_transfer: ClassTransfer { usdc, to_perp },
-        });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-        let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
-
-        self.post(action, signature, timestamp).await
+        self.post(action, signature, nonce).await
     }
 
     pub async fn send_asset(
