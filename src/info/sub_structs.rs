@@ -1,5 +1,6 @@
 use alloy::primitives::Address;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -146,6 +147,9 @@ pub struct ActiveStakingDiscount {
     pub bps_of_max_supply: String,
     pub discount: String,
 }
+
+/// The API exposes a `trial` object whose schema is not yet documented; capture it raw for now.
+pub type TrialInfo = Value;
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]

@@ -5,10 +5,9 @@ use alloy::primitives::Address;
 use crate::{
     info::{AssetPosition, Level, MarginSummary},
     ActiveStakingDiscount, DailyUserVlm, Delta, FeeSchedule, Leverage, OrderInfo, Referrer,
-    ReferrerState, StakingLink, UserTokenBalance,
+    ReferrerState, StakingLink, TrialInfo, UserTokenBalance,
 };
-// NOTE: Docs mention a trial field, but its format is unclear and we have not
-// observed it in practice. Omitting the field for now to avoid guessing.
+// NOTE: The `trial` field appears but the schema is undocumented; capture it as raw JSON for now.
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -34,6 +33,8 @@ pub struct UserFeesResponse {
     pub user_cross_rate: String,
     pub user_spot_cross_rate: String,
     pub user_spot_add_rate: String,
+    #[serde(default)]
+    pub trial: Option<TrialInfo>,
     pub fee_trial_reward: String,
     pub next_trial_available_timestamp: Option<u64>,
     pub staking_link: Option<StakingLink>,
