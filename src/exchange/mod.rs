@@ -13,6 +13,6 @@ pub use exchange_client::*;
 pub use exchange_responses::*;
 pub use modify::{ClientModifyRequest, ModifyRequest};
 pub use order::{
-    ClientLimit, ClientOrder, ClientOrderRequest, ClientTrigger, MarketCloseParams,
-    MarketOrderParams, Order,
+    ClientLimit, ClientOrder, ClientOrderRequest, ClientTrigger, Limit, MarketCloseParams,
+    MarketOrderParams, Order, OrderRequest, Trigger,
 };
