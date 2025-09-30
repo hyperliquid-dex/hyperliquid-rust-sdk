@@ -186,15 +186,30 @@ impl Eip712 for SpotSend {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
-pub struct SpotUser {
-    pub class_transfer: ClassTransfer,
+pub struct UsdClassTransfer {
+    #[serde(serialize_with = "serialize_hex")]
+    pub signature_chain_id: u64,
+    pub hyperliquid_chain: String,
+    pub amount: String,
+    pub to_perp: bool,
+    pub nonce: u64,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct ClassTransfer {
-    pub usdc: u64,
-    pub to_perp: bool,
+impl Eip712 for UsdClassTransfer {
+    fn domain(&self) -> Eip712Domain {
+        eip_712_domain(self.signature_chain_id)
+    }
+
+    fn struct_hash(&self) -> B256 {
+        let items = (
+            keccak256("HyperliquidTransaction:UsdClassTransfer(string hyperliquidChain,string amount,bool toPerp,uint64 nonce)"),
+            keccak256(&self.hyperliquid_chain),
+            keccak256(&self.amount),
+            self.to_perp,
+            &self.nonce,
+        );
+        keccak256(items.abi_encode())
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
