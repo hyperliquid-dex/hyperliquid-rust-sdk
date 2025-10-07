@@ -85,6 +85,14 @@ impl BaseUrl {
             BaseUrl::Testnet => TESTNET_API_URL.to_string(),
         }
     }
+
+    pub(crate) fn is_mainnet(&self) -> bool {
+        match self {
+            BaseUrl::Mainnet => true,
+            BaseUrl::Testnet => false,
+            BaseUrl::Localhost => false,
+        }
+    }
 }
 
 lazy_static! {

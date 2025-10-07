@@ -7,8 +7,9 @@ use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     info::{
-        CandlesSnapshotResponse, FundingHistoryResponse, L2SnapshotResponse, OpenOrdersResponse,
-        OrderInfo, RecentTradesResponse, UserFillsResponse, UserStateResponse, ActiveAssetDataResponse,
+        ActiveAssetDataResponse, CandlesSnapshotResponse, FundingHistoryResponse,
+        L2SnapshotResponse, OpenOrdersResponse, OrderInfo, RecentTradesResponse, UserFillsResponse,
+        UserStateResponse,
     },
     meta::{AssetContext, Meta, SpotMeta, SpotMetaAndAssetCtxs},
     prelude::*,
@@ -104,26 +105,41 @@ pub struct InfoClient {
 
 impl InfoClient {
     pub async fn new(client: Option<Client>, base_url: Option<BaseUrl>) -> Result<InfoClient> {
-        Self::new_internal(client, base_url, false).await
+        Self::with_base_url(client, base_url, false).await
     }
 
     pub async fn with_reconnect(
         client: Option<Client>,
         base_url: Option<BaseUrl>,
     ) -> Result<InfoClient> {
-        Self::new_internal(client, base_url, true).await
+        Self::with_base_url(client, base_url, true).await
     }
 
-    async fn new_internal(
+    async fn with_base_url(
         client: Option<Client>,
         base_url: Option<BaseUrl>,
         reconnect: bool,
     ) -> Result<InfoClient> {
+        let base_url = base_url.unwrap_or(BaseUrl::Mainnet);
+        let is_mainnet = base_url.is_mainnet();
+        let base_url = base_url.get_url();
+        Self::with_custom_url(client, base_url, is_mainnet, reconnect).await
+    }
+
+    pub async fn with_custom_url(
+        client: Option<Client>,
+        base_url: String,
+        is_mainnet: bool,
+        reconnect: bool,
+    ) -> Result<InfoClient> {
         let client = client.unwrap_or_default();
-        let base_url = base_url.unwrap_or(BaseUrl::Mainnet).get_url();
 
         Ok(InfoClient {
-            http_client: HttpClient { client, base_url },
+            http_client: HttpClient {
+                client,
+                base_url,
+                is_mainnet,
+            },
             ws_manager: None,
             reconnect,
         })
@@ -311,7 +327,11 @@ impl InfoClient {
         self.send_info_request(input).await
     }
 
-    pub async fn active_asset_data(&self, user: Address, coin: String) -> Result<ActiveAssetDataResponse> {
+    pub async fn active_asset_data(
+        &self,
+        user: Address,
+        coin: String,
+    ) -> Result<ActiveAssetDataResponse> {
         let input = InfoRequest::ActiveAssetData { user, coin };
         self.send_info_request(input).await
     }

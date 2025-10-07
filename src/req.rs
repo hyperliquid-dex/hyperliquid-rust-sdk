@@ -1,7 +1,7 @@
 use reqwest::{Client, Response};
 use serde::Deserialize;
 
-use crate::{prelude::*, BaseUrl, Error};
+use crate::{prelude::*, Error};
 
 #[derive(Deserialize, Debug)]
 struct ErrorData {
@@ -14,6 +14,7 @@ struct ErrorData {
 pub struct HttpClient {
     pub client: Client,
     pub base_url: String,
+    pub is_mainnet: bool,
 }
 
 async fn parse_response(response: Response) -> Result<String> {
@@ -70,6 +71,6 @@ impl HttpClient {
     }
 
     pub fn is_mainnet(&self) -> bool {
-        self.base_url == BaseUrl::Mainnet.get_url()
+        self.is_mainnet
     }
 }
