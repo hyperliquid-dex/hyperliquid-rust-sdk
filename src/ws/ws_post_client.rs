@@ -23,7 +23,7 @@ use tokio::{
     net::TcpStream,
     spawn,
     sync::{Mutex, oneshot},
-    time::{timeout, sleep},
+    time::{timeout, sleep, Instant},
 };
 use tokio_tungstenite::{
     connect_async_with_config,
@@ -98,18 +98,67 @@ struct Ping {
 
 type ResponseSender = oneshot::Sender<Result<ExchangeResponseStatus, Error>>;
 
+/// Timing statistics for a specific operation
+#[derive(Debug, Clone, Copy, Default)]
+pub struct TimingStats {
+    pub avg_ms: f64,
+    pub min_ms: f64,
+    pub max_ms: f64,
+    count: u64,
+    sum_ms: f64,
+}
+
+impl TimingStats {
+    fn update(&mut self, duration_ms: f64) {
+        self.count += 1;
+        self.sum_ms += duration_ms;
+        self.avg_ms = self.sum_ms / self.count as f64;
+        self.min_ms = self.min_ms.min(duration_ms);
+        self.max_ms = self.max_ms.max(duration_ms);
+    }
+}
+
+/// Performance metrics for bulk order operations
+#[derive(Debug, Clone, Copy, Default)]
+pub struct BulkOrderMetrics {
+    pub compute_time: TimingStats,
+    pub send_time: TimingStats,
+}
+
+/// Performance metrics for bulk cancel operations
+#[derive(Debug, Clone, Copy, Default)]
+pub struct BulkCancelMetrics {
+    pub compute_time: TimingStats,
+    pub send_time: TimingStats,
+}
+
+#[derive(Debug)]
+struct PerformanceMetrics {
+    bulk_order: Mutex<BulkOrderMetrics>,
+    bulk_cancel: Mutex<BulkCancelMetrics>,
+}
+
 #[derive(Debug)]
 pub struct WsPostClient {
     writer: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>>>,
     pending_requests: Arc<Mutex<HashMap<u64, ResponseSender>>>,
     request_id_counter: AtomicU64,
     stop_flag: Arc<AtomicBool>,
+    performance_logging: bool,
+    metrics: Option<PerformanceMetrics>,
 }
 
 impl WsPostClient {
     const SEND_PING_INTERVAL: u64 = 50;
 
     pub async fn new(base_url: BaseUrl) -> Result<Self, Error> {
+        Self::with_performance_logging(base_url, false).await
+    }
+
+    pub async fn with_performance_logging(
+        base_url: BaseUrl,
+        performance_logging: bool,
+    ) -> Result<Self, Error> {
         let url = match base_url {
             BaseUrl::Mainnet => "wss://api.hyperliquid.xyz/ws",
             BaseUrl::Testnet => "wss://api.hyperliquid-testnet.xyz/ws",
@@ -185,11 +234,22 @@ impl WsPostClient {
             });
         }
 
+        let metrics = if performance_logging {
+            Some(PerformanceMetrics {
+                bulk_order: Mutex::new(BulkOrderMetrics::default()),
+                bulk_cancel: Mutex::new(BulkCancelMetrics::default()),
+            })
+        } else {
+            None
+        };
+
         Ok(Self {
             writer,
             pending_requests,
             request_id_counter: AtomicU64::new(1),
             stop_flag,
+            performance_logging,
+            metrics,
         })
     }
 
@@ -283,6 +343,12 @@ impl WsPostClient {
         is_mainnet: bool,
         vault_address: Option<H160>,
     ) -> Result<ExchangeResponseStatus, Error> {
+        let compute_start = if self.performance_logging {
+            Some(Instant::now())
+        } else {
+            None
+        };
+
         let timestamp = next_nonce();
         let full_action = Actions::Order(action);
         let connection_id = self.calculate_action_hash(&full_action, timestamp, vault_address)?;
@@ -300,7 +366,30 @@ impl WsPostClient {
             vault_address,
         };
 
-        self.send_request(payload, Duration::from_secs(15)).await
+        let compute_duration = compute_start.map(|start| start.elapsed().as_secs_f64() * 1000.0);
+
+        let send_start = if self.performance_logging {
+            Some(Instant::now())
+        } else {
+            None
+        };
+
+        let result = self.send_request(payload, Duration::from_secs(15)).await;
+
+        if self.performance_logging {
+            if let Some(compute_ms) = compute_duration {
+                if let Some(send_start) = send_start {
+                    let send_ms = send_start.elapsed().as_secs_f64() * 1000.0;
+                    if let Some(metrics) = &self.metrics {
+                        let mut bulk_order_metrics = metrics.bulk_order.lock().await;
+                        bulk_order_metrics.compute_time.update(compute_ms);
+                        bulk_order_metrics.send_time.update(send_ms);
+                    }
+                }
+            }
+        }
+
+        result
     }
 
     pub async fn bulk_cancel_by_cloid(
@@ -310,6 +399,12 @@ impl WsPostClient {
         is_mainnet: bool,
         vault_address: Option<H160>,
     ) -> Result<ExchangeResponseStatus, Error> {
+        let compute_start = if self.performance_logging {
+            Some(Instant::now())
+        } else {
+            None
+        };
+
         let timestamp = next_nonce();
         let full_action = Actions::CancelByCloid(action);
         let connection_id = self.calculate_action_hash(&full_action, timestamp, vault_address)?;
@@ -327,7 +422,30 @@ impl WsPostClient {
             vault_address,
         };
 
-        self.send_request(payload, Duration::from_secs(15)).await
+        let compute_duration = compute_start.map(|start| start.elapsed().as_secs_f64() * 1000.0);
+
+        let send_start = if self.performance_logging {
+            Some(Instant::now())
+        } else {
+            None
+        };
+
+        let result = self.send_request(payload, Duration::from_secs(15)).await;
+
+        if self.performance_logging {
+            if let Some(compute_ms) = compute_duration {
+                if let Some(send_start) = send_start {
+                    let send_ms = send_start.elapsed().as_secs_f64() * 1000.0;
+                    if let Some(metrics) = &self.metrics {
+                        let mut bulk_cancel_metrics = metrics.bulk_cancel.lock().await;
+                        bulk_cancel_metrics.compute_time.update(compute_ms);
+                        bulk_cancel_metrics.send_time.update(send_ms);
+                    }
+                }
+            }
+        }
+
+        result
     }
 
     fn calculate_action_hash<T: Serialize>(
@@ -346,6 +464,35 @@ impl WsPostClient {
             bytes.push(0);
         }
         Ok(H256(ethers::utils::keccak256(bytes)))
+    }
+
+    /// Get performance metrics for bulk order operations
+    /// Returns None if performance logging is disabled
+    pub async fn get_bulk_order_metrics(&self) -> Option<BulkOrderMetrics> {
+        if let Some(metrics) = &self.metrics {
+            Some(*metrics.bulk_order.lock().await)
+        } else {
+            None
+        }
+    }
+
+    /// Get performance metrics for bulk cancel operations
+    /// Returns None if performance logging is disabled
+    pub async fn get_bulk_cancel_metrics(&self) -> Option<BulkCancelMetrics> {
+        if let Some(metrics) = &self.metrics {
+            Some(*metrics.bulk_cancel.lock().await)
+        } else {
+            None
+        }
+    }
+
+    /// Reset all performance metrics
+    /// Does nothing if performance logging is disabled
+    pub async fn reset_metrics(&self) {
+        if let Some(metrics) = &self.metrics {
+            *metrics.bulk_order.lock().await = BulkOrderMetrics::default();
+            *metrics.bulk_cancel.lock().await = BulkCancelMetrics::default();
+        }
     }
 }
 
