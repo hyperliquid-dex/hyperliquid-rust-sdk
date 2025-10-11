@@ -765,13 +765,18 @@ impl ExchangeClient {
 
     /// Initialize WebSocket post client for faster order execution
     pub async fn init_ws_post_client(&mut self) -> Result<()> {
+        self.init_ws_post_client_with_logging(false).await
+    }
+
+    /// Initialize WebSocket post client with optional performance logging
+    pub async fn init_ws_post_client_with_logging(&mut self, performance_logging: bool) -> Result<()> {
         let base_url = match self.http_client.base_url.as_str() {
             "https://api.hyperliquid.xyz" => BaseUrl::Mainnet,
             "https://api.hyperliquid-testnet.xyz" => BaseUrl::Testnet,
             _ => return Err(Error::GenericRequest("Invalid base URL".to_string())),
         };
-        
-        self.ws_post_client = Some(WsPostClient::new(base_url).await?);
+
+        self.ws_post_client = Some(WsPostClient::with_performance_logging(base_url, performance_logging).await?);
         Ok(())
     }
 
@@ -830,6 +835,28 @@ impl ExchangeClient {
 
         let is_mainnet = self.http_client.is_mainnet();
         ws_client.bulk_cancel_by_cloid(action, wallet, is_mainnet, self.vault_address).await
+    }
+
+    /// Get performance metrics for WebSocket bulk order operations
+    /// Returns None if WebSocket client is not initialized or performance logging is disabled
+    pub async fn get_ws_bulk_order_metrics(&self) -> Option<crate::ws::BulkOrderMetrics> {
+        let ws_client = self.ws_post_client.as_ref()?;
+        ws_client.get_bulk_order_metrics().await
+    }
+
+    /// Get performance metrics for WebSocket bulk cancel operations
+    /// Returns None if WebSocket client is not initialized or performance logging is disabled
+    pub async fn get_ws_bulk_cancel_metrics(&self) -> Option<crate::ws::BulkCancelMetrics> {
+        let ws_client = self.ws_post_client.as_ref()?;
+        ws_client.get_bulk_cancel_metrics().await
+    }
+
+    /// Reset all WebSocket performance metrics
+    /// Does nothing if WebSocket client is not initialized or performance logging is disabled
+    pub async fn reset_ws_metrics(&self) {
+        if let Some(ws_client) = &self.ws_post_client {
+            ws_client.reset_metrics().await;
+        }
     }
 }
 
