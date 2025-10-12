@@ -820,7 +820,12 @@ pub fn modify_order_payload(
     })
 }
 
-pub fn order_payload(order: ClientOrderRequest, coin_to_id: &HashMap<String, u32>, vault_address: Option<H160>, wallet: &LocalWallet) -> Result<ExchangePayload> {
+pub fn order_payload(
+    order: ClientOrderRequest,
+    coin_to_id: &HashMap<String, u32>,
+    vault_address: Option<H160>,
+    wallet: &LocalWallet,
+) -> Result<ExchangePayload> {
     let nonce = next_nonce();
 
     let mut transformed_orders = Vec::new();
@@ -854,14 +859,11 @@ pub fn cancel_order_payload(
     let nonce = next_nonce();
 
     let mut transformed_cancels = Vec::new();
-    let &asset = 
-                coin_to_id
-                .get(&params.asset)
-                .ok_or(Error::AssetNotFound)?;
-            transformed_cancels.push(CancelRequest {
-                asset,
-                oid: params.oid,
-            });
+    let &asset = coin_to_id.get(&params.asset).ok_or(Error::AssetNotFound)?;
+    transformed_cancels.push(CancelRequest {
+        asset,
+        oid: params.oid,
+    });
 
     let action = Actions::Cancel(BulkCancel {
         cancels: transformed_cancels,
