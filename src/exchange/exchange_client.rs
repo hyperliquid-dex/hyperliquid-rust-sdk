@@ -769,14 +769,18 @@ impl ExchangeClient {
     }
 
     /// Initialize WebSocket post client with optional performance logging
-    pub async fn init_ws_post_client_with_logging(&mut self, performance_logging: bool) -> Result<()> {
+    pub async fn init_ws_post_client_with_logging(
+        &mut self,
+        performance_logging: bool,
+    ) -> Result<()> {
         let base_url = match self.http_client.base_url.as_str() {
             "https://api.hyperliquid.xyz" => BaseUrl::Mainnet,
             "https://api.hyperliquid-testnet.xyz" => BaseUrl::Testnet,
             _ => return Err(Error::GenericRequest("Invalid base URL".to_string())),
         };
 
-        self.ws_post_client = Some(WsPostClient::with_performance_logging(base_url, performance_logging).await?);
+        self.ws_post_client =
+            Some(WsPostClient::with_performance_logging(base_url, performance_logging).await?);
         Ok(())
     }
 
@@ -786,9 +790,12 @@ impl ExchangeClient {
         orders: Vec<ClientOrderRequest>,
         wallet: Option<&LocalWallet>,
     ) -> Result<ExchangeResponseStatus> {
-        let ws_client = self.ws_post_client.as_ref()
-            .ok_or_else(|| Error::GenericRequest("WebSocket client not initialized. Call init_ws_post_client() first.".to_string()))?;
-        
+        let ws_client = self.ws_post_client.as_ref().ok_or_else(|| {
+            Error::GenericRequest(
+                "WebSocket client not initialized. Call init_ws_post_client() first.".to_string(),
+            )
+        })?;
+
         let wallet = wallet.unwrap_or(&self.wallet);
         let mut transformed_orders = Vec::new();
 
@@ -803,7 +810,44 @@ impl ExchangeClient {
         };
 
         let is_mainnet = self.http_client.is_mainnet();
-        ws_client.bulk_order(action, wallet, is_mainnet, self.vault_address).await
+        ws_client
+            .bulk_order(action, wallet, is_mainnet, self.vault_address)
+            .await
+    }
+
+    /// NEW: Execute bulk order via WebSocket and get the nonce back.
+    ///
+    /// This function is useful for scenarios where you need to track the specific
+    /// timestamp (nonce) of a request for follow-up actions, like sending a no-op.
+    pub async fn bulk_order_ws_with_nonce(
+        &self,
+        orders: Vec<ClientOrderRequest>,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<(ExchangeResponseStatus, u64)> {
+        let ws_client = self.ws_post_client.as_ref().ok_or_else(|| {
+            Error::GenericRequest(
+                "WebSocket client not initialized. Call init_ws_post_client() first.".to_string(),
+            )
+        })?;
+
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let mut transformed_orders = Vec::new();
+
+        for order in orders {
+            transformed_orders.push(order.convert(&self.coin_to_asset)?);
+        }
+
+        let action = BulkOrder {
+            orders: transformed_orders,
+            grouping: "na".to_string(),
+            builder: None,
+        };
+
+        let is_mainnet = self.http_client.is_mainnet();
+        // Call the new WsPostClient method
+        ws_client
+            .bulk_order_with_nonce(action, wallet, is_mainnet, self.vault_address)
+            .await
     }
 
     /// Execute bulk cancel by cloid via WebSocket for lower latency
@@ -812,12 +856,15 @@ impl ExchangeClient {
         cancels: Vec<ClientCancelRequestCloid>,
         wallet: Option<&LocalWallet>,
     ) -> Result<ExchangeResponseStatus> {
-        let ws_client = self.ws_post_client.as_ref()
-            .ok_or_else(|| Error::GenericRequest("WebSocket client not initialized. Call init_ws_post_client() first.".to_string()))?;
-            
+        let ws_client = self.ws_post_client.as_ref().ok_or_else(|| {
+            Error::GenericRequest(
+                "WebSocket client not initialized. Call init_ws_post_client() first.".to_string(),
+            )
+        })?;
+
         let wallet = wallet.unwrap_or(&self.wallet);
         let mut transformed_cancels: Vec<CancelRequestCloid> = Vec::new();
-        
+
         for cancel in cancels.into_iter() {
             let &asset = self
                 .coin_to_asset
@@ -834,7 +881,9 @@ impl ExchangeClient {
         };
 
         let is_mainnet = self.http_client.is_mainnet();
-        ws_client.bulk_cancel_by_cloid(action, wallet, is_mainnet, self.vault_address).await
+        ws_client
+            .bulk_cancel_by_cloid(action, wallet, is_mainnet, self.vault_address)
+            .await
     }
 
     /// Get performance metrics for WebSocket bulk order operations

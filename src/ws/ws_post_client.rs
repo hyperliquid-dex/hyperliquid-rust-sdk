@@ -1,8 +1,6 @@
 use crate::{
-    exchange::Actions,
-    helpers::next_nonce,
-    signature::sign_l1_action,
-    BaseUrl, BulkCancelCloid, BulkOrder, Error, ExchangeResponseStatus,
+    exchange::Actions, helpers::next_nonce, signature::sign_l1_action, BaseUrl, BulkCancelCloid,
+    BulkOrder, Error, ExchangeResponseStatus,
 };
 use ethers::{
     signers::LocalWallet,
@@ -22,8 +20,8 @@ use std::{
 use tokio::{
     net::TcpStream,
     spawn,
-    sync::{Mutex, oneshot},
-    time::{timeout, sleep, Instant},
+    sync::{oneshot, Mutex},
+    time::{sleep, timeout, Instant},
 };
 use tokio_tungstenite::{
     connect_async_with_config,
@@ -165,13 +163,10 @@ impl WsPostClient {
             BaseUrl::Localhost => "ws://localhost:3001/ws",
         };
 
-        let (ws_stream, _) = connect_async_with_config(
-            url,
-            Some(create_optimized_websocket_config()),
-            true,
-        )
-        .await
-        .map_err(|e| Error::Websocket(e.to_string()))?;
+        let (ws_stream, _) =
+            connect_async_with_config(url, Some(create_optimized_websocket_config()), true)
+                .await
+                .map_err(|e| Error::Websocket(e.to_string()))?;
 
         let (writer, mut reader) = ws_stream.split();
         let writer = Arc::new(Mutex::new(writer));
@@ -187,7 +182,10 @@ impl WsPostClient {
                 if let Some(msg) = reader.next().await {
                     match msg {
                         Ok(protocol::Message::Text(text)) => {
-                            if let Err(e) = Self::handle_response(text.to_string(), &pending_requests_clone).await {
+                            if let Err(e) =
+                                Self::handle_response(text.to_string(), &pending_requests_clone)
+                                    .await
+                            {
                                 error!("Error handling websocket response: {}", e);
                             }
                         }
@@ -223,7 +221,9 @@ impl WsPostClient {
                     match serde_json::to_string(&Ping { method: "ping" }) {
                         Ok(payload) => {
                             let mut writer = writer_clone.lock().await;
-                            if let Err(err) = writer.send(protocol::Message::Text(payload.into())).await {
+                            if let Err(err) =
+                                writer.send(protocol::Message::Text(payload.into())).await
+                            {
                                 error!("Error pinging server: {}", err);
                             }
                         }
@@ -282,7 +282,7 @@ impl WsPostClient {
 
         // If that fails, it might be an error string - log it
         error!("Received non-standard response: {}", text);
-        
+
         // For now, we can't correlate this to a specific request, so we'll ignore it
         // In a production system, you might want to handle this differently
         Ok(())
@@ -336,13 +336,15 @@ impl WsPostClient {
         }
     }
 
-    pub async fn bulk_order(
+    /// Private core function for sending a bulk order.
+    /// Returns the response and the nonce used.
+    async fn _send_bulk_order(
         &self,
         action: BulkOrder,
         wallet: &LocalWallet,
         is_mainnet: bool,
         vault_address: Option<H160>,
-    ) -> Result<ExchangeResponseStatus, Error> {
+    ) -> Result<(ExchangeResponseStatus, u64), Error> {
         let compute_start = if self.performance_logging {
             Some(Instant::now())
         } else {
@@ -389,7 +391,33 @@ impl WsPostClient {
             }
         }
 
-        result
+        result.map(|res| (res, timestamp))
+    }
+
+    /// The original bulk_order function, now a thin wrapper.
+    pub async fn bulk_order(
+        &self,
+        action: BulkOrder,
+        wallet: &LocalWallet,
+        is_mainnet: bool,
+        vault_address: Option<H160>,
+    ) -> Result<ExchangeResponseStatus, Error> {
+        let (response, _nonce) = self
+            ._send_bulk_order(action, wallet, is_mainnet, vault_address)
+            .await?;
+        Ok(response)
+    }
+
+    /// New function that returns the nonce along with the response.
+    pub async fn bulk_order_with_nonce(
+        &self,
+        action: BulkOrder,
+        wallet: &LocalWallet,
+        is_mainnet: bool,
+        vault_address: Option<H160>,
+    ) -> Result<(ExchangeResponseStatus, u64), Error> {
+        self._send_bulk_order(action, wallet, is_mainnet, vault_address)
+            .await
     }
 
     pub async fn bulk_cancel_by_cloid(
@@ -505,13 +533,13 @@ impl Drop for WsPostClient {
 /// Create optimized WebSocket configuration for low-latency trading
 fn create_optimized_websocket_config() -> WebSocketConfig {
     let mut config = WebSocketConfig::default();
-    
+
     config.read_buffer_size = 64 * 1024;
     config.write_buffer_size = 0;
     config.max_write_buffer_size = 512 * 1024;
     config.max_message_size = None;
     config.max_frame_size = Some(128 * 1024);
     config.accept_unmasked_frames = false;
-    
+
     config
 }
