@@ -70,6 +70,7 @@ pub enum Actions {
     SpotSend(SpotSend),
     SetReferrer(SetReferrer),
     ApproveBuilderFee(ApproveBuilderFee),
+    Noop,
 }
 
 impl Actions {
@@ -906,6 +907,53 @@ impl ExchangeClient {
         if let Some(ws_client) = &self.ws_post_client {
             ws_client.reset_metrics().await;
         }
+    }
+
+    /// Send a no-op transaction via standard HTTPS REST.
+    ///
+    /// This is useful for cancelling a stuck transaction by submitting a new transaction
+    /// with the same nonce. The server will only accept the first one it sees.
+    pub async fn noop(
+        &self,
+        nonce: u64,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+
+        let action = Actions::Noop;
+
+        // Use the provided nonce for hashing, signing, and posting
+        let connection_id = action.hash(nonce, self.vault_address)?;
+        let action_value =
+            serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        let is_mainnet = self.http_client.is_mainnet();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+        self.post(action_value, signature, nonce).await
+    }
+
+    /// Send a no-op transaction via WebSocket for lower latency.
+    ///
+    /// This is useful for cancelling a stuck transaction by submitting a new transaction
+    /// with the same nonce. The server will only accept the first one it sees.
+    pub async fn noop_ws(
+        &self,
+        nonce: u64,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        let ws_client = self.ws_post_client.as_ref().ok_or_else(|| {
+            Error::GenericRequest(
+                "WebSocket client not initialized. Call init_ws_post_client() first.".to_string(),
+            )
+        })?;
+
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let is_mainnet = self.http_client.is_mainnet();
+
+        ws_client
+            .noop(nonce, wallet, is_mainnet, self.vault_address)
+            .await
     }
 }
 

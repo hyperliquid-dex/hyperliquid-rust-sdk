@@ -494,6 +494,32 @@ impl WsPostClient {
         Ok(H256(ethers::utils::keccak256(bytes)))
     }
 
+    pub async fn noop(
+        &self,
+        nonce: u64,
+        wallet: &LocalWallet,
+        is_mainnet: bool,
+        vault_address: Option<H160>,
+    ) -> Result<ExchangeResponseStatus, Error> {
+        let full_action = Actions::Noop;
+        let connection_id = self.calculate_action_hash(&full_action, nonce, vault_address)?;
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+        let r = format!("0x{:x}", signature.r);
+        let s = format!("0x{:x}", signature.s);
+        let v = signature.v as u8;
+
+        let payload = WsExchangePayload {
+            action: serde_json::to_value(&full_action)
+                .map_err(|e| Error::JsonParse(e.to_string()))?,
+            signature: WsSignature { r, s, v },
+            nonce, // Use the provided nonce
+            vault_address,
+        };
+
+        self.send_request(payload, Duration::from_secs(15)).await
+    }
+
     /// Get performance metrics for bulk order operations
     /// Returns None if performance logging is disabled
     pub async fn get_bulk_order_metrics(&self) -> Option<BulkOrderMetrics> {
