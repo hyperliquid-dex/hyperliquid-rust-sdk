@@ -7,8 +7,8 @@ use crate::{
     prelude::*,
     req::HttpClient,
     ws::{Subscription, WsManager},
-    BaseUrl, Error, Message, OrderStatusResponse, ReferralResponse, UserFeesResponse,
-    UserFundingResponse, UserTokenBalanceResponse,
+    ActiveAssetDataResponse, BaseUrl, Error, Message, OrderStatusResponse, ReferralResponse,
+    UserFeesResponse, UserFundingResponse, UserTokenBalanceResponse,
 };
 
 use ethers::types::H160;
@@ -41,6 +41,10 @@ pub enum InfoRequest {
     #[serde(rename = "spotClearinghouseState")]
     UserTokenBalances {
         user: H160,
+    },
+    ActiveAssetData {
+        user: H160,
+        coin: String,
     },
     UserFees {
         user: H160,
@@ -222,6 +226,18 @@ impl InfoClient {
 
     pub async fn user_fills(&self, address: H160) -> Result<Vec<UserFillsResponse>> {
         let input = InfoRequest::UserFills { user: address };
+        self.send_info_request(input).await
+    }
+
+    pub async fn active_asset_data(
+        &self,
+        address: H160,
+        coin: String,
+    ) -> Result<ActiveAssetDataResponse> {
+        let input = InfoRequest::ActiveAssetData {
+            user: address,
+            coin,
+        };
         self.send_info_request(input).await
     }
 

@@ -197,7 +197,10 @@ mod tests {
         });
 
         let position: PositionData = serde_json::from_value(json_with_nan).unwrap();
-        assert!(position.liquidation_px.is_none(), "Expected None for NaN liquidation price");
+        assert!(
+            position.liquidation_px.is_none(),
+            "Expected None for NaN liquidation price"
+        );
 
         // Test case with valid liquidation price
         let json_with_price = json!({
@@ -223,6 +226,10 @@ mod tests {
         });
 
         let position: PositionData = serde_json::from_value(json_with_price).unwrap();
-        assert_eq!(position.liquidation_px, Some("45000".to_string()), "Expected Some(45000) for valid liquidation price");
+        assert_eq!(
+            position.liquidation_px,
+            Some("45000".to_string()),
+            "Expected Some(45000) for valid liquidation price"
+        );
     }
 }

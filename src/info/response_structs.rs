@@ -1,8 +1,9 @@
 use crate::{
     info::{AssetPosition, Level},
-    DailyUserVlm, Delta, FeeSchedule, MarginSummary, OrderInfo, Referrer, ReferrerState,
+    DailyUserVlm, Delta, FeeSchedule, Leverage, MarginSummary, OrderInfo, Referrer, ReferrerState,
     UserTokenBalance,
 };
+use alloy::primitives::Address;
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
@@ -17,6 +18,17 @@ pub struct UserStateResponse {
 #[derive(Deserialize, Debug)]
 pub struct UserTokenBalanceResponse {
     pub balances: Vec<UserTokenBalance>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveAssetDataResponse {
+    pub user: Address,
+    pub coin: String,
+    pub leverage: Leverage,
+    pub max_trade_szs: Vec<String>,
+    pub available_to_trade: Vec<String>,
+    pub mark_px: String,
 }
 
 #[derive(Deserialize, Debug)]
