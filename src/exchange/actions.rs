@@ -199,6 +199,42 @@ pub struct ClassTransfer {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+pub struct SendAsset {
+    #[serde(serialize_with = "serialize_hex")]
+    pub signature_chain_id: u64,
+    pub hyperliquid_chain: String,
+    pub destination: String,
+    pub source_dex: String,
+    pub destination_dex: String,
+    pub token: String,
+    pub amount: String,
+    pub from_sub_account: String,
+    pub nonce: u64,
+}
+
+impl Eip712 for SendAsset {
+    fn domain(&self) -> Eip712Domain {
+        eip_712_domain(self.signature_chain_id)
+    }
+
+    fn struct_hash(&self) -> B256 {
+        let items = (
+            keccak256("HyperliquidTransaction:SendAsset(string hyperliquidChain,string destination,string sourceDex,string destinationDex,string token,string amount,string fromSubAccount,uint64 nonce)"),
+            keccak256(&self.hyperliquid_chain),
+            keccak256(&self.destination),
+            keccak256(&self.source_dex),
+            keccak256(&self.destination_dex),
+            keccak256(&self.token),
+            keccak256(&self.amount),
+            keccak256(&self.from_sub_account),
+            &self.nonce,
+        );
+        keccak256(items.abi_encode())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct VaultTransfer {
     pub vault_address: Address,
     pub is_deposit: bool,
