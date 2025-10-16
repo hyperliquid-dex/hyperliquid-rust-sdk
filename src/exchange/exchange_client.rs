@@ -16,6 +16,7 @@ use crate::{
     req::HttpClient,
     signature::sign_l1_action,
     ws::WsPostClient,
+    ws_post_client::PreparedRequest,
     BaseUrl, BulkCancelCloid, Error, ExchangeResponseStatus,
 };
 use crate::{ClassTransfer, SpotSend, SpotUser, VaultTransfer, Withdraw3};
@@ -28,6 +29,7 @@ use log::debug;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use tokio_tungstenite::tungstenite::protocol;
 
 use super::cancel::ClientCancelRequestCloid;
 use super::order::{MarketCloseParams, MarketOrderParams};
@@ -41,6 +43,13 @@ pub struct ExchangeClient {
     pub vault_address: Option<H160>,
     pub coin_to_asset: HashMap<String, u32>,
     pub ws_post_client: Option<WsPostClient>,
+}
+
+/// Holds a prepared bulk order request, including the WebSocket message and the nonce.
+#[derive(Debug)]
+pub struct PreparedBulkOrder {
+    pub prepared_request: PreparedRequest,
+    pub nonce: u64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -785,11 +794,77 @@ impl ExchangeClient {
         Ok(())
     }
 
-    /// Execute bulk order via WebSocket for lower latency
-    pub async fn bulk_order_ws(
+    /// Prepares a bulk order request for WebSocket execution without sending it.
+    /// Returns a prepared request object containing the message, request_id, and nonce.
+    pub fn prepare_bulk_order_ws(
         &self,
         orders: Vec<ClientOrderRequest>,
         wallet: Option<&LocalWallet>,
+    ) -> Result<PreparedBulkOrder> {
+        let ws_client = self.ws_post_client.as_ref().ok_or_else(|| {
+            Error::GenericRequest(
+                "WebSocket client not initialized. Call init_ws_post_client() first.".to_string(),
+            )
+        })?;
+
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let mut transformed_orders = Vec::new();
+
+        for order in orders {
+            transformed_orders.push(order.convert(&self.coin_to_asset)?);
+        }
+
+        let action = BulkOrder {
+            orders: transformed_orders,
+            grouping: "na".to_string(),
+            builder: None,
+        };
+
+        let nonce = next_nonce();
+        let full_action = Actions::Order(action);
+        let connection_id = full_action.hash(nonce, self.vault_address)?;
+        let is_mainnet = self.http_client.is_mainnet();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+        let r = format!("0x{:x}", signature.r);
+        let s = format!("0x{:x}", signature.s);
+        let v = signature.v as u8;
+
+        let payload = serde_json::json!({
+            "action": full_action,
+            "nonce": nonce,
+            "signature": { "r": r, "s": s, "v": v },
+            "vaultAddress": self.vault_address,
+        });
+
+        let request_id = ws_client.next_request_id();
+
+        let request = serde_json::json!({
+            "method": "post",
+            "id": request_id,
+            "request": {
+                "type": "action",
+                "payload": payload,
+            }
+        });
+
+        let message_text =
+            serde_json::to_string(&request).map_err(|e| Error::JsonParse(e.to_string()))?;
+        let message = protocol::Message::Text(message_text.into());
+
+        Ok(PreparedBulkOrder {
+            prepared_request: PreparedRequest {
+                request_id,
+                message,
+            },
+            nonce,
+        })
+    }
+
+    /// Sends a previously prepared WebSocket bulk order request.
+    pub async fn send_prepared_bulk_order_ws(
+        &self,
+        prepared_order: PreparedBulkOrder,
     ) -> Result<ExchangeResponseStatus> {
         let ws_client = self.ws_post_client.as_ref().ok_or_else(|| {
             Error::GenericRequest(
@@ -797,58 +872,24 @@ impl ExchangeClient {
             )
         })?;
 
-        let wallet = wallet.unwrap_or(&self.wallet);
-        let mut transformed_orders = Vec::new();
-
-        for order in orders {
-            transformed_orders.push(order.convert(&self.coin_to_asset)?);
-        }
-
-        let action = BulkOrder {
-            orders: transformed_orders,
-            grouping: "na".to_string(),
-            builder: None,
-        };
-
-        let is_mainnet = self.http_client.is_mainnet();
         ws_client
-            .bulk_order(action, wallet, is_mainnet, self.vault_address)
+            .send_prepared_request(
+                prepared_order.prepared_request.request_id,
+                prepared_order.prepared_request.message,
+                std::time::Duration::from_secs(15),
+            )
             .await
     }
 
-    /// NEW: Execute bulk order via WebSocket and get the nonce back.
-    ///
-    /// This function is useful for scenarios where you need to track the specific
-    /// timestamp (nonce) of a request for follow-up actions, like sending a no-op.
-    pub async fn bulk_order_ws_with_nonce(
+    /// Execute bulk order via WebSocket for lower latency.
+    /// This method is backward compatible with previous SDK versions.
+    pub async fn bulk_order_ws(
         &self,
         orders: Vec<ClientOrderRequest>,
         wallet: Option<&LocalWallet>,
-    ) -> Result<(ExchangeResponseStatus, u64)> {
-        let ws_client = self.ws_post_client.as_ref().ok_or_else(|| {
-            Error::GenericRequest(
-                "WebSocket client not initialized. Call init_ws_post_client() first.".to_string(),
-            )
-        })?;
-
-        let wallet = wallet.unwrap_or(&self.wallet);
-        let mut transformed_orders = Vec::new();
-
-        for order in orders {
-            transformed_orders.push(order.convert(&self.coin_to_asset)?);
-        }
-
-        let action = BulkOrder {
-            orders: transformed_orders,
-            grouping: "na".to_string(),
-            builder: None,
-        };
-
-        let is_mainnet = self.http_client.is_mainnet();
-        // Call the new WsPostClient method
-        ws_client
-            .bulk_order_with_nonce(action, wallet, is_mainnet, self.vault_address)
-            .await
+    ) -> Result<ExchangeResponseStatus> {
+        let prepared_order = self.prepare_bulk_order_ws(orders, wallet)?;
+        self.send_prepared_bulk_order_ws(prepared_order).await
     }
 
     /// Execute bulk cancel by cloid via WebSocket for lower latency
