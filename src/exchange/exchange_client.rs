@@ -16,6 +16,7 @@ use crate::{
     req::HttpClient,
     signature::sign_l1_action,
     ws::WsPostClient,
+    ws_post_client::PreparedRequest,
     BaseUrl, BulkCancelCloid, Error, ExchangeResponseStatus,
 };
 use crate::{ClassTransfer, SpotSend, SpotUser, VaultTransfer, Withdraw3};
@@ -28,6 +29,7 @@ use log::debug;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use tokio_tungstenite::tungstenite::protocol;
 
 use super::cancel::ClientCancelRequestCloid;
 use super::order::{MarketCloseParams, MarketOrderParams};
@@ -41,6 +43,13 @@ pub struct ExchangeClient {
     pub vault_address: Option<H160>,
     pub coin_to_asset: HashMap<String, u32>,
     pub ws_post_client: Option<WsPostClient>,
+}
+
+/// Holds a prepared bulk order request, including the WebSocket message and the nonce.
+#[derive(Debug)]
+pub struct PreparedBulkOrder {
+    pub prepared_request: PreparedRequest,
+    pub nonce: u64,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -70,6 +79,7 @@ pub enum Actions {
     SpotSend(SpotSend),
     SetReferrer(SetReferrer),
     ApproveBuilderFee(ApproveBuilderFee),
+    Noop,
 }
 
 impl Actions {
@@ -769,26 +779,34 @@ impl ExchangeClient {
     }
 
     /// Initialize WebSocket post client with optional performance logging
-    pub async fn init_ws_post_client_with_logging(&mut self, performance_logging: bool) -> Result<()> {
+    pub async fn init_ws_post_client_with_logging(
+        &mut self,
+        performance_logging: bool,
+    ) -> Result<()> {
         let base_url = match self.http_client.base_url.as_str() {
             "https://api.hyperliquid.xyz" => BaseUrl::Mainnet,
             "https://api.hyperliquid-testnet.xyz" => BaseUrl::Testnet,
             _ => return Err(Error::GenericRequest("Invalid base URL".to_string())),
         };
 
-        self.ws_post_client = Some(WsPostClient::with_performance_logging(base_url, performance_logging).await?);
+        self.ws_post_client =
+            Some(WsPostClient::with_performance_logging(base_url, performance_logging).await?);
         Ok(())
     }
 
-    /// Execute bulk order via WebSocket for lower latency
-    pub async fn bulk_order_ws(
+    /// Prepares a bulk order request for WebSocket execution without sending it.
+    /// Returns a prepared request object containing the message, request_id, and nonce.
+    pub fn prepare_bulk_order_ws(
         &self,
         orders: Vec<ClientOrderRequest>,
         wallet: Option<&LocalWallet>,
-    ) -> Result<ExchangeResponseStatus> {
-        let ws_client = self.ws_post_client.as_ref()
-            .ok_or_else(|| Error::GenericRequest("WebSocket client not initialized. Call init_ws_post_client() first.".to_string()))?;
-        
+    ) -> Result<PreparedBulkOrder> {
+        let ws_client = self.ws_post_client.as_ref().ok_or_else(|| {
+            Error::GenericRequest(
+                "WebSocket client not initialized. Call init_ws_post_client() first.".to_string(),
+            )
+        })?;
+
         let wallet = wallet.unwrap_or(&self.wallet);
         let mut transformed_orders = Vec::new();
 
@@ -802,8 +820,76 @@ impl ExchangeClient {
             builder: None,
         };
 
+        let nonce = next_nonce();
+        let full_action = Actions::Order(action);
+        let connection_id = full_action.hash(nonce, self.vault_address)?;
         let is_mainnet = self.http_client.is_mainnet();
-        ws_client.bulk_order(action, wallet, is_mainnet, self.vault_address).await
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+        let r = format!("0x{:x}", signature.r);
+        let s = format!("0x{:x}", signature.s);
+        let v = signature.v as u8;
+
+        let payload = serde_json::json!({
+            "action": full_action,
+            "nonce": nonce,
+            "signature": { "r": r, "s": s, "v": v },
+            "vaultAddress": self.vault_address,
+        });
+
+        let request_id = ws_client.next_request_id();
+
+        let request = serde_json::json!({
+            "method": "post",
+            "id": request_id,
+            "request": {
+                "type": "action",
+                "payload": payload,
+            }
+        });
+
+        let message_text =
+            serde_json::to_string(&request).map_err(|e| Error::JsonParse(e.to_string()))?;
+        let message = protocol::Message::Text(message_text.into());
+
+        Ok(PreparedBulkOrder {
+            prepared_request: PreparedRequest {
+                request_id,
+                message,
+            },
+            nonce,
+        })
+    }
+
+    /// Sends a previously prepared WebSocket bulk order request.
+    pub async fn send_prepared_bulk_order_ws(
+        &self,
+        prepared_order: PreparedBulkOrder,
+    ) -> Result<ExchangeResponseStatus> {
+        let ws_client = self.ws_post_client.as_ref().ok_or_else(|| {
+            Error::GenericRequest(
+                "WebSocket client not initialized. Call init_ws_post_client() first.".to_string(),
+            )
+        })?;
+
+        ws_client
+            .send_prepared_request(
+                prepared_order.prepared_request.request_id,
+                prepared_order.prepared_request.message,
+                std::time::Duration::from_secs(15),
+            )
+            .await
+    }
+
+    /// Execute bulk order via WebSocket for lower latency.
+    /// This method is backward compatible with previous SDK versions.
+    pub async fn bulk_order_ws(
+        &self,
+        orders: Vec<ClientOrderRequest>,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        let prepared_order = self.prepare_bulk_order_ws(orders, wallet)?;
+        self.send_prepared_bulk_order_ws(prepared_order).await
     }
 
     /// Execute bulk cancel by cloid via WebSocket for lower latency
@@ -812,12 +898,15 @@ impl ExchangeClient {
         cancels: Vec<ClientCancelRequestCloid>,
         wallet: Option<&LocalWallet>,
     ) -> Result<ExchangeResponseStatus> {
-        let ws_client = self.ws_post_client.as_ref()
-            .ok_or_else(|| Error::GenericRequest("WebSocket client not initialized. Call init_ws_post_client() first.".to_string()))?;
-            
+        let ws_client = self.ws_post_client.as_ref().ok_or_else(|| {
+            Error::GenericRequest(
+                "WebSocket client not initialized. Call init_ws_post_client() first.".to_string(),
+            )
+        })?;
+
         let wallet = wallet.unwrap_or(&self.wallet);
         let mut transformed_cancels: Vec<CancelRequestCloid> = Vec::new();
-        
+
         for cancel in cancels.into_iter() {
             let &asset = self
                 .coin_to_asset
@@ -834,7 +923,9 @@ impl ExchangeClient {
         };
 
         let is_mainnet = self.http_client.is_mainnet();
-        ws_client.bulk_cancel_by_cloid(action, wallet, is_mainnet, self.vault_address).await
+        ws_client
+            .bulk_cancel_by_cloid(action, wallet, is_mainnet, self.vault_address)
+            .await
     }
 
     /// Get performance metrics for WebSocket bulk order operations
@@ -857,6 +948,53 @@ impl ExchangeClient {
         if let Some(ws_client) = &self.ws_post_client {
             ws_client.reset_metrics().await;
         }
+    }
+
+    /// Send a no-op transaction via standard HTTPS REST.
+    ///
+    /// This is useful for cancelling a stuck transaction by submitting a new transaction
+    /// with the same nonce. The server will only accept the first one it sees.
+    pub async fn noop(
+        &self,
+        nonce: u64,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+
+        let action = Actions::Noop;
+
+        // Use the provided nonce for hashing, signing, and posting
+        let connection_id = action.hash(nonce, self.vault_address)?;
+        let action_value =
+            serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        let is_mainnet = self.http_client.is_mainnet();
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+        self.post(action_value, signature, nonce).await
+    }
+
+    /// Send a no-op transaction via WebSocket for lower latency.
+    ///
+    /// This is useful for cancelling a stuck transaction by submitting a new transaction
+    /// with the same nonce. The server will only accept the first one it sees.
+    pub async fn noop_ws(
+        &self,
+        nonce: u64,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        let ws_client = self.ws_post_client.as_ref().ok_or_else(|| {
+            Error::GenericRequest(
+                "WebSocket client not initialized. Call init_ws_post_client() first.".to_string(),
+            )
+        })?;
+
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let is_mainnet = self.http_client.is_mainnet();
+
+        ws_client
+            .noop(nonce, wallet, is_mainnet, self.vault_address)
+            .await
     }
 }
 

@@ -1,8 +1,6 @@
 use crate::{
-    exchange::Actions,
-    helpers::next_nonce,
-    signature::sign_l1_action,
-    BaseUrl, BulkCancelCloid, BulkOrder, Error, ExchangeResponseStatus,
+    exchange::Actions, helpers::next_nonce, signature::sign_l1_action, BaseUrl, BulkCancelCloid,
+    BulkOrder, Error, ExchangeResponseStatus,
 };
 use ethers::{
     signers::LocalWallet,
@@ -22,8 +20,8 @@ use std::{
 use tokio::{
     net::TcpStream,
     spawn,
-    sync::{Mutex, oneshot},
-    time::{timeout, sleep, Instant},
+    sync::{oneshot, Mutex},
+    time::{sleep, timeout, Instant},
 };
 use tokio_tungstenite::{
     connect_async_with_config,
@@ -96,7 +94,7 @@ struct Ping {
     method: &'static str,
 }
 
-type ResponseSender = oneshot::Sender<Result<ExchangeResponseStatus, Error>>;
+type ResponseSender = oneshot::Sender<std::result::Result<ExchangeResponseStatus, Error>>;
 
 /// Timing statistics for a specific operation
 #[derive(Debug, Clone, Copy, Default)]
@@ -138,6 +136,13 @@ struct PerformanceMetrics {
     bulk_cancel: Mutex<BulkCancelMetrics>,
 }
 
+/// Holds a prepared WebSocket request message and its ID.
+#[derive(Debug)]
+pub struct PreparedRequest {
+    pub request_id: u64,
+    pub message: protocol::Message,
+}
+
 #[derive(Debug)]
 pub struct WsPostClient {
     writer: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>>>,
@@ -151,27 +156,24 @@ pub struct WsPostClient {
 impl WsPostClient {
     const SEND_PING_INTERVAL: u64 = 50;
 
-    pub async fn new(base_url: BaseUrl) -> Result<Self, Error> {
+    pub async fn new(base_url: BaseUrl) -> std::result::Result<Self, Error> {
         Self::with_performance_logging(base_url, false).await
     }
 
     pub async fn with_performance_logging(
         base_url: BaseUrl,
         performance_logging: bool,
-    ) -> Result<Self, Error> {
+    ) -> std::result::Result<Self, Error> {
         let url = match base_url {
             BaseUrl::Mainnet => "wss://api.hyperliquid.xyz/ws",
             BaseUrl::Testnet => "wss://api.hyperliquid-testnet.xyz/ws",
             BaseUrl::Localhost => "ws://localhost:3001/ws",
         };
 
-        let (ws_stream, _) = connect_async_with_config(
-            url,
-            Some(create_optimized_websocket_config()),
-            true,
-        )
-        .await
-        .map_err(|e| Error::Websocket(e.to_string()))?;
+        let (ws_stream, _) =
+            connect_async_with_config(url, Some(create_optimized_websocket_config()), true)
+                .await
+                .map_err(|e| Error::Websocket(e.to_string()))?;
 
         let (writer, mut reader) = ws_stream.split();
         let writer = Arc::new(Mutex::new(writer));
@@ -187,7 +189,10 @@ impl WsPostClient {
                 if let Some(msg) = reader.next().await {
                     match msg {
                         Ok(protocol::Message::Text(text)) => {
-                            if let Err(e) = Self::handle_response(text.to_string(), &pending_requests_clone).await {
+                            if let Err(e) =
+                                Self::handle_response(text.to_string(), &pending_requests_clone)
+                                    .await
+                            {
                                 error!("Error handling websocket response: {}", e);
                             }
                         }
@@ -223,7 +228,9 @@ impl WsPostClient {
                     match serde_json::to_string(&Ping { method: "ping" }) {
                         Ok(payload) => {
                             let mut writer = writer_clone.lock().await;
-                            if let Err(err) = writer.send(protocol::Message::Text(payload.into())).await {
+                            if let Err(err) =
+                                writer.send(protocol::Message::Text(payload.into())).await
+                            {
                                 error!("Error pinging server: {}", err);
                             }
                         }
@@ -256,7 +263,7 @@ impl WsPostClient {
     async fn handle_response(
         text: String,
         pending_requests: &Arc<Mutex<HashMap<u64, ResponseSender>>>,
-    ) -> Result<(), Error> {
+    ) -> std::result::Result<(), Error> {
         // First try to parse as a proper response
         if let Ok(response) = serde_json::from_str::<WsPostResponse>(&text) {
             if response.channel == "post" {
@@ -282,18 +289,24 @@ impl WsPostClient {
 
         // If that fails, it might be an error string - log it
         error!("Received non-standard response: {}", text);
-        
+
         // For now, we can't correlate this to a specific request, so we'll ignore it
         // In a production system, you might want to handle this differently
         Ok(())
     }
 
-    async fn send_request<T: Serialize>(
+    /// Get the next available request ID for a prepared request.
+    pub fn next_request_id(&self) -> u64 {
+        self.request_id_counter.fetch_add(1, Ordering::SeqCst)
+    }
+
+    /// Sends a pre-serialized request message and waits for a response.
+    pub async fn send_prepared_request(
         &self,
-        payload: T,
+        request_id: u64,
+        message: protocol::Message,
         timeout_duration: Duration,
-    ) -> Result<ExchangeResponseStatus, Error> {
-        let request_id = self.request_id_counter.fetch_add(1, Ordering::SeqCst);
+    ) -> std::result::Result<ExchangeResponseStatus, Error> {
         let (tx, rx) = oneshot::channel();
 
         // Store the response sender
@@ -302,23 +315,11 @@ impl WsPostClient {
             pending.insert(request_id, tx);
         }
 
-        // Create and send the request
-        let request = WsPostRequest {
-            method: "post".to_string(),
-            id: request_id,
-            request: WsRequestData {
-                request_type: "action".to_string(),
-                payload,
-            },
-        };
-
-        let message_text =
-            serde_json::to_string(&request).map_err(|e| Error::JsonParse(e.to_string()))?;
-
+        // Send the prepared message
         {
             let mut writer = self.writer.lock().await;
             writer
-                .send(protocol::Message::Text(message_text.into()))
+                .send(message)
                 .await
                 .map_err(|e| Error::Websocket(e.to_string()))?;
         }
@@ -336,13 +337,36 @@ impl WsPostClient {
         }
     }
 
+    async fn send_request<T: Serialize>(
+        &self,
+        payload: T,
+        timeout_duration: Duration,
+    ) -> std::result::Result<ExchangeResponseStatus, Error> {
+        let request_id = self.next_request_id();
+        let request = WsPostRequest {
+            method: "post".to_string(),
+            id: request_id,
+            request: WsRequestData {
+                request_type: "action".to_string(),
+                payload,
+            },
+        };
+
+        let message_text =
+            serde_json::to_string(&request).map_err(|e| Error::JsonParse(e.to_string()))?;
+        let message = protocol::Message::Text(message_text.into());
+
+        self.send_prepared_request(request_id, message, timeout_duration)
+            .await
+    }
+
     pub async fn bulk_order(
         &self,
         action: BulkOrder,
         wallet: &LocalWallet,
         is_mainnet: bool,
         vault_address: Option<H160>,
-    ) -> Result<ExchangeResponseStatus, Error> {
+    ) -> std::result::Result<ExchangeResponseStatus, Error> {
         let compute_start = if self.performance_logging {
             Some(Instant::now())
         } else {
@@ -398,7 +422,7 @@ impl WsPostClient {
         wallet: &LocalWallet,
         is_mainnet: bool,
         vault_address: Option<H160>,
-    ) -> Result<ExchangeResponseStatus, Error> {
+    ) -> std::result::Result<ExchangeResponseStatus, Error> {
         let compute_start = if self.performance_logging {
             Some(Instant::now())
         } else {
@@ -453,7 +477,7 @@ impl WsPostClient {
         action: &T,
         timestamp: u64,
         vault_address: Option<H160>,
-    ) -> Result<H256, Error> {
+    ) -> std::result::Result<H256, Error> {
         let mut bytes =
             rmp_serde::to_vec_named(action).map_err(|e| Error::RmpParse(e.to_string()))?;
         bytes.extend(timestamp.to_be_bytes());
@@ -464,6 +488,32 @@ impl WsPostClient {
             bytes.push(0);
         }
         Ok(H256(ethers::utils::keccak256(bytes)))
+    }
+
+    pub async fn noop(
+        &self,
+        nonce: u64,
+        wallet: &LocalWallet,
+        is_mainnet: bool,
+        vault_address: Option<H160>,
+    ) -> Result<ExchangeResponseStatus, Error> {
+        let full_action = Actions::Noop;
+        let connection_id = self.calculate_action_hash(&full_action, nonce, vault_address)?;
+        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+        let r = format!("0x{:x}", signature.r);
+        let s = format!("0x{:x}", signature.s);
+        let v = signature.v as u8;
+
+        let payload = WsExchangePayload {
+            action: serde_json::to_value(&full_action)
+                .map_err(|e| Error::JsonParse(e.to_string()))?,
+            signature: WsSignature { r, s, v },
+            nonce, // Use the provided nonce
+            vault_address,
+        };
+
+        self.send_request(payload, Duration::from_secs(15)).await
     }
 
     /// Get performance metrics for bulk order operations
@@ -505,13 +555,13 @@ impl Drop for WsPostClient {
 /// Create optimized WebSocket configuration for low-latency trading
 fn create_optimized_websocket_config() -> WebSocketConfig {
     let mut config = WebSocketConfig::default();
-    
+
     config.read_buffer_size = 64 * 1024;
     config.write_buffer_size = 0;
     config.max_write_buffer_size = 512 * 1024;
     config.max_message_size = None;
     config.max_frame_size = Some(128 * 1024);
     config.accept_unmasked_frames = false;
-    
+
     config
 }

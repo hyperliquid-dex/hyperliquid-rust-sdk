@@ -1,7 +1,7 @@
 mod message_types;
 mod sub_structs;
 mod ws_manager;
-mod ws_post_client;
+pub mod ws_post_client;
 pub use message_types::*;
 pub use sub_structs::*;
 pub(crate) use ws_manager::WsManager;
