@@ -91,7 +91,7 @@ impl BaseUrl {
 
 lazy_static! {
     static ref CUR_NONCE: AtomicU64 = AtomicU64::new(now_timestamp_ms());
-    static ref LTP_HYPER_LIQUID_API_URL: String = std::env::var("LTP_HYPER_LIQUID_API_URL")
+    static ref LTP_HYPER_LIQUID_API_URL: String = std::env::var("LTP_HYPERLIQUID_API_URL")
         .unwrap_or_else(|_| MAINNET_API_URL.to_string());
 }
 
