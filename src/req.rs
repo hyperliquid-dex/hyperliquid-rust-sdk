@@ -116,6 +116,11 @@ impl HttpClient {
                 println!("signature: {}", signature);
                 println!("to_encrypt: {}", to_encrypt);
                 println!("now: {}", now);
+                
+                // Print headers in the expected format
+                println!("Headers: {{'Content-Type': 'application/json', 'X-MBX-APIKEY': '{}', 'signature': '{}', 'nonce': '{}'}}", 
+                    api_key, signature, now);
+                
                 // Set request headers for LTP
                 request_builder = request_builder
                     .header("Content-Type", "application/json")
