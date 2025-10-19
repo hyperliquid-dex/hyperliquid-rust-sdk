@@ -1,5 +1,6 @@
 use reqwest::{Client, Response};
 use serde::Deserialize;
+use serde_json;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use hex;
@@ -92,7 +93,14 @@ impl HttpClient {
                 // Build encryption string
                 let mut to_encrypt = String::new();
                 if !new_body.is_empty() && new_body != "{}" {
-                    to_encrypt.push_str(&format!("body={}&", new_body));
+                    // Parse the JSON body to iterate through key-value pairs
+                    if let Ok(parsed_body) = serde_json::from_str::<serde_json::Value>(&new_body) {
+                        if let Some(obj) = parsed_body.as_object() {
+                            for (key, value) in obj {
+                                to_encrypt.push_str(&format!("{}={}&", key, value));
+                            }
+                        }
+                    }
                 }
                 
                 // Add timestamp
