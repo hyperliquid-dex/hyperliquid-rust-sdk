@@ -106,6 +106,30 @@ impl ExchangeClient {
         meta: Option<Meta>,
         vault_address: Option<Address>,
     ) -> Result<ExchangeClient> {
+        Self::new_internal(client, wallet, base_url, meta, vault_address, None, None).await
+    }
+
+    pub async fn new_with_ltp_credentials(
+        client: Option<Client>,
+        wallet: PrivateKeySigner,
+        base_url: Option<BaseUrl>,
+        meta: Option<Meta>,
+        vault_address: Option<Address>,
+        ltp_api_key: Option<String>,
+        ltp_api_secret: Option<String>,
+    ) -> Result<ExchangeClient> {
+        Self::new_internal(client, wallet, base_url, meta, vault_address, ltp_api_key, ltp_api_secret).await
+    }
+
+    async fn new_internal(
+        client: Option<Client>,
+        wallet: PrivateKeySigner,
+        base_url: Option<BaseUrl>,
+        meta: Option<Meta>,
+        vault_address: Option<Address>,
+        ltp_api_key: Option<String>,
+        ltp_api_secret: Option<String>,
+    ) -> Result<ExchangeClient> {
         let client = client.unwrap_or_default();
         let base_url = base_url.unwrap_or(BaseUrl::Mainnet);
 
@@ -130,10 +154,7 @@ impl ExchangeClient {
             wallet,
             meta,
             vault_address,
-            http_client: HttpClient {
-                client,
-                base_url: base_url.get_url(),
-            },
+            http_client: HttpClient::new(client, base_url, base_url.get_url(), ltp_api_key, ltp_api_secret),
             coin_to_asset,
         })
     }

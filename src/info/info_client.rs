@@ -104,26 +104,38 @@ pub struct InfoClient {
 
 impl InfoClient {
     pub async fn new(client: Option<Client>, base_url: Option<BaseUrl>) -> Result<InfoClient> {
-        Self::new_internal(client, base_url, false).await
+        Self::new_internal(client, base_url, false, None, None).await
     }
 
     pub async fn with_reconnect(
         client: Option<Client>,
         base_url: Option<BaseUrl>,
     ) -> Result<InfoClient> {
-        Self::new_internal(client, base_url, true).await
+        Self::new_internal(client, base_url, true, None, None).await
+    }
+
+    pub async fn new_with_ltp_credentials(
+        client: Option<Client>,
+        base_url: Option<BaseUrl>,
+        ltp_api_key: Option<String>,
+        ltp_api_secret: Option<String>,
+    ) -> Result<InfoClient> {
+        Self::new_internal(client, base_url, false, ltp_api_key, ltp_api_secret).await
     }
 
     async fn new_internal(
         client: Option<Client>,
         base_url: Option<BaseUrl>,
         reconnect: bool,
+        ltp_api_key: Option<String>,
+        ltp_api_secret: Option<String>,
     ) -> Result<InfoClient> {
         let client = client.unwrap_or_default();
-        let base_url = base_url.unwrap_or(BaseUrl::Mainnet).get_url();
+        let base_url_enum = base_url.unwrap_or(BaseUrl::Mainnet);
+        let base_url_str = base_url_enum.get_url();
 
         Ok(InfoClient {
-            http_client: HttpClient { client, base_url },
+            http_client: HttpClient::new(client, base_url_enum, base_url_str, ltp_api_key, ltp_api_secret),
             ws_manager: None,
             reconnect,
         })
