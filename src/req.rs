@@ -76,7 +76,7 @@ impl HttpClient {
 
     pub async fn post(&self, url_path: &'static str, data: String) -> Result<String> {
         let full_url = format!("{}{url_path}", self.base_url);
-        
+        println!("full_url: {}", full_url);
         let mut request_builder = self.client.post(full_url);
         
         if self.base_url_enum == BaseUrl::LTP {
@@ -107,9 +107,13 @@ impl HttpClient {
                     .map_err(|e| Error::GenericRequest(format!("HMAC key error: {}", e)))?;
                 mac.update(to_encrypt.as_bytes());
                 let signature = hex::encode(mac.finalize().into_bytes());
+
                 println!("new_body: {}", new_body);
                 println!("api_key: {}", api_key);
+                println!("api_secret: {}", api_secret);
                 println!("signature: {}", signature);
+                println!("to_encrypt: {}", to_encrypt);
+                println!("now: {}", now);
                 // Set request headers for LTP
                 request_builder = request_builder
                     .header("Content-Type", "application/json")

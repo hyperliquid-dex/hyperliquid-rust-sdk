@@ -179,15 +179,17 @@ impl ExchangeClient {
         };
         let res = serde_json::to_string(&exchange_payload)
             .map_err(|e| Error::JsonParse(e.to_string()))?;
-        debug!("Sending request {res:?}");
+        debug!("Sending exchange request {res:?}");
 
         let output = &self
             .http_client
             .post("/exchange", res)
             .await
             .map_err(|e| Error::JsonParse(e.to_string()))?;
-        debug!("Response: {output}");
-        serde_json::from_str(output).map_err(|e| Error::JsonParse(e.to_string()))
+        debug!("exchange Response: {output}");
+        serde_json::from_str(output).map_err(|e| {
+            Error::JsonParse(format!("Failed to parse JSON: {}. Raw response: {}", e, output))
+        })
     }
 
     pub async fn enable_big_blocks(
