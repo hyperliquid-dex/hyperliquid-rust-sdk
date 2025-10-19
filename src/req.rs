@@ -85,7 +85,9 @@ impl HttpClient {
             if let (Some(api_key), Some(api_secret)) = (&self.ltp_api_key, &self.ltp_api_secret) {
                 // Build request body for LTP in format {"body": "json_dumps(data)"}
                 let new_body = if !data.is_empty() {
-                    format!("{{\"body\":\"{}\"}}", data)
+                    // Escape the JSON string by replacing " with \"
+                    let escaped_data = data.replace("\"", "\\\"");
+                    format!("{{\"body\":\"{}\"}}", escaped_data)
                 } else {
                     "{}".to_string()
                 };
