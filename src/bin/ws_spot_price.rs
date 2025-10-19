@@ -1,10 +1,8 @@
+use std::time::Duration;
+
 use hyperliquid_rust_sdk::{BaseUrl, InfoClient, Message, Subscription};
 use log::info;
-use tokio::{
-    spawn,
-    sync::mpsc::unbounded_channel,
-    time::{sleep, Duration},
-};
+use tokio::{spawn, sync::mpsc::unbounded_channel, time::sleep};
 
 #[tokio::main]
 async fn main() {
@@ -14,9 +12,8 @@ async fn main() {
     let (sender, mut receiver) = unbounded_channel();
     let subscription_id = info_client
         .subscribe(
-            Subscription::Candle {
-                coin: "ETH".to_string(),
-                interval: "1m".to_string(),
+            Subscription::ActiveAssetCtx {
+                coin: "@107".to_string(), //spot index for hype token
             },
             sender,
         )
@@ -24,13 +21,13 @@ async fn main() {
         .unwrap();
 
     spawn(async move {
-        sleep(Duration::from_secs(300)).await;
-        info!("Unsubscribing from candle data");
+        sleep(Duration::from_secs(30)).await;
+        info!("Unsubscribing from order updates data");
         info_client.unsubscribe(subscription_id).await.unwrap()
     });
 
-    // This loop ends when we unsubscribe
-    while let Some(Message::Candle(candle)) = receiver.recv().await {
-        info!("Received candle data: {candle:?}");
+    // this loop ends when we unsubscribe
+    while let Some(Message::ActiveSpotAssetCtx(order_updates)) = receiver.recv().await {
+        info!("Received order update data: {order_updates:?}");
     }
 }

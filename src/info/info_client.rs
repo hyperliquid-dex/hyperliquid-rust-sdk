@@ -1,21 +1,22 @@
+use std::collections::HashMap;
+
+use alloy::primitives::Address;
+use reqwest::Client;
+use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc::UnboundedSender;
+
 use crate::{
     info::{
         CandlesSnapshotResponse, FundingHistoryResponse, L2SnapshotResponse, OpenOrdersResponse,
-        OrderInfo, RecentTradesResponse, UserFillsResponse, UserStateResponse,
+        OrderInfo, RecentTradesResponse, UserFillsResponse, UserStateResponse, ActiveAssetDataResponse,
     },
-    meta::{Meta, SpotMeta, SpotMetaAndAssetCtxs},
+    meta::{AssetContext, Meta, SpotMeta, SpotMetaAndAssetCtxs},
     prelude::*,
     req::HttpClient,
     ws::{Subscription, WsManager},
     BaseUrl, Error, Message, OrderStatusResponse, ReferralResponse, UserFeesResponse,
     UserFundingResponse, UserTokenBalanceResponse,
 };
-
-use ethers::types::H160;
-use reqwest::Client;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use tokio::sync::mpsc::UnboundedSender;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -32,32 +33,33 @@ pub struct CandleSnapshotRequest {
 pub enum InfoRequest {
     #[serde(rename = "clearinghouseState")]
     UserState {
-        user: H160,
+        user: Address,
     },
     #[serde(rename = "batchClearinghouseStates")]
     UserStates {
-        users: Vec<H160>,
+        users: Vec<Address>,
     },
     #[serde(rename = "spotClearinghouseState")]
     UserTokenBalances {
-        user: H160,
+        user: Address,
     },
     UserFees {
-        user: H160,
+        user: Address,
     },
     OpenOrders {
-        user: H160,
+        user: Address,
     },
     OrderStatus {
-        user: H160,
+        user: Address,
         oid: u64,
     },
     Meta,
+    MetaAndAssetCtxs,
     SpotMeta,
     SpotMetaAndAssetCtxs,
     AllMids,
     UserFills {
-        user: H160,
+        user: Address,
     },
     #[serde(rename_all = "camelCase")]
     FundingHistory {
@@ -67,7 +69,7 @@ pub enum InfoRequest {
     },
     #[serde(rename_all = "camelCase")]
     UserFunding {
-        user: H160,
+        user: Address,
         start_time: u64,
         end_time: Option<u64>,
     },
@@ -82,10 +84,14 @@ pub enum InfoRequest {
         req: CandleSnapshotRequest,
     },
     Referral {
-        user: H160,
+        user: Address,
     },
     HistoricalOrders {
-        user: H160,
+        user: Address,
+    },
+    ActiveAssetData {
+        user: Address,
+        coin: String,
     },
 }
 
@@ -175,33 +181,38 @@ impl InfoClient {
         serde_json::from_str(&return_data).map_err(|e| Error::JsonParse(e.to_string()))
     }
 
-    pub async fn open_orders(&self, address: H160) -> Result<Vec<OpenOrdersResponse>> {
+    pub async fn open_orders(&self, address: Address) -> Result<Vec<OpenOrdersResponse>> {
         let input = InfoRequest::OpenOrders { user: address };
         self.send_info_request(input).await
     }
 
-    pub async fn user_state(&self, address: H160) -> Result<UserStateResponse> {
+    pub async fn user_state(&self, address: Address) -> Result<UserStateResponse> {
         let input = InfoRequest::UserState { user: address };
         self.send_info_request(input).await
     }
 
-    pub async fn user_states(&self, addresses: Vec<H160>) -> Result<Vec<UserStateResponse>> {
+    pub async fn user_states(&self, addresses: Vec<Address>) -> Result<Vec<UserStateResponse>> {
         let input = InfoRequest::UserStates { users: addresses };
         self.send_info_request(input).await
     }
 
-    pub async fn user_token_balances(&self, address: H160) -> Result<UserTokenBalanceResponse> {
+    pub async fn user_token_balances(&self, address: Address) -> Result<UserTokenBalanceResponse> {
         let input = InfoRequest::UserTokenBalances { user: address };
         self.send_info_request(input).await
     }
 
-    pub async fn user_fees(&self, address: H160) -> Result<UserFeesResponse> {
+    pub async fn user_fees(&self, address: Address) -> Result<UserFeesResponse> {
         let input = InfoRequest::UserFees { user: address };
         self.send_info_request(input).await
     }
 
     pub async fn meta(&self) -> Result<Meta> {
         let input = InfoRequest::Meta;
+        self.send_info_request(input).await
+    }
+
+    pub async fn meta_and_asset_contexts(&self) -> Result<(Meta, Vec<AssetContext>)> {
+        let input = InfoRequest::MetaAndAssetCtxs;
         self.send_info_request(input).await
     }
 
@@ -220,7 +231,7 @@ impl InfoClient {
         self.send_info_request(input).await
     }
 
-    pub async fn user_fills(&self, address: H160) -> Result<Vec<UserFillsResponse>> {
+    pub async fn user_fills(&self, address: Address) -> Result<Vec<UserFillsResponse>> {
         let input = InfoRequest::UserFills { user: address };
         self.send_info_request(input).await
     }
@@ -241,7 +252,7 @@ impl InfoClient {
 
     pub async fn user_funding_history(
         &self,
-        user: H160,
+        user: Address,
         start_time: u64,
         end_time: Option<u64>,
     ) -> Result<Vec<UserFundingResponse>> {
@@ -281,18 +292,27 @@ impl InfoClient {
         self.send_info_request(input).await
     }
 
-    pub async fn query_order_by_oid(&self, address: H160, oid: u64) -> Result<OrderStatusResponse> {
+    pub async fn query_order_by_oid(
+        &self,
+        address: Address,
+        oid: u64,
+    ) -> Result<OrderStatusResponse> {
         let input = InfoRequest::OrderStatus { user: address, oid };
         self.send_info_request(input).await
     }
 
-    pub async fn query_referral_state(&self, address: H160) -> Result<ReferralResponse> {
+    pub async fn query_referral_state(&self, address: Address) -> Result<ReferralResponse> {
         let input = InfoRequest::Referral { user: address };
         self.send_info_request(input).await
     }
 
-    pub async fn historical_orders(&self, address: H160) -> Result<Vec<OrderInfo>> {
+    pub async fn historical_orders(&self, address: Address) -> Result<Vec<OrderInfo>> {
         let input = InfoRequest::HistoricalOrders { user: address };
+        self.send_info_request(input).await
+    }
+
+    pub async fn active_asset_data(&self, user: Address, coin: String) -> Result<ActiveAssetDataResponse> {
+        let input = InfoRequest::ActiveAssetData { user, coin };
         self.send_info_request(input).await
     }
 }

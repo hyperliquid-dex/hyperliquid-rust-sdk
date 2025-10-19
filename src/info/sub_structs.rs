@@ -1,7 +1,7 @@
-use ethers::types::H160;
-use serde::Deserialize;
+use alloy::primitives::Address;
+use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Leverage {
     #[serde(rename = "type")]
@@ -141,14 +141,14 @@ pub struct BasicOrderInfo {
     pub reduce_only: bool,
     pub order_type: String,
     pub orig_sz: String,
-    pub tif: String,
+    pub tif: Option<String>,
     pub cloid: Option<String>,
 }
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
 pub struct Referrer {
-    pub referrer: H160,
+    pub referrer: Address,
     pub code: String,
 }
 

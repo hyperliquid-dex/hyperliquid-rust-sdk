@@ -1,12 +1,3 @@
-use crate::{
-    prelude::*,
-    ws::message_types::{AllMids, Candle, L2Book, OrderUpdates, Trades, User},
-    ActiveAssetCtx, Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
-    WebData2,
-};
-use futures_util::{stream::SplitSink, SinkExt, StreamExt};
-use log::{error, info, warn};
-use serde::{Deserialize, Serialize};
 use std::{
     borrow::BorrowMut,
     collections::HashMap,
@@ -17,6 +8,11 @@ use std::{
     },
     time::Duration,
 };
+
+use alloy::primitives::Address;
+use futures_util::{stream::SplitSink, SinkExt, StreamExt};
+use log::{error, info, warn};
+use serde::{Deserialize, Serialize};
 use tokio::{
     net::TcpStream,
     spawn,
@@ -29,7 +25,15 @@ use tokio_tungstenite::{
     MaybeTlsStream, WebSocketStream,
 };
 
-use ethers::types::H160;
+use crate::{
+    prelude::*,
+    ws::message_types::{
+        ActiveAssetData, ActiveSpotAssetCtx, AllMids, Bbo, Candle, L2Book, OrderUpdates, Trades,
+        User,
+    },
+    ActiveAssetCtx, Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
+    WebData2,
+};
 
 #[derive(Debug)]
 struct SubscriptionData {
@@ -51,17 +55,19 @@ pub(crate) struct WsManager {
 #[serde(rename_all = "camelCase")]
 pub enum Subscription {
     AllMids,
-    Notification { user: H160 },
-    WebData2 { user: H160 },
+    Notification { user: Address },
+    WebData2 { user: Address },
     Candle { coin: String, interval: String },
     L2Book { coin: String },
     Trades { coin: String },
-    OrderUpdates { user: H160 },
-    UserEvents { user: H160 },
-    UserFills { user: H160 },
-    UserFundings { user: H160 },
-    UserNonFundingLedgerUpdates { user: H160 },
+    OrderUpdates { user: Address },
+    UserEvents { user: Address },
+    UserFills { user: Address },
+    UserFundings { user: Address },
+    UserNonFundingLedgerUpdates { user: Address },
     ActiveAssetCtx { coin: String },
+    ActiveAssetData { user: Address, coin: String },
+    Bbo { coin: String },
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -83,6 +89,9 @@ pub enum Message {
     Notification(Notification),
     WebData2(WebData2),
     ActiveAssetCtx(ActiveAssetCtx),
+    ActiveAssetData(ActiveAssetData),
+    ActiveSpotAssetCtx(ActiveSpotAssetCtx),
+    Bbo(Bbo),
     Pong,
 }
 
@@ -267,6 +276,23 @@ impl WsManager {
                 })
                 .map_err(|e| Error::JsonParse(e.to_string()))
             }
+            Message::ActiveSpotAssetCtx(active_spot_asset_ctx) => {
+                serde_json::to_string(&Subscription::ActiveAssetCtx {
+                    coin: active_spot_asset_ctx.data.coin.clone(),
+                })
+                .map_err(|e| Error::JsonParse(e.to_string()))
+            }
+            Message::ActiveAssetData(active_asset_data) => {
+                serde_json::to_string(&Subscription::ActiveAssetData {
+                    user: active_asset_data.data.user,
+                    coin: active_asset_data.data.coin.clone(),
+                })
+                .map_err(|e| Error::JsonParse(e.to_string()))
+            }
+            Message::Bbo(bbo) => serde_json::to_string(&Subscription::Bbo {
+                coin: bbo.data.coin.clone(),
+            })
+            .map_err(|e| Error::JsonParse(e.to_string())),
             Message::SubscriptionResponse | Message::Pong => Ok(String::default()),
             Message::NoData => Ok("".to_string()),
             Message::HyperliquidError(err) => Ok(format!("hyperliquid error: {err:?}")),

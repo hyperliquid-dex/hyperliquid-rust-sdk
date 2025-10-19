@@ -11,16 +11,14 @@ async fn main() {
             .parse()
             .unwrap();
 
-    let exchange_client = ExchangeClient::new(None, wallet, Some(BaseUrl::Testnet), None, None)
-        .await
-        .unwrap();
-
-    let amount = "1"; // 1 USD
-    let destination = "0x0D1d9635D0640821d15e323ac8AdADfA9c111414";
+    let exchange_client =
+        ExchangeClient::new(None, wallet.clone(), Some(BaseUrl::Testnet), None, None)
+            .await
+            .unwrap();
 
     let res = exchange_client
-        .usdc_transfer(amount, destination, None)
+        .enable_big_blocks(false, Some(&wallet))
         .await
         .unwrap();
-    info!("Usdc transfer result: {res:?}");
+    info!("enable big blocks : {res:?}");
 }

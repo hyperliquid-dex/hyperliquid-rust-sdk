@@ -1,8 +1,12 @@
+use serde::Deserialize;
+
+use alloy::primitives::Address;
+
 use crate::{
     info::{AssetPosition, Level, MarginSummary},
-    DailyUserVlm, Delta, FeeSchedule, OrderInfo, Referrer, ReferrerState, UserTokenBalance,
+    DailyUserVlm, Delta, FeeSchedule, Leverage, OrderInfo, Referrer, ReferrerState,
+    UserTokenBalance,
 };
-use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -55,6 +59,9 @@ pub struct UserFillsResponse {
     pub sz: String,
     pub time: u64,
     pub fee: String,
+    pub tid: u64,
+    pub fee_token: String,
+    pub twap_id: Option<u64>,
 }
 
 #[derive(serde::Deserialize, Debug)]
@@ -132,4 +139,15 @@ pub struct ReferralResponse {
     pub unclaimed_rewards: String,
     pub claimed_rewards: String,
     pub referrer_state: ReferrerState,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveAssetDataResponse {
+    pub user: Address,
+    pub coin: String,
+    pub leverage: Leverage,
+    pub max_trade_szs: Vec<String>,
+    pub available_to_trade: Vec<String>,
+    pub mark_px: String,
 }

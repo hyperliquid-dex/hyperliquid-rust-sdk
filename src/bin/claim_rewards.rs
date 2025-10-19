@@ -1,5 +1,5 @@
 use alloy::signers::local::PrivateKeySigner;
-use hyperliquid_rust_sdk::{BaseUrl, ExchangeClient};
+use hyperliquid_rust_sdk::{BaseUrl, ExchangeClient, ExchangeResponseStatus};
 use log::info;
 
 #[tokio::main]
@@ -15,12 +15,14 @@ async fn main() {
         .await
         .unwrap();
 
-    let amount = "1"; // 1 USD
-    let destination = "0x0D1d9635D0640821d15e323ac8AdADfA9c111414";
+    let response = exchange_client.claim_rewards(None).await.unwrap();
 
-    let res = exchange_client
-        .usdc_transfer(amount, destination, None)
-        .await
-        .unwrap();
-    info!("Usdc transfer result: {res:?}");
+    match response {
+        ExchangeResponseStatus::Ok(exchange_response) => {
+            info!("Rewards claimed successfully: {:?}", exchange_response);
+        }
+        ExchangeResponseStatus::Err(e) => {
+            info!("Failed to claim rewards: {}", e);
+        }
+    }
 }
