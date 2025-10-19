@@ -97,7 +97,12 @@ impl HttpClient {
                     if let Ok(parsed_body) = serde_json::from_str::<serde_json::Value>(&new_body) {
                         if let Some(obj) = parsed_body.as_object() {
                             for (key, value) in obj {
-                                to_encrypt.push_str(&format!("{}={}&", key, value));
+                                // Format JSON value with spaces like Python's json.dumps
+                                let formatted_value = serde_json::to_string_pretty(value)
+                                    .unwrap_or_else(|_| "null".to_string())
+                                    .replace('\n', "")
+                                    .replace("  ", " ");
+                                to_encrypt.push_str(&format!("{}={}&", key, formatted_value));
                             }
                         }
                     }
