@@ -75,6 +75,7 @@ pub enum BaseUrl {
     Localhost,
     Testnet,
     Mainnet,
+    Custom,
 }
 
 impl BaseUrl {
@@ -83,12 +84,15 @@ impl BaseUrl {
             BaseUrl::Localhost => LOCAL_API_URL.to_string(),
             BaseUrl::Mainnet => MAINNET_API_URL.to_string(),
             BaseUrl::Testnet => TESTNET_API_URL.to_string(),
+            BaseUrl::Custom => CUSTOM_URL.to_string(),
         }
     }
 }
 
 lazy_static! {
     static ref CUR_NONCE: AtomicU64 = AtomicU64::new(now_timestamp_ms());
+    static ref CUSTOM_URL: String = std::env::var("CUSTOM_HYPERLIQUID_MAIN_URL")
+        .unwrap_or_else(|_| "https://api.hyperliquid.xyz".to_string());
 }
 
 #[cfg(test)]
