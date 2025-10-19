@@ -98,10 +98,11 @@ impl HttpClient {
                         if let Some(obj) = parsed_body.as_object() {
                             for (key, value) in obj {
                                 // Format JSON value with spaces like Python's json.dumps
-                                let formatted_value = serde_json::to_string_pretty(value)
+                                //  body={"type": "meta", "dex": ""}&1760911121
+                                let formatted_value = serde_json::to_string(value)
                                     .unwrap_or_else(|_| "null".to_string())
-                                    .replace('\n', "")
-                                    .replace("  ", " ");
+                                    .replace(":", ": ")
+                                    .replace(",", ", ");
                                 to_encrypt.push_str(&format!("{}={}&", key, formatted_value));
                             }
                         }
