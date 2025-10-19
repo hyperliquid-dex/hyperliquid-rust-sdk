@@ -111,11 +111,7 @@ impl HttpClient {
                 let signature = hex::encode(mac.finalize().into_bytes());
 
                 println!("new_body: {}", new_body);
-                println!("api_key: {}", api_key);
-                println!("api_secret: {}", api_secret);
-                println!("signature: {}", signature);
                 println!("to_encrypt: {}", to_encrypt);
-                println!("now: {}", now);
                 
                 // Print headers in the expected format
                 println!("Headers: {{'Content-Type': 'application/json', 'X-MBX-APIKEY': '{}', 'signature': '{}', 'nonce': '{}'}}", 
