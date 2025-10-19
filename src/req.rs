@@ -83,9 +83,9 @@ impl HttpClient {
         if self.base_url_enum == BaseUrl::LTP {
             // LTP-specific authentication logic
             if let (Some(api_key), Some(api_secret)) = (&self.ltp_api_key, &self.ltp_api_secret) {
-                // Build request body for LTP
+                // Build request body for LTP in format {"body": "json_dumps(data)"}
                 let new_body = if !data.is_empty() {
-                    format!("{{\"body\":{}}}", data)
+                    format!("{{\"body\":\"{}\"}}", data)
                 } else {
                     "{}".to_string()
                 };
@@ -97,12 +97,9 @@ impl HttpClient {
                     if let Ok(parsed_body) = serde_json::from_str::<serde_json::Value>(&new_body) {
                         if let Some(obj) = parsed_body.as_object() {
                             for (key, value) in obj {
-                                // Format JSON value with spaces like Python's json.dumps
-                                //  body={"type": "meta", "dex": ""}&1760911121
+                                // Format JSON value without spaces
                                 let formatted_value = serde_json::to_string(value)
-                                    .unwrap_or_else(|_| "null".to_string())
-                                    .replace(":", ": ")
-                                    .replace(",", ", ");
+                                    .unwrap_or_else(|_| "null".to_string());
                                 to_encrypt.push_str(&format!("{}={}&", key, formatted_value));
                             }
                         }
