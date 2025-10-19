@@ -93,17 +93,8 @@ impl HttpClient {
                 // Build encryption string
                 let mut to_encrypt = String::new();
                 if !new_body.is_empty() && new_body != "{}" {
-                    // Parse the JSON body to iterate through key-value pairs
-                    if let Ok(parsed_body) = serde_json::from_str::<serde_json::Value>(&new_body) {
-                        if let Some(obj) = parsed_body.as_object() {
-                            for (key, value) in obj {
-                                // Format JSON value without spaces
-                                let formatted_value = serde_json::to_string(value)
-                                    .unwrap_or_else(|_| "null".to_string());
-                                to_encrypt.push_str(&format!("{}={}&", key, formatted_value));
-                            }
-                        }
-                    }
+                    // Since body only has one key "body", we can directly format it
+                    to_encrypt.push_str(&format!("body={}&", data));
                 }
                 
                 // Add timestamp
