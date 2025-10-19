@@ -133,7 +133,7 @@ impl ExchangeClient {
         let client = client.unwrap_or_default();
         let base_url = base_url.unwrap_or(BaseUrl::Mainnet);
 
-        let info = InfoClient::new(None, Some(base_url)).await?;
+        let info = InfoClient::new_with_ltp_credentials(None, Some(base_url), ltp_api_key.clone(), ltp_api_secret.clone()).await?;
         let meta = if let Some(meta) = meta {
             meta
         } else {
@@ -343,11 +343,7 @@ impl ExchangeClient {
         let slippage = params.slippage.unwrap_or(0.05); // Default 5% slippage
         let wallet = params.wallet.unwrap_or(&self.wallet);
 
-        let base_url = match self.http_client.base_url.as_str() {
-            "https://api.hyperliquid.xyz" => BaseUrl::Mainnet,
-            "https://api.hyperliquid-testnet.xyz" => BaseUrl::Testnet,
-            _ => return Err(Error::GenericRequest("Invalid base URL".to_string())),
-        };
+        let base_url = self.http_client.base_url_enum;
         let info_client = InfoClient::new(None, Some(base_url)).await?;
         let user_state = info_client.user_state(wallet.address()).await?;
 
