@@ -12,8 +12,8 @@ use crate::{
     exchange::{
         actions::{
             ApproveAgent, ApproveBuilderFee, BulkCancel, BulkModify, BulkOrder, ClaimRewards,
-            EvmUserModify, ScheduleCancel, SendAsset, SetReferrer, UpdateIsolatedMargin, UpdateLeverage,
-            UsdSend,
+            EvmUserModify, ScheduleCancel, SendAsset, SetReferrer, UpdateIsolatedMargin,
+            UpdateLeverage, UsdSend,
         },
         cancel::{CancelRequest, CancelRequestCloid, ClientCancelRequestCloid},
         modify::{ClientModifyRequest, ModifyRequest},
@@ -259,11 +259,9 @@ impl ExchangeClient {
         let timestamp = next_nonce();
 
         // Build fromSubAccount string (similar to Python SDK)
-        let from_sub_account = if let Some(vault_addr) = self.vault_address {
-            format!("{:?}", vault_addr)
-        } else {
-            String::new()
-        };
+        let from_sub_account = self
+            .vault_address
+            .map_or_else(String::new, |vault_addr| format!("{vault_addr:?}"));
 
         let send_asset = SendAsset {
             signature_chain_id: 421614,
