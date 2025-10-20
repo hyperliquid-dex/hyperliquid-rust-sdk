@@ -19,10 +19,10 @@ async fn main() {
 
     match response {
         ExchangeResponseStatus::Ok(exchange_response) => {
-            info!("Rewards claimed successfully: {:?}", exchange_response);
+            info!("Rewards claimed successfully: {exchange_response:?}");
         }
         ExchangeResponseStatus::Err(e) => {
-            info!("Failed to claim rewards: {}", e);
+            info!("Failed to claim rewards: {e}");
         }
     }
 }

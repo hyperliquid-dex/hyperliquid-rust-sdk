@@ -62,6 +62,6 @@ async fn main() {
         .schedule_cancel(Some(cancel_time), None)
         .await
         .unwrap();
-    info!("schedule_cancel response: {:?}", response);
+    info!("schedule_cancel response: {response:?}");
     sleep(Duration::from_secs(20));
 }
