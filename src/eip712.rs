@@ -3,7 +3,7 @@ use alloy::{
     primitives::{keccak256, B256},
 };
 
-pub(crate) trait Eip712 {
+pub trait Eip712 {
     fn domain(&self) -> Eip712Domain;
     fn struct_hash(&self) -> B256;
 
