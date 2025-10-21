@@ -27,6 +27,31 @@ pub(crate) fn sign_typed_data<T: Eip712>(
         .map_err(|e| Error::SignatureFailure(e.to_string()))
 }
 
+/// Sign an L1 action with multiple wallets for multi-sig
+pub(crate) fn sign_l1_action_multi_sig(
+    wallets: &[PrivateKeySigner],
+    connection_id: B256,
+    is_mainnet: bool,
+) -> Result<Vec<Signature>> {
+    let mut signatures = Vec::with_capacity(wallets.len());
+    for wallet in wallets {
+        signatures.push(sign_l1_action(wallet, connection_id, is_mainnet)?);
+    }
+    Ok(signatures)
+}
+
+/// Sign typed data with multiple wallets for multi-sig
+pub(crate) fn sign_typed_data_multi_sig<T: Eip712>(
+    payload: &T,
+    wallets: &[PrivateKeySigner],
+) -> Result<Vec<Signature>> {
+    let mut signatures = Vec::with_capacity(wallets.len());
+    for wallet in wallets {
+        signatures.push(sign_typed_data(payload, wallet)?);
+    }
+    Ok(signatures)
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -98,6 +123,93 @@ mod tests {
             sign_typed_data(&usd_send, &wallet)?.to_string(),
             expected_sig
         );
+        Ok(())
+    }
+
+    #[test]
+    fn test_sign_l1_action_multi_sig() -> Result<()> {
+        // Create two test wallets
+        let wallet1 = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e"
+            .parse::<PrivateKeySigner>()
+            .map_err(|e| Error::Wallet(e.to_string()))?;
+        let wallet2 = "0000000000000000000000000000000000000000000000000000000000000001"
+            .parse::<PrivateKeySigner>()
+            .map_err(|e| Error::Wallet(e.to_string()))?;
+
+        let wallets = vec![wallet1, wallet2];
+        let connection_id =
+            B256::from_str("0xde6c4037798a4434ca03cd05f00e3b803126221375cd1e7eaaaf041768be06eb")
+                .map_err(|e| Error::GenericParse(e.to_string()))?;
+
+        // Test mainnet
+        let mainnet_sigs = sign_l1_action_multi_sig(&wallets, connection_id, true)?;
+        assert_eq!(mainnet_sigs.len(), 2);
+        assert_eq!(
+            mainnet_sigs[0].to_string(),
+            "0xfa8a41f6a3fa728206df80801a83bcbfbab08649cd34d9c0bfba7c7b2f99340f53a00226604567b98a1492803190d65a201d6805e5831b7044f17fd530aec7841c"
+        );
+
+        // Test testnet
+        let testnet_sigs = sign_l1_action_multi_sig(&wallets, connection_id, false)?;
+        assert_eq!(testnet_sigs.len(), 2);
+        assert_eq!(
+            testnet_sigs[0].to_string(),
+            "0x1713c0fc661b792a50e8ffdd59b637b1ed172d9a3aa4d801d9d88646710fb74b33959f4d075a7ccbec9f2374a6da21ffa4448d58d0413a0d335775f680a881431c"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sign_typed_data_multi_sig() -> Result<()> {
+        // Create two test wallets
+        let wallet1 = "e908f86dbb4d55ac876378565aafeabc187f6690f046459397b17d9b9a19688e"
+            .parse::<PrivateKeySigner>()
+            .map_err(|e| Error::Wallet(e.to_string()))?;
+        let wallet2 = "0000000000000000000000000000000000000000000000000000000000000001"
+            .parse::<PrivateKeySigner>()
+            .map_err(|e| Error::Wallet(e.to_string()))?;
+
+        let wallets = vec![wallet1, wallet2];
+
+        let usd_send = UsdSend {
+            signature_chain_id: 421614,
+            hyperliquid_chain: "Testnet".to_string(),
+            destination: "0x0D1d9635D0640821d15e323ac8AdADfA9c111414".to_string(),
+            amount: "1".to_string(),
+            time: 1690393044548,
+        };
+
+        let signatures = sign_typed_data_multi_sig(&usd_send, &wallets)?;
+        assert_eq!(signatures.len(), 2);
+
+        // First signature should match the single-sig test
+        assert_eq!(
+            signatures[0].to_string(),
+            "0x214d507bbdaebba52fa60928f904a8b2df73673e3baba6133d66fe846c7ef70451e82453a6d8db124e7ed6e60fa00d4b7c46e4d96cb2bd61fd81b6e8953cc9d21b"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_multi_sig_with_single_wallet() -> Result<()> {
+        // Test that multi-sig works with a single wallet
+        let wallet = get_wallet()?;
+        let wallets = vec![wallet];
+        let connection_id =
+            B256::from_str("0xde6c4037798a4434ca03cd05f00e3b803126221375cd1e7eaaaf041768be06eb")
+                .map_err(|e| Error::GenericParse(e.to_string()))?;
+
+        let sigs = sign_l1_action_multi_sig(&wallets, connection_id, true)?;
+        assert_eq!(sigs.len(), 1);
+
+        // Should match the single-sig result
+        assert_eq!(
+            sigs[0].to_string(),
+            "0xfa8a41f6a3fa728206df80801a83bcbfbab08649cd34d9c0bfba7c7b2f99340f53a00226604567b98a1492803190d65a201d6805e5831b7044f17fd530aec7841c"
+        );
+
         Ok(())
     }
 }

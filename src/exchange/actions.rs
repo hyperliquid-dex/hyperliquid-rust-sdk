@@ -291,3 +291,69 @@ impl Eip712 for ApproveBuilderFee {
         keccak256(items.abi_encode())
     }
 }
+
+// Multi-sig related structs
+
+/// Convert a regular user account to a multi-sig account
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct ConvertToMultiSig {
+    #[serde(serialize_with = "serialize_hex")]
+    pub signature_chain_id: u64,
+    pub hyperliquid_chain: String,
+    pub multi_sig_threshold: u64,
+    pub time: u64,
+}
+
+impl Eip712 for ConvertToMultiSig {
+    fn domain(&self) -> Eip712Domain {
+        eip_712_domain(self.signature_chain_id)
+    }
+
+    fn struct_hash(&self) -> B256 {
+        let items = (
+            keccak256("HyperliquidTransaction:ConvertToMultiSig(string hyperliquidChain,uint64 multiSigThreshold,uint64 time)"),
+            keccak256(&self.hyperliquid_chain),
+            &self.multi_sig_threshold,
+            &self.time,
+        );
+        keccak256(items.abi_encode())
+    }
+}
+
+/// Add or remove authorized addresses for a multi-sig user
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateMultiSigAddresses {
+    #[serde(serialize_with = "serialize_hex")]
+    pub signature_chain_id: u64,
+    pub hyperliquid_chain: String,
+    pub to_add: Vec<Address>,
+    pub to_remove: Vec<Address>,
+    pub time: u64,
+}
+
+impl Eip712 for UpdateMultiSigAddresses {
+    fn domain(&self) -> Eip712Domain {
+        eip_712_domain(self.signature_chain_id)
+    }
+
+    fn struct_hash(&self) -> B256 {
+        // For arrays of addresses, we need to encode them properly
+        let to_add_encoded = self.to_add.iter().fold(B256::ZERO, |acc, addr| {
+            keccak256([acc.as_slice(), addr.as_slice()].concat())
+        });
+        let to_remove_encoded = self.to_remove.iter().fold(B256::ZERO, |acc, addr| {
+            keccak256([acc.as_slice(), addr.as_slice()].concat())
+        });
+
+        let items = (
+            keccak256("HyperliquidTransaction:UpdateMultiSigAddresses(string hyperliquidChain,address[] toAdd,address[] toRemove,uint64 time)"),
+            keccak256(&self.hyperliquid_chain),
+            to_add_encoded,
+            to_remove_encoded,
+            &self.time,
+        );
+        keccak256(items.abi_encode())
+    }
+}
