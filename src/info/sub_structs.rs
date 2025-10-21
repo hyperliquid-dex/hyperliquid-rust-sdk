@@ -1,5 +1,6 @@
 use alloy::primitives::Address;
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -83,7 +84,10 @@ pub struct DailyUserVlm {
 pub struct FeeSchedule {
     pub add: String,
     pub cross: String,
+    pub spot_cross: String,
+    pub spot_add: String,
     pub referral_discount: String,
+    pub staking_discount_tiers: Vec<StakingDiscountTier>,
     pub tiers: Tiers,
 }
 
@@ -105,6 +109,8 @@ pub struct Mm {
 pub struct Vip {
     pub add: String,
     pub cross: String,
+    pub spot_cross: String,
+    pub spot_add: String,
     pub ntl_cutoff: String,
 }
 
@@ -116,6 +122,34 @@ pub struct UserTokenBalance {
     pub total: String,
     pub entry_ntl: String,
 }
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct StakingLink {
+    #[serde(rename = "type")]
+    pub link_type: String,
+    #[serde(default)]
+    pub staking_user: Option<String>,
+    #[serde(default)]
+    pub trading_user: Option<String>,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct StakingDiscountTier {
+    pub bps_of_max_supply: String,
+    pub discount: String,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ActiveStakingDiscount {
+    pub bps_of_max_supply: String,
+    pub discount: String,
+}
+
+/// The API exposes a `trial` object whose schema is not yet documented; capture it raw for now.
+pub type TrialInfo = Value;
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
