@@ -107,10 +107,24 @@ impl ExchangeClient {
         meta: Option<Meta>,
         vault_address: Option<Address>,
     ) -> Result<ExchangeClient> {
-        let client = client.unwrap_or_default();
         let base_url = base_url.unwrap_or(BaseUrl::Mainnet);
+        let is_mainnet = base_url.is_mainnet();
+        let base_url = base_url.get_url();
+        Self::with_custom_url(client, wallet, base_url, is_mainnet, meta, vault_address).await
+    }
 
-        let info = InfoClient::new(None, Some(base_url)).await?;
+    pub async fn with_custom_url(
+        client: Option<Client>,
+        wallet: PrivateKeySigner,
+        base_url: String,
+        is_mainnet: bool,
+        meta: Option<Meta>,
+        vault_address: Option<Address>,
+    ) -> Result<ExchangeClient> {
+        let client = client.unwrap_or_default();
+
+        let info = InfoClient::with_custom_url(None, base_url.clone(), is_mainnet, false).await?;
+
         let meta = if let Some(meta) = meta {
             meta
         } else {
@@ -133,7 +147,8 @@ impl ExchangeClient {
             vault_address,
             http_client: HttpClient {
                 client,
-                base_url: base_url.get_url(),
+                base_url,
+                is_mainnet,
             },
             coin_to_asset,
         })
