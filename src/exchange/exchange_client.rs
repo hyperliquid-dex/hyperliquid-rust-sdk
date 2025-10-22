@@ -12,8 +12,8 @@ use crate::{
     exchange::{
         actions::{
             ApproveAgent, ApproveBuilderFee, BulkCancel, BulkModify, BulkOrder, ClaimRewards,
-            EvmUserModify, ScheduleCancel, SendAsset, SetReferrer, UpdateIsolatedMargin, UpdateLeverage,
-            UsdClassTransfer, UsdSend,
+            EvmUserModify, ScheduleCancel, SendAsset, SetReferrer, UpdateIsolatedMargin,
+            UpdateLeverage, UsdClassTransfer, UsdSend,
         },
         cancel::{CancelRequest, CancelRequestCloid, ClientCancelRequestCloid},
         modify::{ClientModifyRequest, ModifyRequest},
