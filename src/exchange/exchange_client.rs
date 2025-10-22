@@ -12,7 +12,7 @@ use crate::{
     exchange::{
         actions::{
             ApproveAgent, ApproveBuilderFee, BulkCancel, BulkModify, BulkOrder, ClaimRewards,
-            EvmUserModify, ScheduleCancel, SetReferrer, UpdateIsolatedMargin, UpdateLeverage,
+            EvmUserModify, ScheduleCancel, SendAsset, SetReferrer, UpdateIsolatedMargin, UpdateLeverage,
             UsdClassTransfer, UsdSend,
         },
         cancel::{CancelRequest, CancelRequestCloid, ClientCancelRequestCloid},
@@ -73,6 +73,7 @@ pub enum Actions {
     ApproveAgent(ApproveAgent),
     Withdraw3(Withdraw3),
     UsdClassTransfer(UsdClassTransfer),
+    SendAsset(SendAsset),
     VaultTransfer(VaultTransfer),
     SpotSend(SpotSend),
     SetReferrer(SetReferrer),
@@ -252,6 +253,49 @@ impl ExchangeClient {
 
         let signature = sign_typed_data(&usd_class_transfer, wallet)?;
         let action = serde_json::to_value(Actions::UsdClassTransfer(usd_class_transfer))
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        self.post(action, signature, timestamp).await
+    }
+
+    pub async fn send_asset(
+        &self,
+        destination: &str,
+        source_dex: &str,
+        destination_dex: &str,
+        token: &str,
+        amount: f64,
+        wallet: Option<&PrivateKeySigner>,
+    ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+
+        let hyperliquid_chain = if self.http_client.is_mainnet() {
+            "Mainnet".to_string()
+        } else {
+            "Testnet".to_string()
+        };
+
+        let timestamp = next_nonce();
+
+        // Build fromSubAccount string (similar to Python SDK)
+        let from_sub_account = self
+            .vault_address
+            .map_or_else(String::new, |vault_addr| format!("{vault_addr:?}"));
+
+        let send_asset = SendAsset {
+            signature_chain_id: 421614,
+            hyperliquid_chain,
+            destination: destination.to_string(),
+            source_dex: source_dex.to_string(),
+            destination_dex: destination_dex.to_string(),
+            token: token.to_string(),
+            amount: amount.to_string(),
+            from_sub_account,
+            nonce: timestamp,
+        };
+
+        let signature = sign_typed_data(&send_asset, wallet)?;
+        let action = serde_json::to_value(Actions::SendAsset(send_asset))
             .map_err(|e| Error::JsonParse(e.to_string()))?;
 
         self.post(action, signature, timestamp).await
@@ -1123,6 +1167,62 @@ mod tests {
         };
 
         let vault_signature = sign_typed_data(&vault_transfer, &wallet)?;
+        // Verify vault signature is different from non-vault signature
+        assert_ne!(mainnet_signature, vault_signature);
+
+        Ok(())
+    }
+
+    fn test_send_asset_signing() -> Result<()> {
+        let wallet = get_wallet()?;
+
+        // Test mainnet - send asset to another address
+        let mainnet_send = SendAsset {
+            signature_chain_id: 421614,
+            hyperliquid_chain: "Mainnet".to_string(),
+            destination: "0x1234567890123456789012345678901234567890".to_string(),
+            source_dex: "".to_string(),
+            destination_dex: "spot".to_string(),
+            token: "PURR:0xc4bf3f870c0e9465323c0b6ed28096c2".to_string(),
+            amount: "100".to_string(),
+            from_sub_account: "".to_string(),
+            nonce: 1583838,
+        };
+
+        let mainnet_signature = sign_typed_data(&mainnet_send, &wallet)?;
+        // Signature generated successfully - just verify it's a valid signature object
+
+        // Test testnet - send different token
+        let testnet_send = SendAsset {
+            signature_chain_id: 421614,
+            hyperliquid_chain: "Testnet".to_string(),
+            destination: "0x1234567890123456789012345678901234567890".to_string(),
+            source_dex: "spot".to_string(),
+            destination_dex: "".to_string(),
+            token: "USDC".to_string(),
+            amount: "50".to_string(),
+            from_sub_account: "".to_string(),
+            nonce: 1583838,
+        };
+
+        let testnet_signature = sign_typed_data(&testnet_send, &wallet)?;
+        // Verify signatures are different for mainnet vs testnet
+        assert_ne!(mainnet_signature, testnet_signature);
+
+        // Test with vault/subaccount
+        let vault_send = SendAsset {
+            signature_chain_id: 421614,
+            hyperliquid_chain: "Mainnet".to_string(),
+            destination: "0x1234567890123456789012345678901234567890".to_string(),
+            source_dex: "".to_string(),
+            destination_dex: "spot".to_string(),
+            token: "PURR:0xc4bf3f870c0e9465323c0b6ed28096c2".to_string(),
+            amount: "100".to_string(),
+            from_sub_account: "0xabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd".to_string(),
+            nonce: 1583838,
+        };
+
+        let vault_signature = sign_typed_data(&vault_send, &wallet)?;
         // Verify vault signature is different from non-vault signature
         assert_ne!(mainnet_signature, vault_signature);
 
