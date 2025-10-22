@@ -13,7 +13,7 @@ use crate::{
         actions::{
             ApproveAgent, ApproveBuilderFee, BulkCancel, BulkModify, BulkOrder, ClaimRewards,
             EvmUserModify, ScheduleCancel, SendAsset, SetReferrer, UpdateIsolatedMargin,
-            UpdateLeverage, UsdSend,
+            UpdateLeverage, UsdClassTransfer, UsdSend,
         },
         cancel::{CancelRequest, CancelRequestCloid, ClientCancelRequestCloid},
         modify::{ClientModifyRequest, ModifyRequest},
@@ -26,8 +26,7 @@ use crate::{
     prelude::*,
     req::HttpClient,
     signature::{sign_l1_action, sign_typed_data},
-    BaseUrl, BulkCancelCloid, ClassTransfer, Error, ExchangeResponseStatus, SpotSend, SpotUser,
-    VaultTransfer, Withdraw3,
+    BaseUrl, BulkCancelCloid, Error, ExchangeResponseStatus, SpotSend, VaultTransfer, Withdraw3,
 };
 
 #[derive(Debug)]
@@ -57,6 +56,7 @@ struct ExchangePayload {
     #[serde(serialize_with = "serialize_sig")]
     signature: Signature,
     nonce: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
     vault_address: Option<Address>,
 }
 
@@ -73,7 +73,6 @@ pub enum Actions {
     BatchModify(BulkModify),
     ApproveAgent(ApproveAgent),
     Withdraw3(Withdraw3),
-    SpotUser(SpotUser),
     SendAsset(SendAsset),
     VaultTransfer(VaultTransfer),
     SpotSend(SpotSend),
@@ -82,6 +81,7 @@ pub enum Actions {
     EvmUserModify(EvmUserModify),
     ScheduleCancel(ScheduleCancel),
     ClaimRewards(ClaimRewards),
+    UsdClassTransfer(UsdClassTransfer),
 }
 
 impl Actions {
@@ -151,11 +151,16 @@ impl ExchangeClient {
         //     v: 27 + signature.v() as u64,
         // };
 
+        let vault_address = match action.get("type").and_then(|value| value.as_str()) {
+            Some("usdClassTransfer") | Some("sendAsset") => None,
+            _ => self.vault_address,
+        };
+
         let exchange_payload = ExchangePayload {
             action,
             signature,
             nonce,
-            vault_address: self.vault_address,
+            vault_address,
         };
         let res = serde_json::to_string(&exchange_payload)
             .map_err(|e| Error::JsonParse(e.to_string()))?;
@@ -218,25 +223,36 @@ impl ExchangeClient {
 
     pub async fn class_transfer(
         &self,
-        usdc: f64,
+        usd_amount: f64,
         to_perp: bool,
         wallet: Option<&PrivateKeySigner>,
     ) -> Result<ExchangeResponseStatus> {
-        // payload expects usdc without decimals
-        let usdc = (usdc * 1e6).round() as u64;
         let wallet = wallet.unwrap_or(&self.wallet);
+        let hyperliquid_chain = if self.http_client.is_mainnet() {
+            "Mainnet".to_string()
+        } else {
+            "Testnet".to_string()
+        };
 
-        let timestamp = next_nonce();
+        let nonce = next_nonce();
 
-        let action = Actions::SpotUser(SpotUser {
-            class_transfer: ClassTransfer { usdc, to_perp },
-        });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-        let is_mainnet = self.http_client.is_mainnet();
-        let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+        let mut amount = usd_amount.to_string();
+        if let Some(vault_addr) = self.vault_address {
+            amount = format!("{amount} subaccount:{vault_addr:?}");
+        }
 
-        self.post(action, signature, timestamp).await
+        let payload = UsdClassTransfer {
+            signature_chain_id: 421614,
+            hyperliquid_chain,
+            amount,
+            to_perp,
+            nonce,
+        };
+        let signature = sign_typed_data(&payload, wallet)?;
+        let action = serde_json::to_value(Actions::UsdClassTransfer(payload))
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        self.post(action, signature, nonce).await
     }
 
     pub async fn send_asset(
@@ -1160,6 +1176,45 @@ mod tests {
 
         let vault_signature = sign_typed_data(&vault_send, &wallet)?;
         // Verify vault signature is different from non-vault signature
+        assert_ne!(mainnet_signature, vault_signature);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_usd_class_transfer_signing() -> Result<()> {
+        let wallet = get_wallet()?;
+
+        // Mainnet transfer should sign differently from testnet
+        let mainnet_transfer = UsdClassTransfer {
+            signature_chain_id: 421614,
+            hyperliquid_chain: "Mainnet".to_string(),
+            amount: "100".to_string(),
+            to_perp: true,
+            nonce: 1583838,
+        };
+        let mainnet_signature = sign_typed_data(&mainnet_transfer, &wallet)?;
+
+        let testnet_transfer = UsdClassTransfer {
+            signature_chain_id: 421614,
+            hyperliquid_chain: "Testnet".to_string(),
+            amount: "100".to_string(),
+            to_perp: true,
+            nonce: 1583838,
+        };
+        let testnet_signature = sign_typed_data(&testnet_transfer, &wallet)?;
+        assert_ne!(mainnet_signature, testnet_signature);
+
+        // Subaccount suffix should influence the signature as well
+        let vault_addr = address!("0x1234567890123456789012345678901234567890");
+        let vault_transfer = UsdClassTransfer {
+            signature_chain_id: 421614,
+            hyperliquid_chain: "Mainnet".to_string(),
+            amount: format!("100 subaccount:{vault_addr:?}"),
+            to_perp: true,
+            nonce: 1583838,
+        };
+        let vault_signature = sign_typed_data(&vault_transfer, &wallet)?;
         assert_ne!(mainnet_signature, vault_signature);
 
         Ok(())
