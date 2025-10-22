@@ -275,6 +275,34 @@ pub struct ScheduleCancel {
 #[serde(rename_all = "camelCase")]
 pub struct ClaimRewards;
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct UserDexAbstraction {
+    #[serde(serialize_with = "serialize_hex")]
+    pub signature_chain_id: u64,
+    pub hyperliquid_chain: String,
+    pub user: Address,
+    pub enabled: bool,
+    pub nonce: u64,
+}
+
+impl Eip712 for UserDexAbstraction {
+    fn domain(&self) -> Eip712Domain {
+        eip_712_domain(self.signature_chain_id)
+    }
+
+    fn struct_hash(&self) -> B256 {
+        let items = (
+            keccak256("HyperliquidTransaction:UserDexAbstraction(string hyperliquidChain,address user,bool enabled,uint64 nonce)"),
+            keccak256(&self.hyperliquid_chain),
+            &self.user,
+            self.enabled,
+            &self.nonce,
+        );
+        keccak256(items.abi_encode())
+    }
+}
+
 impl Eip712 for ApproveBuilderFee {
     fn domain(&self) -> Eip712Domain {
         eip_712_domain(self.signature_chain_id)

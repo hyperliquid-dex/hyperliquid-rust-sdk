@@ -13,7 +13,7 @@ use crate::{
         actions::{
             ApproveAgent, ApproveBuilderFee, BulkCancel, BulkModify, BulkOrder, ClaimRewards,
             EvmUserModify, ScheduleCancel, SendAsset, SetReferrer, UpdateIsolatedMargin,
-            UpdateLeverage, UsdSend,
+            UpdateLeverage, UsdSend, UserDexAbstraction,
         },
         cancel::{CancelRequest, CancelRequestCloid, ClientCancelRequestCloid},
         modify::{ClientModifyRequest, ModifyRequest},
@@ -82,6 +82,7 @@ pub enum Actions {
     EvmUserModify(EvmUserModify),
     ScheduleCancel(ScheduleCancel),
     ClaimRewards(ClaimRewards),
+    UserDexAbstraction(UserDexAbstraction),
 }
 
 impl Actions {
@@ -864,6 +865,37 @@ impl ExchangeClient {
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+        self.post(action, signature, timestamp).await
+    }
+
+    pub async fn user_dex_abstraction(
+        &self,
+        user: Address,
+        enabled: bool,
+        wallet: Option<&PrivateKeySigner>,
+    ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+
+        let hyperliquid_chain = if self.http_client.is_mainnet() {
+            "Mainnet".to_string()
+        } else {
+            "Testnet".to_string()
+        };
+
+        let timestamp = next_nonce();
+
+        let user_dex_abstraction = UserDexAbstraction {
+            signature_chain_id: 421614,
+            hyperliquid_chain,
+            user,
+            enabled,
+            nonce: timestamp,
+        };
+
+        let signature = sign_typed_data(&user_dex_abstraction, wallet)?;
+        let action = serde_json::to_value(Actions::UserDexAbstraction(user_dex_abstraction))
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
 
         self.post(action, signature, timestamp).await
     }
