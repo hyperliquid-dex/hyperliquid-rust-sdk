@@ -52,7 +52,7 @@ where
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ExchangePayload {
+pub struct ExchangePayload {
     action: serde_json::Value,
     #[serde(serialize_with = "serialize_sig")]
     signature: Signature,
