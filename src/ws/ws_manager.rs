@@ -35,13 +35,16 @@ use crate::{
     WebData2,
 };
 
+use super::SubscriptionError;
+
 #[derive(Debug)]
 struct SubscriptionData {
     sending_channel: UnboundedSender<Message>,
     subscription_id: u32,
     id: String,
 }
-#[derive(Debug)]
+
+#[derive(Debug, Clone)]
 pub(crate) struct WsManager {
     stop_flag: Arc<AtomicBool>,
     writer: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>>>,
@@ -88,10 +91,11 @@ pub enum Message {
     UserNonFundingLedgerUpdates(UserNonFundingLedgerUpdates),
     Notification(Notification),
     WebData2(WebData2),
-    ActiveAssetCtx(ActiveAssetCtx),
     ActiveAssetData(ActiveAssetData),
-    ActiveSpotAssetCtx(ActiveSpotAssetCtx),
     Bbo(Bbo),
+    ActiveAssetCtx(ActiveAssetCtx),
+    ActiveSpotAssetCtx(ActiveSpotAssetCtx),
+    Error(SubscriptionError),
     Pong,
 }
 
@@ -296,6 +300,15 @@ impl WsManager {
             Message::SubscriptionResponse | Message::Pong => Ok(String::default()),
             Message::NoData => Ok("".to_string()),
             Message::HyperliquidError(err) => Ok(format!("hyperliquid error: {err:?}")),
+            Message::Error(err) => {
+                let error_str = err.data.to_string();
+                let identifier = error_str
+                    .split("Invalid subscription ")
+                    .nth(1)
+                    .unwrap_or("Invalid subscription")
+                    .to_string();
+                Ok(identifier)
+            }
         }
     }
 
@@ -309,8 +322,10 @@ impl WsManager {
                     if !data.starts_with('{') {
                         return Ok(());
                     }
+
                     let message = serde_json::from_str::<Message>(&data)
                         .map_err(|e| Error::JsonParse(e.to_string()))?;
+
                     let identifier = WsManager::get_identifier(&message)?;
                     if identifier.is_empty() {
                         return Ok(());
@@ -411,15 +426,11 @@ impl WsManager {
     ) -> Result<u32> {
         let mut subscriptions = self.subscriptions.lock().await;
 
-        let identifier_entry = if let Subscription::UserEvents { user: _ } =
-            serde_json::from_str::<Subscription>(&identifier)
-                .map_err(|e| Error::JsonParse(e.to_string()))?
-        {
+        let subscription = serde_json::from_str::<Subscription>(&identifier)
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
+        let identifier_entry = if let Subscription::UserEvents { user: _ } = subscription {
             "userEvents".to_string()
-        } else if let Subscription::OrderUpdates { user: _ } =
-            serde_json::from_str::<Subscription>(&identifier)
-                .map_err(|e| Error::JsonParse(e.to_string()))?
-        {
+        } else if let Subscription::OrderUpdates { user: _ } = subscription {
             "orderUpdates".to_string()
         } else {
             identifier.clone()

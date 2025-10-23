@@ -351,3 +351,17 @@ pub struct BboData {
     pub time: u64,
     pub bbo: Vec<Option<BookLevel>>,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct SpotAssetDetails {
+    #[serde(rename = "prevDayPx")]
+    pub prev_day_px: String, // Ensure this matches the JSON field exactly
+    pub day_ntl_vlm: String,
+    pub mark_px: String,
+    pub mid_px: String,
+    pub circulating_supply: String,
+    pub coin: String,
+    pub total_supply: String,
+    pub day_base_vlm: String,
+}

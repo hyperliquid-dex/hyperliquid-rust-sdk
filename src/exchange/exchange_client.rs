@@ -30,7 +30,7 @@ use crate::{
     VaultTransfer, Withdraw3,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ExchangeClient {
     pub http_client: HttpClient,
     pub wallet: PrivateKeySigner,
@@ -39,7 +39,7 @@ pub struct ExchangeClient {
     pub coin_to_asset: HashMap<String, u32>,
 }
 
-fn serialize_sig<S>(sig: &Signature, s: S) -> std::result::Result<S::Ok, S::Error>
+pub fn serialize_sig<S>(sig: &Signature, s: S) -> std::result::Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
@@ -52,12 +52,12 @@ where
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct ExchangePayload {
-    action: serde_json::Value,
+pub struct ExchangePayload {
+    pub action: serde_json::Value,
     #[serde(serialize_with = "serialize_sig")]
-    signature: Signature,
-    nonce: u64,
-    vault_address: Option<Address>,
+    pub signature: Signature,
+    pub nonce: u64,
+    pub vault_address: Option<Address>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -139,7 +139,7 @@ impl ExchangeClient {
         })
     }
 
-    async fn post(
+    pub async fn post(
         &self,
         action: serde_json::Value,
         signature: Signature,
