@@ -19,12 +19,6 @@ use crate::{
     UserFundingResponse, UserTokenBalanceResponse,
 };
 
-use ethers::types::H160;
-use reqwest::Client;
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use tokio::sync::mpsc::UnboundedSender;
-
 #[derive(Deserialize, Serialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CandleSnapshotRequest {

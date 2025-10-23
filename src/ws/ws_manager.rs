@@ -35,7 +35,7 @@ use crate::{
     WebData2,
 };
 
-use super::{ActiveAssetCtx, SpotAssetCtx, SubscriptionError};
+use super::SubscriptionError;
 
 #[derive(Debug)]
 struct SubscriptionData {
@@ -91,8 +91,10 @@ pub enum Message {
     UserNonFundingLedgerUpdates(UserNonFundingLedgerUpdates),
     Notification(Notification),
     WebData2(WebData2),
+    ActiveAssetData(ActiveAssetData),
+    Bbo(Bbo),
     ActiveAssetCtx(ActiveAssetCtx),
-    ActiveSpotAssetCtx(SpotAssetCtx),
+    ActiveSpotAssetCtx(ActiveSpotAssetCtx),
     Error(SubscriptionError),
     Pong,
 }
@@ -298,18 +300,6 @@ impl WsManager {
             Message::SubscriptionResponse | Message::Pong => Ok(String::default()),
             Message::NoData => Ok("".to_string()),
             Message::HyperliquidError(err) => Ok(format!("hyperliquid error: {err:?}")),
-            Message::ActiveAssetCtx(active_asset_ctx) => {
-                serde_json::to_string(&Subscription::ActiveAssetCtx {
-                    coin: active_asset_ctx.data.coin.clone(),
-                })
-                .map_err(|e| Error::JsonParse(e.to_string()))
-            }
-            Message::ActiveSpotAssetCtx(active_spot_asset_ctx) => {
-                serde_json::to_string(&Subscription::ActiveAssetCtx {
-                    coin: active_spot_asset_ctx.data.coin.clone(),
-                })
-                .map_err(|e| Error::JsonParse(e.to_string()))
-            }
             Message::Error(err) => {
                 let error_str = err.data.to_string();
                 let identifier = error_str

@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use alloy::primitives::B128;
-use ethers::abi::ethereum_types::H128;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Debug, Clone)]
