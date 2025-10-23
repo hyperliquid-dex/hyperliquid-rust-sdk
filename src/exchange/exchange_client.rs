@@ -53,11 +53,11 @@ where
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ExchangePayload {
-    action: serde_json::Value,
+    pub action: serde_json::Value,
     #[serde(serialize_with = "serialize_sig")]
-    signature: Signature,
-    nonce: u64,
-    vault_address: Option<Address>,
+    pub signature: Signature,
+    pub nonce: u64,
+    pub vault_address: Option<Address>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
