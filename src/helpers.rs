@@ -78,7 +78,7 @@ pub enum BaseUrl {
 }
 
 impl BaseUrl {
-    pub(crate) fn get_url(&self) -> String {
+    pub fn get_url(&self) -> String {
         match self {
             BaseUrl::Localhost => LOCAL_API_URL.to_string(),
             BaseUrl::Mainnet => MAINNET_API_URL.to_string(),
