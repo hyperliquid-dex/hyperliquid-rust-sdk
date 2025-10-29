@@ -38,20 +38,29 @@ pub struct PostResponsePayloadData {
 }
 
 #[derive(Deserialize, Clone, Debug)]
-pub struct PostResponseStatus {
-    pub error: Option<String>,
-    pub filled: Option<FilledStatus>,
-    pub resting: Option<RestingStatus>,
+#[serde(untagged)]
+pub enum PostResponseStatus {
+    Simple(String),
+    Detailed {
+        error: Option<String>,
+        filled: Option<FilledStatus>,
+        resting: Option<RestingStatus>,
+    },
 }
 
 impl PostResponseStatus {
     // Returns the oid of the order either from the filled or resting status
     // If neither is present, returns `None`
     pub fn get_oid(&self) -> Option<String> {
-        self.filled
-            .as_ref()
-            .map(|filled| filled.oid.to_string())
-            .or_else(|| self.resting.as_ref().map(|resting| resting.oid.to_string()))
+        match self {
+            PostResponseStatus::Simple(_) => None,
+            PostResponseStatus::Detailed { filled, resting, .. } => {
+                filled
+                    .as_ref()
+                    .map(|filled| filled.oid.to_string())
+                    .or_else(|| resting.as_ref().map(|resting| resting.oid.to_string()))
+            }
+        }
     }
 }
 

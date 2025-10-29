@@ -53,11 +53,16 @@ mod tests {
             .data
             .unwrap()
             .statuses[0];
-        assert_eq!(
-            error_status.error.as_ref().unwrap(),
-            "Price must be divisible by tick size. asset=13"
-        );
-        assert!(error_status.filled.is_none());
+        match error_status {
+            PostResponseStatus::Detailed { error, filled, .. } => {
+                assert_eq!(
+                    error.as_ref().unwrap(),
+                    "Price must be divisible by tick size. asset=13"
+                );
+                assert!(filled.is_none());
+            }
+            PostResponseStatus::Simple(_) => panic!("Expected Detailed variant"),
+        }
 
         // Test success case
         let success_json_str = r#"{
@@ -114,10 +119,67 @@ mod tests {
             .data
             .unwrap()
             .statuses[0];
-        assert!(success_status.error.is_none());
-        let filled = success_status.filled.as_ref().unwrap();
-        assert_eq!(filled.total_sz, "11.0");
-        assert_eq!(filled.avg_px, "17.826");
-        assert_eq!(filled.oid, 89150510850);
+        match success_status {
+            PostResponseStatus::Detailed { error, filled, .. } => {
+                assert!(error.is_none());
+                let filled = filled.as_ref().unwrap();
+                assert_eq!(filled.total_sz, "11.0");
+                assert_eq!(filled.avg_px, "17.826");
+                assert_eq!(filled.oid, 89150510850);
+            }
+            PostResponseStatus::Simple(_) => panic!("Expected Detailed variant"),
+        }
+    }
+
+    #[test]
+    fn test_post_response_cancel_deserialization() {
+        // Test cancel success case with simple string status
+        let cancel_json_str = r#"{
+          "channel": "post",
+          "data": {
+            "id": 17296502262266217539,
+            "response": {
+              "type": "action",
+              "payload": {
+                "status": "ok",
+                "response": {
+                  "type": "cancel",
+                  "data": {
+                    "statuses": ["success"]
+                  }
+                }
+              }
+            }
+          }
+        }"#;
+
+        let cancel_response: PostResponse =
+            from_str(cancel_json_str).expect("Failed to deserialize cancel JSON");
+
+        // Verify the cancel case deserialization
+        assert_eq!(cancel_response.channel, "post");
+        assert_eq!(cancel_response.data.id, 17296502262266217539);
+        assert_eq!(cancel_response.data.response.response_type, "action");
+        assert_eq!(cancel_response.data.response.payload.status, "ok");
+        assert_eq!(
+            cancel_response.data.response.payload.response.response_type,
+            "cancel"
+        );
+
+        // Verify the simple status
+        let cancel_status = &cancel_response
+            .data
+            .response
+            .payload
+            .response
+            .data
+            .unwrap()
+            .statuses[0];
+        match cancel_status {
+            PostResponseStatus::Simple(s) => {
+                assert_eq!(s, "success");
+            }
+            PostResponseStatus::Detailed { .. } => panic!("Expected Simple variant"),
+        }
     }
 }
