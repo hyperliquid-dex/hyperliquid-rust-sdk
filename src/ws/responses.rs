@@ -62,6 +62,27 @@ impl PostResponseStatus {
             }
         }
     }
+
+    pub fn error(&self) -> Option<String> {
+        match self {
+            PostResponseStatus::Simple(_) => None,
+            PostResponseStatus::Detailed { error, .. } => error.clone(),
+        }
+    }
+
+    pub fn filled(&self) -> Option<FilledStatus> {
+        match self {
+            PostResponseStatus::Simple(_) => None,
+            PostResponseStatus::Detailed { filled, .. } => filled.clone(),
+        }
+    }
+
+    pub fn resting(&self) -> Option<RestingStatus> {
+        match self {
+            PostResponseStatus::Simple(_) => None,
+            PostResponseStatus::Detailed { resting, .. } => resting.clone(),
+        }
+    }
 }
 
 #[derive(Deserialize, Clone, Debug)]
