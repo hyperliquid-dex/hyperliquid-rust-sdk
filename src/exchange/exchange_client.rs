@@ -794,6 +794,7 @@ pub fn modify_order_payload(
     wallet: &LocalWallet,
     params: ClientModifyRequest,
     coin_to_id: &HashMap<String, u32>,
+    is_mainnet: bool,
 ) -> Result<ExchangePayload> {
     let nonce = next_nonce();
 
@@ -810,7 +811,7 @@ pub fn modify_order_payload(
     let connection_id = action.hash(nonce, vault_address)?;
     let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
-    let signature = sign_l1_action(wallet, connection_id, true)?;
+    let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
     Ok(ExchangePayload {
         action,
@@ -825,6 +826,7 @@ pub fn order_payload(
     coin_to_id: &HashMap<String, u32>,
     vault_address: Option<H160>,
     wallet: &LocalWallet,
+    is_mainnet: bool,
 ) -> Result<ExchangePayload> {
     let nonce = next_nonce();
 
@@ -840,7 +842,7 @@ pub fn order_payload(
     let connection_id = action.hash(nonce, vault_address)?;
     let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
-    let signature = sign_l1_action(wallet, connection_id, true)?;
+    let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
     Ok(ExchangePayload {
         action,
@@ -855,6 +857,7 @@ pub fn cancel_order_payload(
     wallet: &LocalWallet,
     params: ClientCancelRequest,
     coin_to_id: &HashMap<String, u32>,
+    is_mainnet: bool,
 ) -> Result<ExchangePayload> {
     let nonce = next_nonce();
 
@@ -871,7 +874,40 @@ pub fn cancel_order_payload(
     let connection_id = action.hash(nonce, vault_address)?;
     let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
-    let signature = sign_l1_action(wallet, connection_id, true)?;
+    let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+    Ok(ExchangePayload {
+        action,
+        signature,
+        nonce,
+        vault_address,
+    })
+}
+
+pub fn cancel_order_by_cloid_payload(
+    vault_address: Option<H160>,
+    wallet: &LocalWallet,
+    params: ClientCancelRequestCloid,
+    coin_to_id: &HashMap<String, u32>,
+    is_mainnet: bool,
+) -> Result<ExchangePayload> {
+    let nonce = next_nonce();
+    
+    let mut transformed_cancels = Vec::new();
+    let &asset = coin_to_id.get(&params.asset).ok_or(Error::AssetNotFound)?;
+    transformed_cancels.push(CancelRequestCloid {
+        asset,
+        cloid: uuid_to_hex_string(params.cloid),
+    });
+    
+    let action = Actions::CancelByCloid(BulkCancelCloid {
+        cancels: transformed_cancels,
+    });
+    let connection_id = action.hash(nonce, vault_address)?;
+    let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+    let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
 
     Ok(ExchangePayload {
         action,
