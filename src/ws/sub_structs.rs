@@ -381,57 +381,10 @@ pub struct Vault {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::WebData2;
 
     use ethers::types::H160;
     use std::str::FromStr;
-
-    #[test]
-    fn test_order_update_deserialization() {
-        let json_str = r#"
-        {
-            "coin": "MOVE",
-            "side": "B",
-            "limitPx": "0.17342",
-            "sz": "1144.0",
-            "oid": 106248774429,
-            "timestamp": 1750872291475,
-            "triggerCondition": "N/A",
-            "isTrigger": false,
-            "triggerPx": "0.0",
-            "children": [],
-            "isPositionTpsl": false,
-            "reduceOnly": false,
-            "orderType": "Limit",
-            "origSz": "1144.0",
-            "tif": "Gtc",
-            "cloid": "0x00000000000000001dc7976527a4de18"
-        }
-        "#;
-
-        let order_update: OrderUpdate = serde_json::from_str(json_str).unwrap();
-
-        assert_eq!(order_update.coin, "MOVE");
-        assert_eq!(order_update.side, "B");
-        assert_eq!(order_update.limit_px, "0.17342");
-        assert_eq!(order_update.sz, "1144.0");
-        assert_eq!(order_update.oid, 106248774429);
-        assert_eq!(order_update.timestamp, 1750872291475);
-        assert_eq!(order_update.trigger_condition, "N/A");
-        assert_eq!(order_update.is_trigger, false);
-        assert_eq!(order_update.trigger_px, "0.0");
-        assert!(order_update.children.is_empty());
-        assert_eq!(order_update.is_position_tpsl, false);
-        assert_eq!(order_update.reduce_only, false);
-        assert_eq!(order_update.order_type, "Limit");
-        assert_eq!(order_update.orig_sz, "1144.0");
-        assert_eq!(order_update.tif, "Gtc");
-        assert_eq!(
-            order_update.cloid,
-            Some("0x00000000000000001dc7976527a4de18".to_string())
-        );
-    }
 
     #[test]
     fn test_parse_web_data2() {

@@ -46,7 +46,7 @@ async fn user_state_example(info_client: &InfoClient) {
 
     info!(
         "User state data for {user}: {:?}",
-        info_client.user_state(user).await.unwrap()
+        info_client.user_state(user, None).await.unwrap()
     );
 }
 
@@ -87,7 +87,7 @@ async fn recent_trades(info_client: &InfoClient) {
 }
 
 async fn meta_example(info_client: &InfoClient) {
-    info!("Metadata: {:?}", info_client.meta().await.unwrap());
+    info!("Metadata: {:?}", info_client.meta(None).await.unwrap());
 }
 
 async fn all_mids_example(info_client: &InfoClient) {

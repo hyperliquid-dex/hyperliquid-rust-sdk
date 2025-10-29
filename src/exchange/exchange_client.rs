@@ -100,7 +100,7 @@ impl ExchangeClient {
         let meta = if let Some(meta) = meta {
             meta
         } else {
-            info.meta().await?
+            info.meta(None).await?
         };
 
         let mut coin_to_asset = HashMap::new();
@@ -305,7 +305,7 @@ impl ExchangeClient {
             _ => return Err(Error::GenericRequest("Invalid base URL".to_string())),
         };
         let info_client = InfoClient::new(None, Some(base_url)).await?;
-        let user_state = info_client.user_state(wallet.address()).await?;
+        let user_state = info_client.user_state(wallet.address(), None).await?;
 
         let position = user_state
             .asset_positions
@@ -353,7 +353,7 @@ impl ExchangeClient {
             _ => return Err(Error::GenericRequest("Invalid base URL".to_string())),
         };
         let info_client = InfoClient::new(None, Some(base_url)).await?;
-        let meta = info_client.meta().await?;
+        let meta = info_client.meta(None).await?;
 
         let asset_meta = meta
             .universe

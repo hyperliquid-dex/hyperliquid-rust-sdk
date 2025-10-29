@@ -1,7 +1,8 @@
 use crate::{
     info::{
         CandlesSnapshotResponse, FundingHistoryResponse, L2SnapshotResponse, OpenOrdersResponse,
-        OrderInfo, RecentTradesResponse, UserFillsResponse, UserStateResponse,
+        OrderInfo, PerpDexLimitsResponse, RecentTradesResponse, UserFillsResponse,
+        UserStateResponse,
     },
     meta::{Meta, SpotMeta, SpotMetaAndAssetCtxs},
     prelude::*,
@@ -33,6 +34,8 @@ pub enum InfoRequest {
     #[serde(rename = "clearinghouseState")]
     UserState {
         user: H160,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        dex: Option<String>,
     },
     #[serde(rename = "batchClearinghouseStates")]
     UserStates {
@@ -56,7 +59,10 @@ pub enum InfoRequest {
         user: H160,
         oid: u64,
     },
-    Meta,
+    Meta {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        dex: Option<String>,
+    },
     SpotMeta,
     SpotMetaAndAssetCtxs,
     AllMids,
@@ -90,6 +96,9 @@ pub enum InfoRequest {
     },
     HistoricalOrders {
         user: H160,
+    },
+    PerpDexLimits {
+        dex: String,
     },
 }
 
@@ -184,8 +193,12 @@ impl InfoClient {
         self.send_info_request(input).await
     }
 
-    pub async fn user_state(&self, address: H160) -> Result<UserStateResponse> {
-        let input = InfoRequest::UserState { user: address };
+    pub async fn user_state(
+        &self,
+        address: H160,
+        dex: Option<String>,
+    ) -> Result<UserStateResponse> {
+        let input = InfoRequest::UserState { user: address, dex };
         self.send_info_request(input).await
     }
 
@@ -204,8 +217,8 @@ impl InfoClient {
         self.send_info_request(input).await
     }
 
-    pub async fn meta(&self) -> Result<Meta> {
-        let input = InfoRequest::Meta;
+    pub async fn meta(&self, dex: Option<String>) -> Result<Meta> {
+        let input = InfoRequest::Meta { dex };
         self.send_info_request(input).await
     }
 
@@ -309,6 +322,11 @@ impl InfoClient {
 
     pub async fn historical_orders(&self, address: H160) -> Result<Vec<OrderInfo>> {
         let input = InfoRequest::HistoricalOrders { user: address };
+        self.send_info_request(input).await
+    }
+
+    pub async fn perp_dex_limits(&self, dex: String) -> Result<PerpDexLimitsResponse> {
+        let input = InfoRequest::PerpDexLimits { dex };
         self.send_info_request(input).await
     }
 }

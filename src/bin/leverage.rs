@@ -30,6 +30,6 @@ async fn main() {
 
     info!("Update isolated margin response: {response:?}");
 
-    let user_state = info_client.user_state(address).await.unwrap();
+    let user_state = info_client.user_state(address, None).await.unwrap();
     info!("User state: {user_state:?}");
 }

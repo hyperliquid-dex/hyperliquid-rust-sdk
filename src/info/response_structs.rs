@@ -145,3 +145,12 @@ pub struct ReferralResponse {
     pub claimed_rewards: String,
     pub referrer_state: ReferrerState,
 }
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct PerpDexLimitsResponse {
+    pub total_oi_cap: String,
+    pub oi_sz_cap_per_perp: String,
+    pub max_transfer_ntl: String,
+    pub coin_to_oi_cap: Vec<[String; 2]>,
+}
