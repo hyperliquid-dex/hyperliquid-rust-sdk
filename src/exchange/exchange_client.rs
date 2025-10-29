@@ -1004,6 +1004,7 @@ pub fn limit_open_payload(
     reduce_only: bool,
     sz_decimals: u32,
     tif: String,
+    is_mainnet: bool,
 ) -> Result<ExchangePayload> {
     let slippage = params.slippage.unwrap_or(0.05); // Default 5% slippage
     let is_buy = params.is_buy;
@@ -1051,7 +1052,7 @@ pub fn limit_open_payload(
     let connection_id = action.hash(nonce, vault_address)?;
     let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
-    let signature = sign_l1_action(wallet, connection_id, true)?;
+    let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
     Ok(ExchangePayload {
         action,
@@ -1068,6 +1069,7 @@ pub fn set_leverage_payload(
     wallet: &LocalWallet,
     symbols_to_id: &HashMap<String, u32>,
     vault_address: Option<H160>,
+    is_mainnet: bool,
 ) -> Result<ExchangePayload> {
     let asset = *symbols_to_id.get(symbol).ok_or(Error::AssetNotFound)?;
     let nonce = next_nonce();
@@ -1079,7 +1081,7 @@ pub fn set_leverage_payload(
 
     let connection_id = action.hash(nonce, vault_address)?;
     let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
-    let signature = sign_l1_action(&wallet, connection_id, true)?;
+    let signature = sign_l1_action(&wallet, connection_id, is_mainnet)?;
 
     Ok(ExchangePayload {
         action,
