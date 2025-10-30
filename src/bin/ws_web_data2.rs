@@ -18,7 +18,7 @@ async fn main() {
 
     let (sender, mut receiver) = unbounded_channel();
     let subscription_id = info_client
-        .subscribe(Subscription::WebData2 { user }, sender)
+        .subscribe(Subscription::WebData2 { user, dex: None }, sender)
         .await
         .unwrap();
 

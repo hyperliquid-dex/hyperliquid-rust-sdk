@@ -154,3 +154,141 @@ pub struct PerpDexLimitsResponse {
     pub max_transfer_ntl: String,
     pub coin_to_oi_cap: Vec<[String; 2]>,
 }
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct PerpDexInfo {
+    pub name: String,
+    pub full_name: String,
+    pub deployer: String,
+    pub oracle_updater: Option<String>,
+    pub fee_recipient: Option<String>,
+    pub asset_to_streaming_oi_cap: Vec<[String; 2]>,
+}
+
+/// Response from perpDexs endpoint
+/// API returns [null, {...}, {...}, ...] format
+/// First element is null, followed by PerpDexInfo objects
+#[derive(Debug)]
+pub struct PerpDexsResponse(pub Vec<PerpDexInfo>);
+
+impl<'de> serde::Deserialize<'de> for PerpDexsResponse {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let values: Vec<serde_json::Value> = Vec::deserialize(deserializer)?;
+
+        // Skip the first element (null) and deserialize the rest
+        let perp_dexs: Result<Vec<PerpDexInfo>, _> = values
+            .into_iter()
+            .skip(1)
+            .map(|v| serde_json::from_value(v).map_err(serde::de::Error::custom))
+            .collect();
+
+        Ok(PerpDexsResponse(perp_dexs?))
+    }
+}
+
+impl PerpDexsResponse {
+    /// Get all perp dex info as a slice
+    pub fn perp_dexs(&self) -> &[PerpDexInfo] {
+        &self.0
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_perp_dexs_response_parsing_single() {
+        // Test parsing perpDexs response from mainnet (single perp dex)
+        let json = r#"[null,{"name":"xyz","fullName":"XYZ","deployer":"0x88806a71d74ad0a510b350545c9ae490912f0888","oracleUpdater":"0x1234567890545d1df9ee64b35fdd16966e08acec","feeRecipient":"0x79c0650064b10f73649b7b64c5ebf0b319606140","assetToStreamingOiCap":[["xyz:XYZ100","100000000.0"]]}]"#;
+
+        let response: PerpDexsResponse = serde_json::from_str(json).unwrap();
+
+        // Get perp dexs using helper method
+        let perp_dexs = response.perp_dexs();
+        assert_eq!(perp_dexs.len(), 1);
+
+        let xyz = &perp_dexs[0];
+        assert_eq!(xyz.name, "xyz");
+        assert_eq!(xyz.full_name, "XYZ");
+        assert_eq!(
+            xyz.deployer,
+            "0x88806a71d74ad0a510b350545c9ae490912f0888"
+        );
+        assert_eq!(
+            xyz.oracle_updater,
+            Some("0x1234567890545d1df9ee64b35fdd16966e08acec".to_string())
+        );
+        assert_eq!(
+            xyz.fee_recipient,
+            Some("0x79c0650064b10f73649b7b64c5ebf0b319606140".to_string())
+        );
+        assert_eq!(xyz.asset_to_streaming_oi_cap.len(), 1);
+        assert_eq!(xyz.asset_to_streaming_oi_cap[0][0], "xyz:XYZ100");
+        assert_eq!(xyz.asset_to_streaming_oi_cap[0][1], "100000000.0");
+    }
+
+    #[test]
+    fn test_perp_dexs_response_parsing_multiple() {
+        // Test parsing perpDexs response with multiple perp dexs (testnet format)
+        let json = r#"[null,{"name":"test","fullName":"test dex","deployer":"0x5e89b26d8d66da9888c835c9bfcc2aa51813e152","oracleUpdater":null,"feeRecipient":null,"assetToStreamingOiCap":[]},{"name":"xyz","fullName":"XYZ","deployer":"0x88806a71d74ad0a510b350545c9ae490912f0888","oracleUpdater":"0x1234567890545d1df9ee64b35fdd16966e08acec","feeRecipient":"0x79c0650064b10f73649b7b64c5ebf0b319606140","assetToStreamingOiCap":[["xyz:XYZ100","100000000.0"]]}]"#;
+
+        let response: PerpDexsResponse = serde_json::from_str(json).unwrap();
+
+        // Get perp dexs using helper method
+        let perp_dexs = response.perp_dexs();
+        assert_eq!(perp_dexs.len(), 2);
+
+        assert_eq!(perp_dexs[0].name, "test");
+        assert_eq!(perp_dexs[1].name, "xyz");
+    }
+
+    #[test]
+    fn test_perp_dex_info_clone() {
+        // Test that PerpDexInfo is cloneable
+        let perp_dex = PerpDexInfo {
+            name: "test".to_string(),
+            full_name: "Test".to_string(),
+            deployer: "0x123".to_string(),
+            oracle_updater: Some("0x456".to_string()),
+            fee_recipient: Some("0x789".to_string()),
+            asset_to_streaming_oi_cap: vec![["test:ABC".to_string(), "1000000.0".to_string()]],
+        };
+
+        let cloned = perp_dex.clone();
+        assert_eq!(perp_dex.name, cloned.name);
+        assert_eq!(perp_dex.full_name, cloned.full_name);
+        assert_eq!(perp_dex.oracle_updater, cloned.oracle_updater);
+    }
+
+    #[test]
+    fn test_perp_dexs_response_testnet_full() {
+        // Test with a subset of actual testnet response
+        let json = r#"[null,{"name":"test","fullName":"test dex","deployer":"0x5e89b26d8d66da9888c835c9bfcc2aa51813e152","oracleUpdater":null,"feeRecipient":null,"assetToStreamingOiCap":[]},{"name":"vntls","fullName":"Ventuals","deployer":"0xc65008a70f511ae0407d26022ff1516422acea94","oracleUpdater":null,"feeRecipient":null,"assetToStreamingOiCap":[["vntls:vANDRL","450000.0"],["vntls:vANTHRPC","600000.0"]]},{"name":"xyz","fullName":"XYZ","deployer":"0x7770132f86dd4002d018edd7d348f4a0e4340777","oracleUpdater":"0x0000000000c7153b8c085618fb91cb1214092201","feeRecipient":"0x23955d36db94d0f25216045f2bcc34dc5e0f326a","assetToStreamingOiCap":[["xyz:XYZ100","30000000.0"]]}]"#;
+
+        let response: PerpDexsResponse = serde_json::from_str(json).unwrap();
+        let perp_dexs = response.perp_dexs();
+
+        assert_eq!(perp_dexs.len(), 3);
+
+        // Test first dex with null values
+        assert_eq!(perp_dexs[0].name, "test");
+        assert_eq!(perp_dexs[0].oracle_updater, None);
+        assert_eq!(perp_dexs[0].fee_recipient, None);
+        assert_eq!(perp_dexs[0].asset_to_streaming_oi_cap.len(), 0);
+
+        // Test second dex with assets
+        assert_eq!(perp_dexs[1].name, "vntls");
+        assert_eq!(perp_dexs[1].asset_to_streaming_oi_cap.len(), 2);
+        assert_eq!(perp_dexs[1].asset_to_streaming_oi_cap[0][0], "vntls:vANDRL");
+
+        // Test third dex with all fields populated
+        assert_eq!(perp_dexs[2].name, "xyz");
+        assert!(perp_dexs[2].oracle_updater.is_some());
+        assert!(perp_dexs[2].fee_recipient.is_some());
+    }
+}

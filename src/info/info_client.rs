@@ -1,10 +1,10 @@
 use crate::{
     info::{
         CandlesSnapshotResponse, FundingHistoryResponse, L2SnapshotResponse, OpenOrdersResponse,
-        OrderInfo, PerpDexLimitsResponse, RecentTradesResponse, UserFillsResponse,
-        UserStateResponse,
+        OrderInfo, PerpDexLimitsResponse, PerpDexsResponse, RecentTradesResponse,
+        UserFillsResponse, UserStateResponse,
     },
-    meta::{Meta, SpotMeta, SpotMetaAndAssetCtxs},
+    meta::{Meta, PerpDexMeta, SpotMeta, SpotMetaAndAssetCtxs},
     prelude::*,
     req::HttpClient,
     ws::{Subscription, WsManager},
@@ -100,6 +100,7 @@ pub enum InfoRequest {
     PerpDexLimits {
         dex: String,
     },
+    PerpDexs,
 }
 
 #[derive(Debug)]
@@ -222,6 +223,13 @@ impl InfoClient {
         self.send_info_request(input).await
     }
 
+    pub async fn perp_dex_meta(&self, dex: String) -> Result<PerpDexMeta> {
+        let meta = self.meta(Some(dex)).await?;
+        Ok(PerpDexMeta {
+            universe: meta.universe,
+        })
+    }
+
     pub async fn spot_meta(&self) -> Result<SpotMeta> {
         let input = InfoRequest::SpotMeta;
         self.send_info_request(input).await
@@ -327,6 +335,11 @@ impl InfoClient {
 
     pub async fn perp_dex_limits(&self, dex: String) -> Result<PerpDexLimitsResponse> {
         let input = InfoRequest::PerpDexLimits { dex };
+        self.send_info_request(input).await
+    }
+
+    pub async fn perp_dexs(&self) -> Result<PerpDexsResponse> {
+        let input = InfoRequest::PerpDexs;
         self.send_info_request(input).await
     }
 }

@@ -301,7 +301,8 @@ pub struct NotificationData {
 #[serde(rename_all = "camelCase")]
 pub struct WebData2Data {
     pub user: H160,
-    pub clearinghouse_state: ClearinghouseState,
+    pub dex: Option<String>,
+    pub clearinghouse_state: ClearinghouseStateInner,
     pub leading_vaults: Vec<Vault>,
     pub total_vault_equity: String,
     pub open_orders: Vec<OpenOrder>,
@@ -312,7 +313,15 @@ pub struct WebData2Data {
 
 #[derive(Deserialize, Clone, Debug)]
 #[serde(rename_all = "camelCase")]
-pub struct ClearinghouseState {
+pub struct ClearinghouseStateData {
+    pub user: H160,
+    pub dex: Option<String>,
+    pub clearinghouse_state: ClearinghouseStateInner,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct ClearinghouseStateInner {
     pub margin_summary: MarginSummary,
     pub cross_margin_summary: MarginSummary,
     pub cross_maintenance_margin_used: String,

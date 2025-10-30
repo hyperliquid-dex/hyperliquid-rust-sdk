@@ -1,8 +1,5 @@
 use crate::{
-    prelude::*,
-    ws::message_types::{AllMids, Candle, L2Book, OrderUpdates, Trades, User},
-    ActiveAssetCtx, Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
-    WebData2,
+    prelude::*, ws::message_types::{AllMids, Candle, L2Book, OrderUpdates, Trades, User}, ActiveAssetCtx, ClearinghouseState, Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates, WebData2
 };
 use futures_util::{stream::SplitSink, SinkExt, StreamExt};
 use log::{error, info, warn};
@@ -52,7 +49,8 @@ pub(crate) struct WsManager {
 pub enum Subscription {
     AllMids,
     Notification { user: H160 },
-    WebData2 { user: H160 },
+    WebData2 { user: H160, dex: Option<String> },
+    ClearinghouseState { user: H160, dex: Option<String> },
     Candle { coin: String, interval: String },
     L2Book { coin: String },
     Trades { coin: String },
@@ -76,6 +74,7 @@ pub enum Message {
     User(User),
     UserFills(UserFills),
     Candle(Candle),
+    ClearinghouseState(ClearinghouseState),
     SubscriptionResponse,
     OrderUpdates(OrderUpdates),
     UserFundings(UserFundings),
@@ -259,6 +258,12 @@ impl WsManager {
             Message::Notification(_) => Ok("notification".to_string()),
             Message::WebData2(web_data2) => serde_json::to_string(&Subscription::WebData2 {
                 user: web_data2.data.user,
+                dex: web_data2.data.dex.clone(),
+            })
+            .map_err(|e| Error::JsonParse(e.to_string())),
+            Message::ClearinghouseState(clearinghouse_state) => serde_json::to_string(&Subscription::ClearinghouseState {
+                user: clearinghouse_state.data.user,
+                dex: clearinghouse_state.data.dex.clone(),
             })
             .map_err(|e| Error::JsonParse(e.to_string())),
             Message::ActiveAssetCtx(active_asset_ctx) => {
