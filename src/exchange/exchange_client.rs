@@ -852,6 +852,71 @@ pub fn order_payload(
     })
 }
 
+pub fn bulk_order_payload(
+    orders: Vec<ClientOrderRequest>,
+    coin_to_id: &HashMap<String, u32>,
+    vault_address: Option<H160>,
+    wallet: &LocalWallet,
+    is_mainnet: bool,
+) -> Result<ExchangePayload> {
+    let nonce = next_nonce();
+
+    let mut transformed_orders = Vec::new();
+    for order in orders {
+        transformed_orders.push(order.convert(&coin_to_id)?);
+    }
+
+    let action = Actions::Order(BulkOrder {
+        orders: transformed_orders,
+        grouping: "na".to_string(),
+        builder: None,
+    });
+    let connection_id = action.hash(nonce, vault_address)?;
+    let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+    let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+    Ok(ExchangePayload {
+        action,
+        signature,
+        nonce,
+        vault_address,
+    })
+}
+
+pub fn bulk_order_with_builder_payload(
+    orders: Vec<ClientOrderRequest>,
+    coin_to_id: &HashMap<String, u32>,
+    vault_address: Option<H160>,
+    wallet: &LocalWallet,
+    builder: BuilderInfo,
+    is_mainnet: bool,
+) -> Result<ExchangePayload> {
+    let nonce = next_nonce();
+
+    let mut transformed_orders = Vec::new();
+    for order in orders {
+        transformed_orders.push(order.convert(&coin_to_id)?);
+    }
+
+    let action = Actions::Order(BulkOrder {
+        orders: transformed_orders,
+        grouping: "na".to_string(),
+        builder: Some(builder),
+    });
+    let connection_id = action.hash(nonce, vault_address)?;
+    let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+    let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+    Ok(ExchangePayload {
+        action,
+        signature,
+        nonce,
+        vault_address,
+    })
+}
+
 pub fn cancel_order_payload(
     vault_address: Option<H160>,
     wallet: &LocalWallet,
@@ -884,6 +949,40 @@ pub fn cancel_order_payload(
     })
 }
 
+pub fn bulk_cancel_payload(
+    vault_address: Option<H160>,
+    wallet: &LocalWallet,
+    cancels: Vec<ClientCancelRequest>,
+    coin_to_id: &HashMap<String, u32>,
+    is_mainnet: bool,
+) -> Result<ExchangePayload> {
+    let nonce = next_nonce();
+
+    let mut transformed_cancels = Vec::new();
+    for cancel in cancels {
+        let &asset = coin_to_id.get(&cancel.asset).ok_or(Error::AssetNotFound)?;
+        transformed_cancels.push(CancelRequest {
+            asset,
+            oid: cancel.oid,
+        });
+    }
+
+    let action = Actions::Cancel(BulkCancel {
+        cancels: transformed_cancels,
+    });
+    let connection_id = action.hash(nonce, vault_address)?;
+    let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+    let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+
+    Ok(ExchangePayload {
+        action,
+        signature,
+        nonce,
+        vault_address,
+    })
+}
+
 pub fn cancel_order_by_cloid_payload(
     vault_address: Option<H160>,
     wallet: &LocalWallet,
@@ -892,14 +991,14 @@ pub fn cancel_order_by_cloid_payload(
     is_mainnet: bool,
 ) -> Result<ExchangePayload> {
     let nonce = next_nonce();
-    
+
     let mut transformed_cancels = Vec::new();
     let &asset = coin_to_id.get(&params.asset).ok_or(Error::AssetNotFound)?;
     transformed_cancels.push(CancelRequestCloid {
         asset,
         cloid: uuid_to_hex_string(params.cloid),
     });
-    
+
     let action = Actions::CancelByCloid(BulkCancelCloid {
         cancels: transformed_cancels,
     });
@@ -908,6 +1007,39 @@ pub fn cancel_order_by_cloid_payload(
 
     let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
+    Ok(ExchangePayload {
+        action,
+        signature,
+        nonce,
+        vault_address,
+    })
+}
+
+pub fn bulk_cancel_by_cloid_payload(
+    vault_address: Option<H160>,
+    wallet: &LocalWallet,
+    cancels: Vec<ClientCancelRequestCloid>,
+    coin_to_id: &HashMap<String, u32>,
+    is_mainnet: bool,
+) -> Result<ExchangePayload> {
+    let nonce = next_nonce();
+
+    let mut transformed_cancels = Vec::new();
+    for cancel in cancels {
+        let &asset = coin_to_id.get(&cancel.asset).ok_or(Error::AssetNotFound)?;
+        transformed_cancels.push(CancelRequestCloid {
+            asset,
+            cloid: uuid_to_hex_string(cancel.cloid),
+        });
+    }
+
+    let action = Actions::CancelByCloid(BulkCancelCloid {
+        cancels: transformed_cancels,
+    });
+    let connection_id = action.hash(nonce, vault_address)?;
+    let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+    let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
     Ok(ExchangePayload {
         action,
