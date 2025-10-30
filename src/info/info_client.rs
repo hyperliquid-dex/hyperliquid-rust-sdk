@@ -2,7 +2,7 @@ use crate::{
     info::{
         CandlesSnapshotResponse, FundingHistoryResponse, L2SnapshotResponse, OpenOrdersResponse,
         OrderInfo, PerpDexLimitsResponse, PerpDexsResponse, RecentTradesResponse,
-        UserFillsResponse, UserStateResponse,
+        UserFillsResponse, UserRateLimitResponse, UserStateResponse,
     },
     meta::{Meta, PerpDexMeta, SpotMeta, SpotMetaAndAssetCtxs},
     prelude::*,
@@ -101,6 +101,9 @@ pub enum InfoRequest {
         dex: String,
     },
     PerpDexs,
+    UserRateLimit {
+        user: H160,
+    },
 }
 
 #[derive(Debug)]
@@ -340,6 +343,11 @@ impl InfoClient {
 
     pub async fn perp_dexs(&self) -> Result<PerpDexsResponse> {
         let input = InfoRequest::PerpDexs;
+        self.send_info_request(input).await
+    }
+
+    pub async fn user_rate_limit(&self, address: H160) -> Result<UserRateLimitResponse> {
+        let input = InfoRequest::UserRateLimit { user: address };
         self.send_info_request(input).await
     }
 }

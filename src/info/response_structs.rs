@@ -148,6 +148,14 @@ pub struct ReferralResponse {
 
 #[derive(Deserialize, Debug)]
 #[serde(rename_all = "camelCase")]
+pub struct UserRateLimitResponse {
+    pub cum_vlm: String,
+    pub n_requests_used: u32,
+    pub n_requests_cap: u32,
+}
+
+#[derive(Deserialize, Debug)]
+#[serde(rename_all = "camelCase")]
 pub struct PerpDexLimitsResponse {
     pub total_oi_cap: String,
     pub oi_sz_cap_per_perp: String,
