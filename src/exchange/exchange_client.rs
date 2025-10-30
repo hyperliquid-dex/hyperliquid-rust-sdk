@@ -48,6 +48,7 @@ pub struct ExchangePayload {
     signature: Signature,
     nonce: u64,
     vault_address: Option<H160>,
+    expires_after: Option<u64>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -130,12 +131,14 @@ impl ExchangeClient {
         action: serde_json::Value,
         signature: Signature,
         nonce: u64,
+        expires_after: Option<u64>,
     ) -> Result<String> {
         let exchange_payload = ExchangePayload {
             action,
             signature,
             nonce,
             vault_address,
+            expires_after,
         };
         serde_json::to_string(&exchange_payload).map_err(|e| Error::JsonParse(e.to_string()))
     }
@@ -145,12 +148,14 @@ impl ExchangeClient {
         action: serde_json::Value,
         signature: Signature,
         nonce: u64,
+        expires_after: Option<u64>,
     ) -> Result<ExchangeResponseStatus> {
         let exchange_payload = ExchangePayload {
             action,
             signature,
             nonce,
             vault_address: self.vault_address,
+            expires_after,
         };
         let res = serde_json::to_string(&exchange_payload)
             .map_err(|e| Error::JsonParse(e.to_string()))?;
@@ -189,7 +194,7 @@ impl ExchangeClient {
         let action = serde_json::to_value(Actions::UsdSend(usd_send))
             .map_err(|e| Error::JsonParse(e.to_string()))?;
 
-        self.post(action, signature, timestamp).await
+        self.post(action, signature, timestamp, None).await
     }
 
     pub async fn class_transfer(
@@ -212,7 +217,7 @@ impl ExchangeClient {
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
-        self.post(action, signature, timestamp).await
+        self.post(action, signature, timestamp, None).await
     }
 
     pub async fn vault_transfer(
@@ -240,7 +245,7 @@ impl ExchangeClient {
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
-        self.post(action, signature, timestamp).await
+        self.post(action, signature, timestamp, None).await
     }
 
     pub async fn market_open(
@@ -437,7 +442,7 @@ impl ExchangeClient {
 
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
-        self.post(action, signature, timestamp).await
+        self.post(action, signature, timestamp, None).await
     }
 
     pub async fn bulk_order_with_builder(
@@ -467,7 +472,7 @@ impl ExchangeClient {
 
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
-        self.post(action, signature, timestamp).await
+        self.post(action, signature, timestamp, None).await
     }
 
     pub async fn cancel(
@@ -507,7 +512,7 @@ impl ExchangeClient {
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
-        self.post(action, signature, timestamp).await
+        self.post(action, signature, timestamp, None).await
     }
 
     pub async fn modify(
@@ -543,7 +548,7 @@ impl ExchangeClient {
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
-        self.post(action, signature, timestamp).await
+        self.post(action, signature, timestamp, None).await
     }
 
     pub async fn cancel_by_cloid(
@@ -583,7 +588,7 @@ impl ExchangeClient {
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
-        self.post(action, signature, timestamp).await
+        self.post(action, signature, timestamp, None).await
     }
 
     pub async fn update_leverage(
@@ -608,7 +613,7 @@ impl ExchangeClient {
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
-        self.post(action, signature, timestamp).await
+        self.post(action, signature, timestamp, None).await
     }
 
     pub async fn update_isolated_margin(
@@ -633,7 +638,7 @@ impl ExchangeClient {
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
-        self.post(action, signature, timestamp).await
+        self.post(action, signature, timestamp, None).await
     }
 
     pub async fn approve_agent(
@@ -665,7 +670,7 @@ impl ExchangeClient {
         let signature = sign_typed_data(&approve_agent, wallet)?;
         let action = serde_json::to_value(Actions::ApproveAgent(approve_agent))
             .map_err(|e| Error::JsonParse(e.to_string()))?;
-        Ok((key, self.post(action, signature, nonce).await?))
+        Ok((key, self.post(action, signature, nonce, None).await?))
     }
 
     pub async fn withdraw_from_bridge(
@@ -693,7 +698,7 @@ impl ExchangeClient {
         let action = serde_json::to_value(Actions::Withdraw3(withdraw))
             .map_err(|e| Error::JsonParse(e.to_string()))?;
 
-        self.post(action, signature, timestamp).await
+        self.post(action, signature, timestamp, None).await
     }
 
     pub async fn spot_transfer(
@@ -723,7 +728,7 @@ impl ExchangeClient {
         let action = serde_json::to_value(Actions::SpotSend(spot_send))
             .map_err(|e| Error::JsonParse(e.to_string()))?;
 
-        self.post(action, signature, timestamp).await
+        self.post(action, signature, timestamp, None).await
     }
 
     pub async fn set_referrer(
@@ -741,7 +746,7 @@ impl ExchangeClient {
 
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
-        self.post(action, signature, timestamp).await
+        self.post(action, signature, timestamp, None).await
     }
 
     pub async fn approve_builder_fee(
@@ -772,7 +777,7 @@ impl ExchangeClient {
 
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
-        self.post(action, signature, timestamp).await
+        self.post(action, signature, timestamp, None).await
     }
 }
 
@@ -795,6 +800,7 @@ pub fn modify_order_payload(
     params: ClientModifyRequest,
     coin_to_id: &HashMap<String, u32>,
     is_mainnet: bool,
+    expires_after: Option<u64>,
 ) -> Result<ExchangePayload> {
     let nonce = next_nonce();
 
@@ -818,6 +824,7 @@ pub fn modify_order_payload(
         signature,
         nonce,
         vault_address,
+        expires_after,
     })
 }
 
@@ -827,6 +834,7 @@ pub fn order_payload(
     vault_address: Option<H160>,
     wallet: &LocalWallet,
     is_mainnet: bool,
+    expires_after: Option<u64>,
 ) -> Result<ExchangePayload> {
     let nonce = next_nonce();
 
@@ -849,6 +857,7 @@ pub fn order_payload(
         signature,
         nonce,
         vault_address,
+        expires_after,
     })
 }
 
@@ -858,6 +867,7 @@ pub fn bulk_order_payload(
     vault_address: Option<H160>,
     wallet: &LocalWallet,
     is_mainnet: bool,
+    expires_after: Option<u64>,
 ) -> Result<ExchangePayload> {
     let nonce = next_nonce();
 
@@ -881,6 +891,7 @@ pub fn bulk_order_payload(
         signature,
         nonce,
         vault_address,
+        expires_after,
     })
 }
 
@@ -891,6 +902,7 @@ pub fn bulk_order_with_builder_payload(
     wallet: &LocalWallet,
     builder: BuilderInfo,
     is_mainnet: bool,
+    expires_after: Option<u64>,
 ) -> Result<ExchangePayload> {
     let nonce = next_nonce();
 
@@ -914,6 +926,7 @@ pub fn bulk_order_with_builder_payload(
         signature,
         nonce,
         vault_address,
+        expires_after,
     })
 }
 
@@ -946,6 +959,7 @@ pub fn cancel_order_payload(
         signature,
         nonce,
         vault_address,
+        expires_after: None,
     })
 }
 
@@ -980,6 +994,7 @@ pub fn bulk_cancel_payload(
         signature,
         nonce,
         vault_address,
+        expires_after: None,
     })
 }
 
@@ -1012,6 +1027,7 @@ pub fn cancel_order_by_cloid_payload(
         signature,
         nonce,
         vault_address,
+        expires_after: None,
     })
 }
 
@@ -1046,6 +1062,7 @@ pub fn bulk_cancel_by_cloid_payload(
         signature,
         nonce,
         vault_address,
+        expires_after: None,
     })
 }
 
@@ -1124,6 +1141,7 @@ pub fn market_open_payload(
         signature,
         nonce,
         vault_address,
+        expires_after: params.expires_after,
     })
 }
 
@@ -1191,6 +1209,7 @@ pub fn limit_open_payload(
         signature,
         nonce,
         vault_address,
+        expires_after: params.expires_after,
     })
 }
 
@@ -1220,6 +1239,7 @@ pub fn set_leverage_payload(
         signature,
         nonce,
         vault_address,
+        expires_after: None,
     })
 }
 

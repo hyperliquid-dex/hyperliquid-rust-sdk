@@ -68,6 +68,7 @@ pub struct MarketOrderParams<'a> {
     pub slippage: Option<f64>,
     pub cloid: Option<Uuid>,
     pub wallet: Option<&'a LocalWallet>,
+    pub expires_after: Option<u64>,
 }
 
 #[derive(Debug)]
