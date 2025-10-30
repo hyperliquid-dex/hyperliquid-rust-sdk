@@ -54,12 +54,12 @@ impl PostResponseStatus {
     pub fn get_oid(&self) -> Option<String> {
         match self {
             PostResponseStatus::Simple(_) => None,
-            PostResponseStatus::Detailed { filled, resting, .. } => {
-                filled
-                    .as_ref()
-                    .map(|filled| filled.oid.to_string())
-                    .or_else(|| resting.as_ref().map(|resting| resting.oid.to_string()))
-            }
+            PostResponseStatus::Detailed {
+                filled, resting, ..
+            } => filled
+                .as_ref()
+                .map(|filled| filled.oid.to_string())
+                .or_else(|| resting.as_ref().map(|resting| resting.oid.to_string())),
         }
     }
 
