@@ -432,7 +432,24 @@ impl ExchangeClient {
 
         let mut transformed_orders = Vec::new();
 
-        for order in orders {
+        for mut order in orders {
+
+            let asset_meta = self
+                .meta
+                .universe
+                .iter()
+                .find(|a| a.name == order.asset)
+                .ok_or(Error::AssetNotFound)?;
+
+            let sz_decimals = asset_meta.sz_decimals;
+            let asset_id = self.coin_to_asset.get(&order.asset).ok_or(Error::AssetNotFound)?;
+            let max_decimals: u32 = if asset_id < &10000 { 6 } else { 8 };
+            let price_decimals = max_decimals.saturating_sub(sz_decimals);
+
+            order.limit_px = round_to_significant_and_decimal(order.limit_px, 5, price_decimals);
+
+            order.sz = round_to_decimals(order.sz, sz_decimals);
+
             transformed_orders.push(order.convert(&self.coin_to_asset)?);
         }
 
@@ -462,7 +479,24 @@ impl ExchangeClient {
 
         let mut transformed_orders = Vec::new();
 
-        for order in orders {
+        for mut order in orders {
+
+            let asset_meta = self
+                .meta
+                .universe
+                .iter()
+                .find(|a| a.name == order.asset)
+                .ok_or(Error::AssetNotFound)?;
+
+            let sz_decimals = asset_meta.sz_decimals;
+            let asset_id = self.coin_to_asset.get(&order.asset).ok_or(Error::AssetNotFound)?;
+            let max_decimals: u32 = if asset_id < &10000 { 6 } else { 8 };
+            let price_decimals = max_decimals.saturating_sub(sz_decimals);
+
+            order.limit_px = round_to_significant_and_decimal(order.limit_px, 5, price_decimals);
+
+            order.sz = round_to_decimals(order.sz, sz_decimals);
+
             transformed_orders.push(order.convert(&self.coin_to_asset)?);
         }
 
@@ -868,6 +902,7 @@ pub fn order_payload(
 pub fn bulk_order_payload(
     orders: Vec<ClientOrderRequest>,
     coin_to_id: &HashMap<String, u32>,
+    asset_to_sz_decimals: &HashMap<String, u32>,
     vault_address: Option<H160>,
     wallet: &LocalWallet,
     is_mainnet: bool,
@@ -876,7 +911,17 @@ pub fn bulk_order_payload(
     let nonce = next_nonce();
 
     let mut transformed_orders = Vec::new();
-    for order in orders {
+    for mut order in orders {
+        let &sz_decimals = asset_to_sz_decimals
+            .get(&order.asset)
+            .ok_or(Error::AssetNotFound)?;
+
+        let asset_id = coin_to_id.get(&order.asset).ok_or(Error::AssetNotFound)?;
+        let max_decimals: u32 = if asset_id < &10000 { 6 } else { 8 };
+        let price_decimals = max_decimals.saturating_sub(sz_decimals);
+        order.limit_px = round_to_significant_and_decimal(order.limit_px, 5, price_decimals);
+        order.sz = round_to_decimals(order.sz, sz_decimals);
+
         transformed_orders.push(order.convert(&coin_to_id)?);
     }
 
@@ -902,6 +947,7 @@ pub fn bulk_order_payload(
 pub fn bulk_order_with_builder_payload(
     orders: Vec<ClientOrderRequest>,
     coin_to_id: &HashMap<String, u32>,
+    asset_to_sz_decimals: &HashMap<String, u32>,
     vault_address: Option<H160>,
     wallet: &LocalWallet,
     builder: BuilderInfo,
@@ -911,7 +957,17 @@ pub fn bulk_order_with_builder_payload(
     let nonce = next_nonce();
 
     let mut transformed_orders = Vec::new();
-    for order in orders {
+    for mut order in orders {
+        let &sz_decimals = asset_to_sz_decimals
+            .get(&order.asset)
+            .ok_or(Error::AssetNotFound)?;
+
+        let asset_id = coin_to_id.get(&order.asset).ok_or(Error::AssetNotFound)?;
+        let max_decimals: u32 = if asset_id < &10000 { 6 } else { 8 };
+        let price_decimals = max_decimals.saturating_sub(sz_decimals);
+        order.limit_px = round_to_significant_and_decimal(order.limit_px, 5, price_decimals);
+        order.sz = round_to_decimals(order.sz, sz_decimals);
+
         transformed_orders.push(order.convert(&coin_to_id)?);
     }
 
@@ -970,7 +1026,7 @@ pub fn cancel_order_payload(
 pub fn bulk_cancel_payload(
     vault_address: Option<H160>,
     wallet: &LocalWallet,
-    cancels: Vec<ClientCancelRequest>,
+    cancels: Vec<ClientCancelRequestCloid>,
     coin_to_id: &HashMap<String, u32>,
     is_mainnet: bool,
 ) -> Result<ExchangePayload> {
@@ -979,13 +1035,13 @@ pub fn bulk_cancel_payload(
     let mut transformed_cancels = Vec::new();
     for cancel in cancels {
         let &asset = coin_to_id.get(&cancel.asset).ok_or(Error::AssetNotFound)?;
-        transformed_cancels.push(CancelRequest {
+        transformed_cancels.push(CancelRequestCloid {
             asset,
-            oid: cancel.oid,
+            cloid: cancel.cloid.to_string(),
         });
     }
 
-    let action = Actions::Cancel(BulkCancel {
+    let action = Actions::CancelByCloid(BulkCancelCloid {
         cancels: transformed_cancels,
     });
     let connection_id = action.hash(nonce, vault_address, None)?;
