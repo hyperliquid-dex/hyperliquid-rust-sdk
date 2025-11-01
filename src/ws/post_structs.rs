@@ -76,5 +76,5 @@ pub(crate) struct WsPostResponsePayload {
 pub(crate) struct WsPostResponseDataContent {
     #[serde(rename = "type")]
     pub data_type: String,
-    pub data: serde_json::Value,
+    pub data: Option<serde_json::Value>,
 }

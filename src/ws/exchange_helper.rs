@@ -3,8 +3,8 @@ use crate::{
     exchange::{order::OrderRequest, BuilderInfo},
     helpers::next_nonce,
     prelude::*,
-    signature::sign_l1_action,
-    BulkOrder, Error,
+    signature::{sign_l1_action,sign_typed_data},
+    BulkOrder,SpotSend, Error,
 };
 use alloy::primitives::{keccak256, Address, Signature, B256, U256};
 use alloy::signers::local::PrivateKeySigner;
@@ -36,6 +36,7 @@ pub(crate) struct OrderRestingDetails {
 #[serde(rename_all = "camelCase")]
 pub(crate) enum Actions {
     Order(BulkOrder),
+    SpotSend(SpotSend),
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -151,6 +152,38 @@ pub(crate) async fn bulk_order_with_builder(
     return Ok(payload);
 }
 
+ pub(crate) async fn spot_transfer(
+        amount: &str,
+        destination: &str,
+        token: &str,
+        wallet: PrivateKeySigner,
+        nonce: u64,
+    ) -> Result<serde_json::Value> {
+
+        let spot_send = SpotSend {
+            signature_chain_id: 421614,
+            hyperliquid_chain: "Mainnet".to_string(),
+            destination: destination.to_string(),
+            amount: amount.to_string(),
+            time: nonce,
+            token: token.to_string(),
+        };
+        let signature = sign_typed_data(&spot_send, &wallet)?;
+        let action = serde_json::to_value(Actions::SpotSend(spot_send))
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
+        
+        let exchange_payload = ExchangePayload {
+            action: action,
+            signature: signature.into(),
+            nonce: nonce,
+            vault_address: None,
+        };
+         let payload = serde_json::to_value(&exchange_payload).map_err(|e| Error::JsonParse(e.to_string()))?;
+            return Ok(payload);
+    }
+
+
+
 #[cfg(test)]
 mod tests {
 
@@ -203,71 +236,59 @@ mod tests {
         let result = ws_manager.post(payload, nonce).await;
         match result {
             Ok(response) => {
-                println!("\n=== Order sent successfully! ===");
                 println!(
                     "Full Response: {}",
                     serde_json::to_string_pretty(&response).unwrap()
                 );
-
-                let response_content = &response.data.response;
-
-                println!("\nResponse Type: {}", response_content.type_);
-
-                if response_content.payload.status != "ok" {
-                    eprintln!(
-                        "Request failed with status: {}",
-                        response_content.payload.status
-                    );
-                    return;
-                }
-
-                if let Some(data_content) = &response_content.payload.response {
-                    if let Some(statuses) = data_content.data.get("statuses") {
-                        match serde_json::from_value::<Vec<OrderStatus>>(statuses.clone()) {
-                            Ok(order_statuses) => {
-                                for (i, status) in order_statuses.into_iter().enumerate() {
-                                    match status {
-                                        OrderStatus::Filled { filled } => {
-                                            println!(
-                                                "✓ Order {} was filled with OID: {}",
-                                                i, filled.oid
-                                            );
-                                            if let (Some(sz), Some(px)) =
-                                                (&filled.total_sz, &filled.avg_px)
-                                            {
-                                                println!("   Size: {}, Avg Price: {}", sz, px);
-                                            }
-                                        }
-                                        OrderStatus::Resting { resting } => {
-                                            println!(
-                                                "✓ Order {} is resting with OID: {}",
-                                                i, resting.oid
-                                            );
-                                        }
-                                        OrderStatus::Error { error } => {
-                                            println!("✗ Order {} error: {}", i, error);
-                                        }
-                                    }
-                                }
-                            }
-                            Err(e) => {
-                                eprintln!("Failed to deserialize order statuses: {}", e);
-                                println!("Raw statuses data: {}", statuses);
-                            }
-                        }
-                    } else {
-                        println!(
-                            "No statuses found in response data: {:#?}",
-                            data_content.data
-                        );
-                    }
-                } else {
-                    println!("No response data available in the payload");
-                }
             }
             Err(e) => {
                 eprintln!("Error sending order: {:?}", e);
             }
         }
     }
+
+     async fn test_spot_transfer() {
+        let nonce = next_nonce();
+        let _ = env_logger::builder()
+            .is_test(true)
+            .filter_level(log::LevelFilter::Info)
+            .try_init();
+
+        let ws_url = "wss://api.hyperliquid.xyz/ws";
+
+        let private_key = "";
+        let wallet = PrivateKeySigner::from_str(private_key).expect("Invalid private key");
+
+        println!("Creating WsManager...");
+        let mut ws_manager = WsManager::new(ws_url.to_string(), true)
+            .await
+            .expect("Failed to create WsManager");
+
+        println!("Waiting for WebSocket connection to stabilize...");
+        tokio::time::sleep(Duration::from_secs(2)).await;
+
+        let amount = "0.004215951";
+        let destination = "0x20000000000000000000000000000000000000dd";
+        let token = "UETH:0xe1edd30daaf5caac3fe63569e24748da";
+
+        println!("Sending spot transfer...");
+        let payload = spot_transfer(amount, destination, token, wallet, nonce)
+            .await
+            .unwrap();
+
+        let result = ws_manager.post(payload, nonce).await;
+        println!("Result: {:#?}", result);
+        match result {
+            Ok(response) => {
+                println!(
+                    "Full Response: {}",
+                    serde_json::to_string_pretty(&response).unwrap()
+                );
+            }
+            Err(e) => {
+                eprintln!("Error sending order: {:?}", e);
+            }
+        }
+    }
+
 }
