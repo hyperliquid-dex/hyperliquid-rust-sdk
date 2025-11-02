@@ -103,7 +103,7 @@ struct SignedAction {
     vault_address: Option<String>,
 }
 
-pub(crate) async fn bulk_order_with_builder(
+pub async fn bulk_order_with_builder(
     orders: Vec<OrderRequest>,
     wallet: Option<&PrivateKeySigner>,
     mut builder: Option<BuilderInfo>,
@@ -152,7 +152,7 @@ pub(crate) async fn bulk_order_with_builder(
     return Ok(payload);
 }
 
- pub(crate) async fn spot_transfer(
+ pub async fn spot_transfer(
         amount: &str,
         destination: &str,
         token: &str,

@@ -1,4 +1,4 @@
-mod exchange_helper;
+pub mod exchange_helper;
 mod message_types;
 mod post_structs;
 mod sub_structs;
@@ -8,3 +8,4 @@ pub(crate) use post_structs::*;
 pub use sub_structs::*;
 pub use ws_manager::WsManager;
 pub use ws_manager::{Message, Subscription};
+pub use exchange_helper::*;
