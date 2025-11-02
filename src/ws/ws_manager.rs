@@ -43,7 +43,7 @@ struct SubscriptionData {
     id: String,
 }
 #[derive(Debug)]
-pub(crate) struct WsManager {
+pub struct WsManager {
     stop_flag: Arc<AtomicBool>,
     writer: Arc<Mutex<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, protocol::Message>>>,
     subscriptions: Arc<Mutex<HashMap<String, Vec<SubscriptionData>>>>,
@@ -115,7 +115,7 @@ pub(crate) struct Ping {
 impl WsManager {
     const SEND_PING_INTERVAL: u64 = 50;
 
-    pub(crate) async fn new(url: String, reconnect: bool) -> Result<WsManager> {
+    pub async fn new(url: String, reconnect: bool) -> Result<WsManager> {
         let stop_flag = Arc::new(AtomicBool::new(false));
 
         let (writer, mut reader) = Self::connect(&url).await?.split();
@@ -555,7 +555,7 @@ impl WsManager {
         }
         Ok(())
     }
-    pub(crate) async fn post(
+    pub async fn post(
         &mut self,
         payload: serde_json::Value,
         nonce: u64,

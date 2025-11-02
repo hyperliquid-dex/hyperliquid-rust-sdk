@@ -30,6 +30,7 @@ pub(crate) struct WsErrorResponse {
     pub channel: String,
     pub data: WsErrorResponseData,
 }
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct WsErrorResponseData {
     pub id: u64,
@@ -58,23 +59,5 @@ pub(crate) struct WsPostResponse {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub(crate) struct WsPostResponseData {
     pub id: u64,
-    pub response: WsPostResponseContent,
-}
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub(crate) struct WsPostResponseContent {
-    #[serde(rename = "type")]
-    pub type_: String,
-    pub payload: WsPostResponsePayload,
-}
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub(crate) struct WsPostResponsePayload {
-    pub status: String,
-    #[serde(default)]
-    pub response: Option<WsPostResponseDataContent>,
-}
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub(crate) struct WsPostResponseDataContent {
-    #[serde(rename = "type")]
-    pub data_type: String,
-    pub data: Option<serde_json::Value>,
+    pub response: serde_json::Value,
 }
