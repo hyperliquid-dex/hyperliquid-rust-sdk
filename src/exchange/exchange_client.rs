@@ -63,7 +63,7 @@ struct ExchangePayload {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(tag = "type")]
 #[serde(rename_all = "camelCase")]
-pub enum Actions {
+pub(crate) enum Actions {
     UsdSend(UsdSend),
     UpdateLeverage(UpdateLeverage),
     UpdateIsolatedMargin(UpdateIsolatedMargin),

@@ -10,7 +10,7 @@ mod meta;
 mod prelude;
 mod req;
 mod signature;
-mod ws;
+pub mod ws;
 pub use consts::{EPSILON, LOCAL_API_URL, MAINNET_API_URL, TESTNET_API_URL};
 pub use eip712::Eip712;
 pub use errors::Error;
