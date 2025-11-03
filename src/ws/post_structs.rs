@@ -52,7 +52,7 @@ pub(crate) struct WsPostRequest {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub(crate) struct WsPostResponse {
+pub struct WsPostResponse {
     pub channel: String,
     pub data: WsPostResponseData,
 }
