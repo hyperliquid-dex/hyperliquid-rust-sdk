@@ -5,6 +5,51 @@ use serde::{Deserialize, Serialize};
 
 use crate::Leverage;
 
+/// Order side: Bid (Buy) or Ask (Sell)
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+pub enum Side {
+    /// Bid / Buy
+    B,
+    /// Ask / Sell
+    A,
+}
+
+/// Time-in-force options for orders
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+pub enum Tif {
+    /// Good-til-canceled: Remains active until filled or canceled
+    Gtc,
+    /// Immediate-or-cancel: Fills immediately or cancels unfilled portion
+    Ioc,
+    /// Add-liquidity-only: Only adds liquidity
+    Alo,
+    /// Frontend market order (similar to Ioc)
+    FrontendMarket,
+    /// Liquidation market order (similar to Ioc)
+    LiquidationMarket,
+}
+
+/// Order type for market execution
+#[derive(Deserialize, Serialize, Clone, Debug, PartialEq, Eq)]
+pub enum OrderType {
+    /// Executes immediately at market price
+    Market,
+    /// Executes at specified limit price or better
+    Limit,
+    /// Stop order that becomes market order
+    #[serde(rename = "Stop Market")]
+    StopMarket,
+    /// Stop order that becomes limit order
+    #[serde(rename = "Stop Limit")]
+    StopLimit,
+    /// Take profit order that becomes market order
+    #[serde(rename = "Take Profit Market")]
+    TakeProfitMarket,
+    /// Take profit order that becomes limit order
+    #[serde(rename = "Take Profit Limit")]
+    TakeProfitLimit,
+}
+
 #[derive(Deserialize, Clone, Debug)]
 pub struct Trade {
     pub coin: String,
@@ -350,4 +395,63 @@ pub struct BboData {
     pub coin: String,
     pub time: u64,
     pub bbo: Vec<Option<BookLevel>>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct WebData3Data {
+    pub user_state: UserState,
+    pub perp_dex_states: Vec<PerpDexState>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct UserState {
+    pub agent_address: Option<Address>,
+    pub agent_valid_until: Option<u64>,
+    pub cum_ledger: String,
+    pub server_time: u64,
+    pub is_vault: bool,
+    pub user: Address,
+    pub opt_out_of_spot_dusting: Option<bool>,
+    pub dex_abstraction_enabled: Option<bool>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct PerpDexState {
+    pub clearinghouse_state: crate::info::UserStateResponse,
+    pub total_vault_equity: String,
+    pub open_orders: Option<Vec<DetailedOrder>>,
+    pub asset_ctxs: Vec<crate::meta::AssetContext>,
+    pub perps_at_open_interest_cap: Option<Vec<String>>,
+    pub leading_vaults: Option<Vec<LeadingVault>>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct LeadingVault {
+    pub address: Address,
+    pub name: String,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct DetailedOrder {
+    pub coin: String,
+    pub side: Side,
+    pub limit_px: String,
+    pub sz: String,
+    pub oid: u64,
+    pub timestamp: u64,
+    pub orig_sz: String,
+    pub trigger_condition: String,
+    pub is_trigger: bool,
+    pub trigger_px: String,
+    pub children: Vec<DetailedOrder>,
+    pub is_position_tpsl: bool,
+    pub reduce_only: bool,
+    pub order_type: OrderType,
+    pub tif: Option<Tif>,
+    pub cloid: Option<String>,
 }

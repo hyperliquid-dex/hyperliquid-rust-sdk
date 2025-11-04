@@ -10,7 +10,7 @@ pub struct Leverage {
     pub raw_usd: Option<String>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CumulativeFunding {
     pub all_time: String,
@@ -18,7 +18,7 @@ pub struct CumulativeFunding {
     pub since_change: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct PositionData {
     pub coin: String,
@@ -34,14 +34,14 @@ pub struct PositionData {
     pub cum_funding: CumulativeFunding,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub struct AssetPosition {
     pub position: PositionData,
     #[serde(rename = "type")]
     pub type_string: String,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MarginSummary {
     pub account_value: String,

@@ -76,3 +76,8 @@ pub struct ActiveAssetData {
 pub struct Bbo {
     pub data: BboData,
 }
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct WebData3 {
+    pub data: WebData3Data,
+}

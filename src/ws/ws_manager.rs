@@ -32,7 +32,7 @@ use crate::{
         User,
     },
     ActiveAssetCtx, Error, Notification, UserFills, UserFundings, UserNonFundingLedgerUpdates,
-    WebData2,
+    WebData2, WebData3,
 };
 
 #[derive(Debug)]
@@ -57,6 +57,7 @@ pub enum Subscription {
     AllMids,
     Notification { user: Address },
     WebData2 { user: Address },
+    WebData3 { user: Address },
     Candle { coin: String, interval: String },
     L2Book { coin: String },
     Trades { coin: String },
@@ -88,6 +89,7 @@ pub enum Message {
     UserNonFundingLedgerUpdates(UserNonFundingLedgerUpdates),
     Notification(Notification),
     WebData2(WebData2),
+    WebData3(WebData3),
     ActiveAssetCtx(ActiveAssetCtx),
     ActiveAssetData(ActiveAssetData),
     ActiveSpotAssetCtx(ActiveSpotAssetCtx),
@@ -268,6 +270,10 @@ impl WsManager {
             Message::Notification(_) => Ok("notification".to_string()),
             Message::WebData2(web_data2) => serde_json::to_string(&Subscription::WebData2 {
                 user: web_data2.data.user,
+            })
+            .map_err(|e| Error::JsonParse(e.to_string())),
+            Message::WebData3(web_data3) => serde_json::to_string(&Subscription::WebData3 {
+                user: web_data3.data.user_state.user,
             })
             .map_err(|e| Error::JsonParse(e.to_string())),
             Message::ActiveAssetCtx(active_asset_ctx) => {
