@@ -52,6 +52,102 @@ pub(crate) fn sign_typed_data_multi_sig<T: Eip712>(
     Ok(signatures)
 }
 
+pub(crate) fn sign_multi_sig_l1_action_payload(
+    wallets: &[PrivateKeySigner],
+    action: &serde_json::Value,
+    multi_sig_user: alloy::primitives::Address,
+    outer_signer: alloy::primitives::Address,
+    vault_address: Option<alloy::primitives::Address>,
+    nonce: u64,
+    expires_after: Option<u64>,
+    is_mainnet: bool,
+) -> Result<Vec<Signature>> {
+    let multi_sig_user_str = format!("{:?}", multi_sig_user).to_lowercase();
+    let outer_signer_str = format!("{:?}", outer_signer).to_lowercase();
+
+    let envelope = serde_json::json!([multi_sig_user_str, outer_signer_str, action]);
+
+    let mut bytes =
+        rmp_serde::to_vec_named(&envelope).map_err(|e| Error::RmpParse(e.to_string()))?;
+
+    bytes.extend(nonce.to_be_bytes());
+
+    if let Some(vault_address) = vault_address {
+        bytes.push(1);
+        bytes.extend(vault_address.as_slice());
+    } else {
+        bytes.push(0);
+    }
+
+    if let Some(expires_after) = expires_after {
+        bytes.push(0);
+        bytes.extend(expires_after.to_be_bytes());
+    }
+
+    let connection_id = alloy::primitives::keccak256(bytes);
+
+    sign_l1_action_multi_sig(wallets, connection_id, is_mainnet)
+}
+
+/// Sign a multi-sig action with the outer signer's wallet
+/// This is called after the inner signatures have been collected
+/// The function:
+/// 1. Removes the "type" field from the multi_sig_action
+/// 2. Computes the action hash using msgpack + nonce + vault_address + expires_after
+/// 3. Creates and signs the MultiSigEnvelope
+pub(crate) fn sign_multi_sig_action(
+    wallet: &PrivateKeySigner,
+    multi_sig_action: &serde_json::Value,
+    vault_address: Option<alloy::primitives::Address>,
+    nonce: u64,
+    expires_after: Option<u64>,
+    is_mainnet: bool,
+) -> Result<Signature> {
+    use crate::exchange::actions::MultiSigEnvelope;
+    use alloy::primitives::keccak256;
+
+    // Remove the "type" field before hashing (as per Python SDK)
+    let mut action_without_type = multi_sig_action.clone();
+    if let Some(obj) = action_without_type.as_object_mut() {
+        obj.remove("type");
+    }
+
+    let mut bytes = rmp_serde::to_vec_named(&action_without_type)
+        .map_err(|e| Error::RmpParse(e.to_string()))?;
+
+    bytes.extend(nonce.to_be_bytes());
+
+    if let Some(vault_address) = vault_address {
+        bytes.push(1);
+        bytes.extend(vault_address.as_slice());
+    } else {
+        bytes.push(0);
+    }
+
+    if let Some(expires_after) = expires_after {
+        bytes.push(0);
+        bytes.extend(expires_after.to_be_bytes());
+    }
+
+    let multi_sig_action_hash = keccak256(bytes);
+
+    // Create the envelope to sign
+    let hyperliquid_chain = if is_mainnet {
+        "Mainnet".to_string()
+    } else {
+        "Testnet".to_string()
+    };
+
+    let envelope = MultiSigEnvelope {
+        signature_chain_id: 421614, // Always use this chain ID for multi-sig
+        hyperliquid_chain,
+        multi_sig_action_hash,
+        nonce,
+    };
+
+    sign_typed_data(&envelope, wallet)
+}
+
 #[cfg(test)]
 mod tests {
     use std::str::FromStr;
@@ -209,6 +305,61 @@ mod tests {
             sigs[0].to_string(),
             "0xfa8a41f6a3fa728206df80801a83bcbfbab08649cd34d9c0bfba7c7b2f99340f53a00226604567b98a1492803190d65a201d6805e5831b7044f17fd530aec7841c"
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_sign_multi_sig_l1_action_payload() -> Result<()> {
+        let wallet1 = "0x0123456789012345678901234567890123456789012345678901234567890123"
+            .parse::<PrivateKeySigner>()
+            .map_err(|e| Error::Wallet(e.to_string()))?;
+        let wallet2 = "0x0000000000000000000000000000000000000000000000000000000000000001"
+            .parse::<PrivateKeySigner>()
+            .map_err(|e| Error::Wallet(e.to_string()))?;
+
+        let wallets = vec![wallet1, wallet2];
+
+        let multi_sig_user =
+            alloy::primitives::Address::from_str("0x0000000000000000000000000000000000000005")
+                .map_err(|e| Error::GenericParse(e.to_string()))?;
+        let outer_signer =
+            alloy::primitives::Address::from_str("0x0d1d9635d0640821d15e323ac8adadfa9c111414")
+                .map_err(|e| Error::GenericParse(e.to_string()))?;
+
+        let action = serde_json::json!({
+            "type": "order",
+            "orders": [{"a": 4, "b": true, "p": "1100", "s": "0.2", "r": false, "t": {"limit": {"tif": "Gtc"}}}],
+            "grouping": "na"
+        });
+
+        let nonce = 0u64;
+
+        let signatures_mainnet = sign_multi_sig_l1_action_payload(
+            &wallets,
+            &action,
+            multi_sig_user,
+            outer_signer,
+            None,
+            nonce,
+            None,
+            true,
+        )?;
+
+        assert_eq!(signatures_mainnet.len(), 2);
+
+        let signatures_testnet = sign_multi_sig_l1_action_payload(
+            &wallets,
+            &action,
+            multi_sig_user,
+            outer_signer,
+            None,
+            nonce,
+            None,
+            false,
+        )?;
+
+        assert_eq!(signatures_testnet.len(), 2);
 
         Ok(())
     }

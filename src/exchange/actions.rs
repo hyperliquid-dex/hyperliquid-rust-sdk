@@ -210,6 +210,10 @@ pub struct SendAsset {
     pub amount: String,
     pub from_sub_account: String,
     pub nonce: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payload_multi_sig_user: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub outer_signer: Option<String>,
 }
 
 impl Eip712 for SendAsset {
@@ -218,18 +222,38 @@ impl Eip712 for SendAsset {
     }
 
     fn struct_hash(&self) -> B256 {
-        let items = (
-            keccak256("HyperliquidTransaction:SendAsset(string hyperliquidChain,string destination,string sourceDex,string destinationDex,string token,string amount,string fromSubAccount,uint64 nonce)"),
-            keccak256(&self.hyperliquid_chain),
-            keccak256(&self.destination),
-            keccak256(&self.source_dex),
-            keccak256(&self.destination_dex),
-            keccak256(&self.token),
-            keccak256(&self.amount),
-            keccak256(&self.from_sub_account),
-            &self.nonce,
-        );
-        keccak256(items.abi_encode())
+        if self.payload_multi_sig_user.is_some() && self.outer_signer.is_some() {
+            let multi_sig_user: Address = self.payload_multi_sig_user.as_ref().unwrap().parse().unwrap();
+            let outer_signer: Address = self.outer_signer.as_ref().unwrap().parse().unwrap();
+            
+            let items = (
+                keccak256("HyperliquidTransaction:SendAsset(string hyperliquidChain,address payloadMultiSigUser,address outerSigner,string destination,string sourceDex,string destinationDex,string token,string amount,string fromSubAccount,uint64 nonce)"),
+                keccak256(&self.hyperliquid_chain),
+                multi_sig_user,
+                outer_signer,
+                keccak256(&self.destination),
+                keccak256(&self.source_dex),
+                keccak256(&self.destination_dex),
+                keccak256(&self.token),
+                keccak256(&self.amount),
+                keccak256(&self.from_sub_account),
+                &self.nonce,
+            );
+            keccak256(items.abi_encode())
+        } else {
+            let items = (
+                keccak256("HyperliquidTransaction:SendAsset(string hyperliquidChain,string destination,string sourceDex,string destinationDex,string token,string amount,string fromSubAccount,uint64 nonce)"),
+                keccak256(&self.hyperliquid_chain),
+                keccak256(&self.destination),
+                keccak256(&self.source_dex),
+                keccak256(&self.destination_dex),
+                keccak256(&self.token),
+                keccak256(&self.amount),
+                keccak256(&self.from_sub_account),
+                &self.nonce,
+            );
+            keccak256(items.abi_encode())
+        }
     }
 }
 
@@ -321,7 +345,6 @@ impl Eip712 for ConvertToMultiSig {
     }
 }
 
-/// Add or remove authorized addresses for a multi-sig user
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct UpdateMultiSigAddresses {
@@ -339,7 +362,6 @@ impl Eip712 for UpdateMultiSigAddresses {
     }
 
     fn struct_hash(&self) -> B256 {
-        // For arrays of addresses, we need to encode them properly
         let to_add_encoded = self.to_add.iter().fold(B256::ZERO, |acc, addr| {
             keccak256([acc.as_slice(), addr.as_slice()].concat())
         });
@@ -353,6 +375,32 @@ impl Eip712 for UpdateMultiSigAddresses {
             to_add_encoded,
             to_remove_encoded,
             &self.time,
+        );
+        keccak256(items.abi_encode())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct MultiSigEnvelope {
+    #[serde(serialize_with = "serialize_hex")]
+    pub signature_chain_id: u64,
+    pub hyperliquid_chain: String,
+    pub multi_sig_action_hash: B256,
+    pub nonce: u64,
+}
+
+impl Eip712 for MultiSigEnvelope {
+    fn domain(&self) -> Eip712Domain {
+        eip_712_domain(self.signature_chain_id)
+    }
+
+    fn struct_hash(&self) -> B256 {
+        let items = (
+            keccak256("HyperliquidTransaction:SendMultiSig(string hyperliquidChain,bytes32 multiSigActionHash,uint64 nonce)"),
+            keccak256(&self.hyperliquid_chain),
+            &self.multi_sig_action_hash,
+            &self.nonce,
         );
         keccak256(items.abi_encode())
     }

@@ -26,7 +26,8 @@ use crate::{
     prelude::*,
     req::HttpClient,
     signature::{
-        sign_l1_action, sign_l1_action_multi_sig, sign_typed_data, sign_typed_data_multi_sig,
+        sign_l1_action, sign_multi_sig_action, sign_multi_sig_l1_action_payload, sign_typed_data,
+        sign_typed_data_multi_sig,
     },
     BaseUrl, BulkCancelCloid, ClassTransfer, Error, ExchangeResponseStatus, SpotSend, SpotUser,
     VaultTransfer, Withdraw3,
@@ -39,6 +40,7 @@ pub struct ExchangeClient {
     pub meta: Meta,
     pub vault_address: Option<Address>,
     pub coin_to_asset: HashMap<String, u32>,
+    pub expires_after: Option<u64>,
 }
 
 fn serialize_sig<S>(sig: &Signature, s: S) -> std::result::Result<S::Ok, S::Error>
@@ -59,17 +61,30 @@ struct ExchangePayload {
     #[serde(serialize_with = "serialize_sig")]
     signature: Signature,
     nonce: u64,
+    #[serde(skip_serializing_if = "Option::is_none")]
     vault_address: Option<Address>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    expires_after: Option<u64>,
+}
+
+// Multi-sig wrapper structures
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MultiSigPayload {
+    multi_sig_user: Address,
+    outer_signer: Address,
+    action: serde_json::Value,
 }
 
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct MultiSigExchangePayload {
-    action: serde_json::Value,
+struct MultiSigAction {
+    #[serde(rename = "type")]
+    type_: String,
+    signature_chain_id: String,
     #[serde(serialize_with = "serialize_sigs")]
     signatures: Vec<Signature>,
-    nonce: u64,
-    vault_address: Option<Address>,
+    payload: MultiSigPayload,
 }
 
 fn serialize_sigs<S>(sigs: &[Signature], s: S) -> std::result::Result<S::Ok, S::Error>
@@ -123,7 +138,12 @@ pub enum Actions {
 }
 
 impl Actions {
-    fn hash(&self, timestamp: u64, vault_address: Option<Address>) -> Result<B256> {
+    fn hash(
+        &self,
+        timestamp: u64,
+        vault_address: Option<Address>,
+        expires_after: Option<u64>,
+    ) -> Result<B256> {
         let mut bytes =
             rmp_serde::to_vec_named(self).map_err(|e| Error::RmpParse(e.to_string()))?;
         bytes.extend(timestamp.to_be_bytes());
@@ -132,6 +152,10 @@ impl Actions {
             bytes.extend(vault_address);
         } else {
             bytes.push(0);
+        }
+        if let Some(expires_after) = expires_after {
+            bytes.push(0);
+            bytes.extend(expires_after.to_be_bytes());
         }
         Ok(keccak256(bytes))
     }
@@ -174,7 +198,34 @@ impl ExchangeClient {
                 base_url: base_url.get_url(),
             },
             coin_to_asset,
+            expires_after: None,
         })
+    }
+
+    /// Set the expires_after timestamp for actions.
+    /// Actions will be rejected after this timestamp in milliseconds.
+    /// Note: expires_after is not supported on user-signed actions (e.g., usd_transfer)
+    /// and must be None for those actions to work.
+    pub fn set_expires_after(&mut self, expires_after: Option<u64>) {
+        self.expires_after = expires_after;
+    }
+
+    /// Check if an action type should exclude vault_address and expires_after from the payload
+    /// Based on Python SDK's _post_action logic
+    fn should_exclude_vault_and_expires(action: &serde_json::Value) -> bool {
+        if let Some(action_type) = action.get("type").and_then(|t| t.as_str()) {
+            matches!(
+                action_type,
+                "usdSend"
+                    | "withdraw3"
+                    | "spotSend"
+                    | "sendAsset"
+                    | "spotUser"
+                    | "usdClassTransfer"
+            )
+        } else {
+            false
+        }
     }
 
     async fn post(
@@ -183,17 +234,23 @@ impl ExchangeClient {
         signature: Signature,
         nonce: u64,
     ) -> Result<ExchangeResponseStatus> {
-        // let signature = ExchangeSignature {
-        //     r: signature.r(),
-        //     s: signature.s(),
-        //     v: 27 + signature.v() as u64,
-        // };
+        // Determine if we should exclude vault_address and expires_after
+        let should_exclude = Self::should_exclude_vault_and_expires(&action);
 
         let exchange_payload = ExchangePayload {
             action,
             signature,
             nonce,
-            vault_address: self.vault_address,
+            vault_address: if should_exclude {
+                None
+            } else {
+                self.vault_address
+            },
+            expires_after: if should_exclude {
+                None
+            } else {
+                self.expires_after
+            },
         };
         let res = serde_json::to_string(&exchange_payload)
             .map_err(|e| Error::JsonParse(e.to_string()))?;
@@ -218,7 +275,7 @@ impl ExchangeClient {
         let timestamp = next_nonce();
 
         let action = Actions::EvmUserModify(EvmUserModify { using_big_blocks });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
@@ -269,7 +326,7 @@ impl ExchangeClient {
         let action = Actions::SpotUser(SpotUser {
             class_transfer: ClassTransfer { usdc, to_perp },
         });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
@@ -311,6 +368,8 @@ impl ExchangeClient {
             amount: amount.to_string(),
             from_sub_account,
             nonce: timestamp,
+            payload_multi_sig_user: None,
+            outer_signer: None,
         };
 
         let signature = sign_typed_data(&send_asset, wallet)?;
@@ -340,7 +399,7 @@ impl ExchangeClient {
             is_deposit,
             usd,
         });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
@@ -537,7 +596,7 @@ impl ExchangeClient {
             grouping: "na".to_string(),
             builder: None,
         });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         let is_mainnet = self.http_client.is_mainnet();
@@ -567,7 +626,7 @@ impl ExchangeClient {
             grouping: "na".to_string(),
             builder: Some(builder),
         });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         let is_mainnet = self.http_client.is_mainnet();
@@ -606,7 +665,7 @@ impl ExchangeClient {
         let action = Actions::Cancel(BulkCancel {
             cancels: transformed_cancels,
         });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
 
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
@@ -642,7 +701,7 @@ impl ExchangeClient {
         let action = Actions::BatchModify(BulkModify {
             modifies: transformed_modifies,
         });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
 
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
@@ -683,7 +742,7 @@ impl ExchangeClient {
             cancels: transformed_cancels,
         });
 
-        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
@@ -708,7 +767,7 @@ impl ExchangeClient {
             is_cross,
             leverage,
         });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
@@ -733,7 +792,7 @@ impl ExchangeClient {
             is_buy: true,
             ntli: amount,
         });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
@@ -836,7 +895,7 @@ impl ExchangeClient {
 
         let action = Actions::SetReferrer(SetReferrer { code });
 
-        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         let is_mainnet = self.http_client.is_mainnet();
@@ -882,7 +941,7 @@ impl ExchangeClient {
         let timestamp = next_nonce();
 
         let action = Actions::ScheduleCancel(ScheduleCancel { time });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
@@ -898,7 +957,7 @@ impl ExchangeClient {
         let timestamp = next_nonce();
 
         let action = Actions::ClaimRewards(ClaimRewards {});
-        let connection_id = action.hash(timestamp, self.vault_address)?;
+        let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
@@ -910,27 +969,36 @@ impl ExchangeClient {
 
     async fn post_multi_sig(
         &self,
-        action: serde_json::Value,
-        signatures: Vec<Signature>,
+        multi_sig_user: Address,
+        inner_action: serde_json::Value,
+        inner_signatures: Vec<Signature>,
         nonce: u64,
     ) -> Result<ExchangeResponseStatus> {
-        let exchange_payload = MultiSigExchangePayload {
-            action,
-            signatures,
-            nonce,
-            vault_address: self.vault_address,
+        let multi_sig_action = MultiSigAction {
+            type_: "multiSig".to_string(),
+            signature_chain_id: "0x66eee".to_string(),
+            signatures: inner_signatures,
+            payload: MultiSigPayload {
+                multi_sig_user,
+                outer_signer: self.wallet.address(),
+                action: inner_action,
+            },
         };
-        let res = serde_json::to_string(&exchange_payload)
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
-        debug!("Sending multi-sig request {res:?}");
 
-        let output = &self
-            .http_client
-            .post("/exchange", res)
-            .await
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
-        debug!("Response: {output}");
-        serde_json::from_str(output).map_err(|e| Error::JsonParse(e.to_string()))
+        let multi_sig_action_value =
+            serde_json::to_value(&multi_sig_action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        let is_mainnet = self.http_client.is_mainnet();
+        let signature = sign_multi_sig_action(
+            &self.wallet,
+            &multi_sig_action_value,
+            self.vault_address,
+            nonce,
+            self.expires_after,
+            is_mainnet,
+        )?;
+
+        self.post(multi_sig_action_value, signature, nonce).await
     }
 
     /// Convert a regular user account to a multi-sig account
@@ -995,7 +1063,7 @@ impl ExchangeClient {
     /// Place an order on behalf of a multi-sig user with multiple signatures
     pub async fn multi_sig_order(
         &self,
-        _multi_sig_user: Address,
+        multi_sig_user: Address,
         order: ClientOrderRequest,
         wallets: &[PrivateKeySigner],
     ) -> Result<ExchangeResponseStatus> {
@@ -1007,19 +1075,29 @@ impl ExchangeClient {
             grouping: "na".to_string(),
             builder: None,
         });
-        let connection_id = action.hash(timestamp, self.vault_address)?;
         let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         let is_mainnet = self.http_client.is_mainnet();
-        let signatures = sign_l1_action_multi_sig(wallets, connection_id, is_mainnet)?;
+        let outer_signer = self.wallet.address();
+        let signatures = sign_multi_sig_l1_action_payload(
+            wallets,
+            &action,
+            multi_sig_user,
+            outer_signer,
+            self.vault_address,
+            timestamp,
+            self.expires_after,
+            is_mainnet,
+        )?;
 
-        self.post_multi_sig(action, signatures, timestamp).await
+        self.post_multi_sig(multi_sig_user, action, signatures, timestamp)
+            .await
     }
 
     /// Send USDC from a multi-sig user with multiple signatures
     pub async fn multi_sig_usdc_transfer(
         &self,
-        _multi_sig_user: Address,
+        multi_sig_user: Address,
         amount: &str,
         destination: &str,
         wallets: &[PrivateKeySigner],
@@ -1031,24 +1109,37 @@ impl ExchangeClient {
         };
 
         let timestamp = next_nonce();
-        let usd_send = UsdSend {
+
+        let send_asset = SendAsset {
             signature_chain_id: 421614,
             hyperliquid_chain,
             destination: destination.to_string(),
+            source_dex: "".to_string(),
+            destination_dex: "".to_string(),
+            token: "USDC".to_string(),
             amount: amount.to_string(),
-            time: timestamp,
+            from_sub_account: "".to_string(),
+            nonce: timestamp,
+            payload_multi_sig_user: Some(format!("{:#x}", multi_sig_user).to_lowercase()),
+            outer_signer: Some(format!("{:#x}", self.wallet.address()).to_lowercase()),
         };
-        let signatures = sign_typed_data_multi_sig(&usd_send, wallets)?;
-        let action = serde_json::to_value(Actions::UsdSend(usd_send))
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
 
-        self.post_multi_sig(action, signatures, timestamp).await
+        let signatures = sign_typed_data_multi_sig(&send_asset, wallets)?;
+
+        let mut action = serde_json::to_value(&send_asset)
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
+        if let Some(obj) = action.as_object_mut() {
+            obj.insert("type".to_string(), serde_json::json!("sendAsset"));
+        }
+
+        self.post_multi_sig(multi_sig_user, action, signatures, timestamp)
+            .await
     }
 
     /// Send spot tokens from a multi-sig user with multiple signatures
     pub async fn multi_sig_spot_transfer(
         &self,
-        _multi_sig_user: Address,
+        multi_sig_user: Address,
         amount: &str,
         destination: &str,
         token: &str,
@@ -1061,19 +1152,31 @@ impl ExchangeClient {
         };
 
         let timestamp = next_nonce();
-        let spot_send = SpotSend {
+
+        let send_asset = SendAsset {
             signature_chain_id: 421614,
             hyperliquid_chain,
             destination: destination.to_string(),
-            amount: amount.to_string(),
-            time: timestamp,
+            source_dex: "".to_string(),
+            destination_dex: "".to_string(),
             token: token.to_string(),
+            amount: amount.to_string(),
+            from_sub_account: "".to_string(),
+            nonce: timestamp,
+            payload_multi_sig_user: Some(format!("{:#x}", multi_sig_user).to_lowercase()),
+            outer_signer: Some(format!("{:#x}", self.wallet.address()).to_lowercase()),
         };
-        let signatures = sign_typed_data_multi_sig(&spot_send, wallets)?;
-        let action = serde_json::to_value(Actions::SpotSend(spot_send))
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
 
-        self.post_multi_sig(action, signatures, timestamp).await
+        let signatures = sign_typed_data_multi_sig(&send_asset, wallets)?;
+
+        let mut action = serde_json::to_value(&send_asset)
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
+        if let Some(obj) = action.as_object_mut() {
+            obj.insert("type".to_string(), serde_json::json!("sendAsset"));
+        }
+
+        self.post_multi_sig(multi_sig_user, action, signatures, timestamp)
+            .await
     }
 }
 
@@ -1127,7 +1230,7 @@ mod tests {
             grouping: "na".to_string(),
             builder: None,
         });
-        let connection_id = action.hash(1583838, None)?;
+        let connection_id = action.hash(1583838, None, None)?;
 
         let signature = sign_l1_action(&wallet, connection_id, true)?;
         assert_eq!(signature.to_string(), "0x77957e58e70f43b6b68581f2dc42011fc384538a2e5b7bf42d5b936f19fbb67360721a8598727230f67080efee48c812a6a4442013fd3b0eed509171bef9f23f1c");
@@ -1158,7 +1261,7 @@ mod tests {
             grouping: "na".to_string(),
             builder: None,
         });
-        let connection_id = action.hash(1583838, None)?;
+        let connection_id = action.hash(1583838, None, None)?;
 
         let signature = sign_l1_action(&wallet, connection_id, true)?;
         assert_eq!(signature.to_string(), "0xd3e894092eb27098077145714630a77bbe3836120ee29df7d935d8510b03a08f456de5ec1be82aa65fc6ecda9ef928b0445e212517a98858cfaa251c4cd7552b1c");
@@ -1203,7 +1306,7 @@ mod tests {
                 grouping: "na".to_string(),
                 builder: None,
             });
-            let connection_id = action.hash(1583838, None)?;
+            let connection_id = action.hash(1583838, None, None)?;
 
             let signature = sign_l1_action(&wallet, connection_id, true)?;
             assert_eq!(signature.to_string(), mainnet_signature);
@@ -1223,7 +1326,7 @@ mod tests {
                 oid: 82382,
             }],
         });
-        let connection_id = action.hash(1583838, None)?;
+        let connection_id = action.hash(1583838, None, None)?;
 
         let signature = sign_l1_action(&wallet, connection_id, true)?;
         assert_eq!(signature.to_string(), "0x02f76cc5b16e0810152fa0e14e7b219f49c361e3325f771544c6f54e157bf9fa17ed0afc11a98596be85d5cd9f86600aad515337318f7ab346e5ccc1b03425d51b");
@@ -1284,7 +1387,7 @@ mod tests {
             nonce: 1583838,
         });
 
-        let connection_id = action.hash(1583838, None)?;
+        let connection_id = action.hash(1583838, None, None)?;
         assert_eq!(
             connection_id.to_string(),
             "0xbe889a23135fce39a37315424cc4ae910edea7b42a075457b15bf4a9f0a8cfa4"
@@ -1297,7 +1400,7 @@ mod tests {
     fn test_claim_rewards_action_hashing() -> Result<()> {
         let wallet = get_wallet()?;
         let action = Actions::ClaimRewards(ClaimRewards {});
-        let connection_id = action.hash(1583838, None)?;
+        let connection_id = action.hash(1583838, None, None)?;
 
         // Test mainnet signature
         let signature = sign_l1_action(&wallet, connection_id, true)?;
@@ -1320,7 +1423,6 @@ mod tests {
     fn test_send_asset_signing() -> Result<()> {
         let wallet = get_wallet()?;
 
-        // Test mainnet - send asset to another address
         let mainnet_send = SendAsset {
             signature_chain_id: 421614,
             hyperliquid_chain: "Mainnet".to_string(),
@@ -1331,12 +1433,12 @@ mod tests {
             amount: "100".to_string(),
             from_sub_account: "".to_string(),
             nonce: 1583838,
+            payload_multi_sig_user: None,
+            outer_signer: None,
         };
 
         let mainnet_signature = sign_typed_data(&mainnet_send, &wallet)?;
-        // Signature generated successfully - just verify it's a valid signature object
 
-        // Test testnet - send different token
         let testnet_send = SendAsset {
             signature_chain_id: 421614,
             hyperliquid_chain: "Testnet".to_string(),
@@ -1347,13 +1449,13 @@ mod tests {
             amount: "50".to_string(),
             from_sub_account: "".to_string(),
             nonce: 1583838,
+            payload_multi_sig_user: None,
+            outer_signer: None,
         };
 
         let testnet_signature = sign_typed_data(&testnet_send, &wallet)?;
-        // Verify signatures are different for mainnet vs testnet
         assert_ne!(mainnet_signature, testnet_signature);
 
-        // Test with vault/subaccount
         let vault_send = SendAsset {
             signature_chain_id: 421614,
             hyperliquid_chain: "Mainnet".to_string(),
@@ -1364,10 +1466,11 @@ mod tests {
             amount: "100".to_string(),
             from_sub_account: "0xabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd".to_string(),
             nonce: 1583838,
+            payload_multi_sig_user: None,
+            outer_signer: None,
         };
 
         let vault_signature = sign_typed_data(&vault_send, &wallet)?;
-        // Verify vault signature is different from non-vault signature
         assert_ne!(mainnet_signature, vault_signature);
 
         Ok(())
@@ -1385,7 +1488,7 @@ mod tests {
             time: 1690393044548,
         });
 
-        let connection_id = action.hash(1583838, None)?;
+        let connection_id = action.hash(1583838, None, None)?;
 
         // Test mainnet signature
         let mainnet_sig = sign_l1_action(&wallet, connection_id, true)?;
@@ -1416,7 +1519,7 @@ mod tests {
             time: 1690393044548,
         });
 
-        let connection_id = action.hash(1583838, None)?;
+        let connection_id = action.hash(1583838, None, None)?;
 
         // Test mainnet signature
         let mainnet_sig = sign_l1_action(&wallet, connection_id, true)?;
@@ -1432,36 +1535,52 @@ mod tests {
 
     #[test]
     fn test_multi_sig_payload_serialization() -> Result<()> {
-        // Create a signature from a known transaction
+        // Test the new multi-sig wrapper structure
         let wallet = get_wallet()?;
+        let multi_sig_user: Address = "0x0000000000000000000000000000000000000005"
+            .parse()
+            .map_err(|e| Error::GenericParse(format!("{:?}", e)))?;
+
+        // Create inner action
+        let inner_action = serde_json::json!({
+            "type": "order",
+            "orders": [{
+                "a": 0,
+                "b": true,
+                "p": "1100",
+                "s": "0.2",
+                "r": false,
+                "t": {"limit": {"tif": "Gtc"}},
+                "c": null
+            }],
+            "grouping": "na"
+        });
+
+        // Create dummy signature
         let connection_id =
             B256::from_str("0xde6c4037798a4434ca03cd05f00e3b803126221375cd1e7eaaaf041768be06eb")
                 .map_err(|e| Error::GenericParse(e.to_string()))?;
         let sig = sign_l1_action(&wallet, connection_id, true)?;
 
-        let payload = MultiSigExchangePayload {
-            action: serde_json::json!({
-                "type": "order",
-                "orders": [{
-                    "a": 0,
-                    "b": true,
-                    "p": "1100",
-                    "s": "0.2",
-                    "r": false,
-                    "t": {"limit": {"tif": "Gtc"}},
-                    "c": null
-                }],
-                "grouping": "na"
-            }),
-            signatures: vec![sig, sig],
-            nonce: 1583838,
-            vault_address: None,
+        // Create multi-sig action wrapper
+        let multi_sig_action = MultiSigAction {
+            type_: "multiSig".to_string(),
+            signature_chain_id: "0x66eee".to_string(),
+            signatures: vec![sig],
+            payload: MultiSigPayload {
+                multi_sig_user,
+                outer_signer: wallet.address(),
+                action: inner_action,
+            },
         };
 
-        let json = serde_json::to_string(&payload).unwrap();
-        assert!(json.contains("\"action\""));
+        let json = serde_json::to_string(&multi_sig_action).unwrap();
+        assert!(json.contains("\"multiSig\""));
+        assert!(json.contains("\"signatureChainId\""));
         assert!(json.contains("\"signatures\""));
-        assert!(json.contains("\"nonce\""));
+        assert!(json.contains("\"payload\""));
+        assert!(json.contains("\"multiSigUser\""));
+        assert!(json.contains("\"outerSigner\""));
 
         Ok(())
     }
@@ -1478,7 +1597,7 @@ mod tests {
             time: 1690393044548,
         });
 
-        let connection_id = action.hash(1583838, None)?;
+        let connection_id = action.hash(1583838, None, None)?;
         assert!(!connection_id.is_empty());
 
         // Test with different threshold
@@ -1489,7 +1608,7 @@ mod tests {
             time: 1690393044548,
         });
 
-        let connection_id2 = action2.hash(1583838, None)?;
+        let connection_id2 = action2.hash(1583838, None, None)?;
         assert!(!connection_id2.is_empty());
         assert_ne!(connection_id, connection_id2);
 
