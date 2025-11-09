@@ -223,9 +223,14 @@ impl Eip712 for SendAsset {
 
     fn struct_hash(&self) -> B256 {
         if self.payload_multi_sig_user.is_some() && self.outer_signer.is_some() {
-            let multi_sig_user: Address = self.payload_multi_sig_user.as_ref().unwrap().parse().unwrap();
+            let multi_sig_user: Address = self
+                .payload_multi_sig_user
+                .as_ref()
+                .unwrap()
+                .parse()
+                .unwrap();
             let outer_signer: Address = self.outer_signer.as_ref().unwrap().parse().unwrap();
-            
+
             let items = (
                 keccak256("HyperliquidTransaction:SendAsset(string hyperliquidChain,address payloadMultiSigUser,address outerSigner,string destination,string sourceDex,string destinationDex,string token,string amount,string fromSubAccount,uint64 nonce)"),
                 keccak256(&self.hyperliquid_chain),

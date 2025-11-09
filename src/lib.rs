@@ -19,4 +19,5 @@ pub use helpers::{bps_diff, truncate_float, BaseUrl};
 pub use info::{info_client::*, *};
 pub use market_maker::{MarketMaker, MarketMakerInput, MarketMakerRestingOrder};
 pub use meta::{AssetContext, AssetMeta, Meta, MetaAndAssetCtxs, SpotAssetMeta, SpotMeta};
+pub use signature::{sign_multi_sig_l1_action_single, sign_multi_sig_user_signed_action_single};
 pub use ws::*;

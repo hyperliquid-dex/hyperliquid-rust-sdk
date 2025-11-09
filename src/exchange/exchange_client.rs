@@ -1094,6 +1094,92 @@ impl ExchangeClient {
             .await
     }
 
+    /// Place an order on behalf of a multi-sig user with pre-collected signatures
+    ///
+    /// This is the recommended method for multi-sig orders where signatures
+    /// are collected from different parties independently.
+    ///
+    /// # Arguments
+    /// * `multi_sig_user` - The multi-sig user address
+    /// * `order` - The order to place
+    /// * `signatures` - Pre-collected signatures from multi-sig participants
+    ///
+    /// # Example
+    /// ```ignore
+    /// use hyperliquid_rust_sdk::*;
+    /// use alloy::signers::{local::PrivateKeySigner, Signature};
+    ///
+    /// let sdk: ExchangeClient = todo!();
+    /// let multi_sig_user: alloy::primitives::Address = todo!();
+    /// let outer_signer: alloy::primitives::Address = todo!();
+    ///
+    /// // Each participant signs the action independently
+    /// let wallet1: PrivateKeySigner = "0x...".parse()?;
+    /// let wallet2: PrivateKeySigner = "0x...".parse()?;
+    ///
+    /// let action = serde_json::json!({
+    ///     "type": "order",
+    ///     "orders": [{"a": 0, "b": true, "p": "30000", "s": "0.1", "r": false, "t": {"limit": {"tif": "Gtc"}}}],
+    ///     "grouping": "na"
+    /// });
+    ///
+    /// let nonce = 123456789u64;
+    /// let sig1 = sign_multi_sig_l1_action_single(
+    ///     &wallet1,
+    ///     &action,
+    ///     multi_sig_user,
+    ///     outer_signer,
+    ///     None, // vault_address
+    ///     nonce,
+    ///     None, // expires_after
+    ///     true, // is_mainnet
+    /// )?;
+    /// let sig2 = sign_multi_sig_l1_action_single(
+    ///     &wallet2,
+    ///     &action,
+    ///     multi_sig_user,
+    ///     outer_signer,
+    ///     None,
+    ///     nonce,
+    ///     None,
+    ///     true,
+    /// )?;
+    ///
+    /// let order = ClientOrderRequest {
+    ///     asset: "BTC".to_string(),
+    ///     is_buy: true,
+    ///     reduce_only: false,
+    ///     limit_px: 30000.0,
+    ///     sz: 0.1,
+    ///     order_type: ClientOrderType::Limit(ClientLimit {
+    ///         tif: "Gtc".to_string(),
+    ///     }),
+    ///     cloid: None,
+    /// };
+    ///
+    /// let signatures = vec![sig1, sig2];
+    /// sdk.multi_sig_order_with_signatures(multi_sig_user, order, signatures).await?;
+    /// ```
+    pub async fn multi_sig_order_with_signatures(
+        &self,
+        multi_sig_user: Address,
+        order: ClientOrderRequest,
+        signatures: Vec<Signature>,
+    ) -> Result<ExchangeResponseStatus> {
+        let timestamp = next_nonce();
+        let transformed_order = order.convert(&self.coin_to_asset)?;
+
+        let action = Actions::Order(BulkOrder {
+            orders: vec![transformed_order],
+            grouping: "na".to_string(),
+            builder: None,
+        });
+        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
+        self.post_multi_sig(multi_sig_user, action, signatures, timestamp)
+            .await
+    }
+
     /// Send USDC from a multi-sig user with multiple signatures
     pub async fn multi_sig_usdc_transfer(
         &self,
@@ -1126,8 +1212,8 @@ impl ExchangeClient {
 
         let signatures = sign_typed_data_multi_sig(&send_asset, wallets)?;
 
-        let mut action = serde_json::to_value(&send_asset)
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
+        let mut action =
+            serde_json::to_value(&send_asset).map_err(|e| Error::JsonParse(e.to_string()))?;
         if let Some(obj) = action.as_object_mut() {
             obj.insert("type".to_string(), serde_json::json!("sendAsset"));
         }
@@ -1169,8 +1255,148 @@ impl ExchangeClient {
 
         let signatures = sign_typed_data_multi_sig(&send_asset, wallets)?;
 
-        let mut action = serde_json::to_value(&send_asset)
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
+        let mut action =
+            serde_json::to_value(&send_asset).map_err(|e| Error::JsonParse(e.to_string()))?;
+        if let Some(obj) = action.as_object_mut() {
+            obj.insert("type".to_string(), serde_json::json!("sendAsset"));
+        }
+
+        self.post_multi_sig(multi_sig_user, action, signatures, timestamp)
+            .await
+    }
+
+    /// Send USDC from a multi-sig user with pre-collected signatures
+    ///
+    /// This is the recommended method for multi-sig transfers where signatures
+    /// are collected from different parties independently.
+    ///
+    /// # Arguments
+    /// * `multi_sig_user` - The multi-sig user address
+    /// * `amount` - The amount to transfer
+    /// * `destination` - The destination address
+    /// * `signatures` - Pre-collected signatures from multi-sig participants
+    ///
+    /// # Example
+    /// ```ignore
+    /// use hyperliquid_rust_sdk::*;
+    /// use alloy::signers::{local::PrivateKeySigner, Signature};
+    ///
+    /// let sdk: ExchangeClient = todo!();
+    /// let multi_sig_user: alloy::primitives::Address = todo!();
+    ///
+    /// // Collect signatures from each participant
+    /// let wallet1: PrivateKeySigner = "0x...".parse()?;
+    /// let wallet2: PrivateKeySigner = "0x...".parse()?;
+    ///
+    /// // Each participant signs independently
+    /// let send_asset = SendAsset {
+    ///     signature_chain_id: 421614,
+    ///     hyperliquid_chain: "Mainnet".to_string(),
+    ///     destination: "0x...".to_string(),
+    ///     source_dex: "".to_string(),
+    ///     destination_dex: "".to_string(),
+    ///     token: "USDC".to_string(),
+    ///     amount: "100".to_string(),
+    ///     from_sub_account: "".to_string(),
+    ///     nonce: 123456789,
+    ///     payload_multi_sig_user: Some(format!("{:#x}", multi_sig_user).to_lowercase()),
+    ///     outer_signer: Some("0x...".to_lowercase()),
+    /// };
+    ///
+    /// let sig1 = sign_multi_sig_user_signed_action_single(&wallet1, &send_asset)?;
+    /// let sig2 = sign_multi_sig_user_signed_action_single(&wallet2, &send_asset)?;
+    ///
+    /// // Submit with collected signatures
+    /// let signatures = vec![sig1, sig2];
+    /// sdk.multi_sig_usdc_transfer_with_signatures(
+    ///     multi_sig_user,
+    ///     "100",
+    ///     "0x...",
+    ///     signatures,
+    /// ).await?;
+    /// ```
+    pub async fn multi_sig_usdc_transfer_with_signatures(
+        &self,
+        multi_sig_user: Address,
+        amount: &str,
+        destination: &str,
+        signatures: Vec<Signature>,
+    ) -> Result<ExchangeResponseStatus> {
+        let hyperliquid_chain = if self.http_client.is_mainnet() {
+            "Mainnet".to_string()
+        } else {
+            "Testnet".to_string()
+        };
+
+        let timestamp = next_nonce();
+
+        let send_asset = SendAsset {
+            signature_chain_id: 421614,
+            hyperliquid_chain,
+            destination: destination.to_string(),
+            source_dex: "".to_string(),
+            destination_dex: "".to_string(),
+            token: "USDC".to_string(),
+            amount: amount.to_string(),
+            from_sub_account: "".to_string(),
+            nonce: timestamp,
+            payload_multi_sig_user: Some(format!("{:#x}", multi_sig_user).to_lowercase()),
+            outer_signer: Some(format!("{:#x}", self.wallet.address()).to_lowercase()),
+        };
+
+        let mut action =
+            serde_json::to_value(&send_asset).map_err(|e| Error::JsonParse(e.to_string()))?;
+        if let Some(obj) = action.as_object_mut() {
+            obj.insert("type".to_string(), serde_json::json!("sendAsset"));
+        }
+
+        self.post_multi_sig(multi_sig_user, action, signatures, timestamp)
+            .await
+    }
+
+    /// Send spot tokens from a multi-sig user with pre-collected signatures
+    ///
+    /// This is the recommended method for multi-sig transfers where signatures
+    /// are collected from different parties independently.
+    ///
+    /// # Arguments
+    /// * `multi_sig_user` - The multi-sig user address
+    /// * `amount` - The amount to transfer
+    /// * `destination` - The destination address
+    /// * `token` - The token to transfer (e.g., "PURR")
+    /// * `signatures` - Pre-collected signatures from multi-sig participants
+    pub async fn multi_sig_spot_transfer_with_signatures(
+        &self,
+        multi_sig_user: Address,
+        amount: &str,
+        destination: &str,
+        token: &str,
+        signatures: Vec<Signature>,
+    ) -> Result<ExchangeResponseStatus> {
+        let hyperliquid_chain = if self.http_client.is_mainnet() {
+            "Mainnet".to_string()
+        } else {
+            "Testnet".to_string()
+        };
+
+        let timestamp = next_nonce();
+
+        let send_asset = SendAsset {
+            signature_chain_id: 421614,
+            hyperliquid_chain,
+            destination: destination.to_string(),
+            source_dex: "".to_string(),
+            destination_dex: "".to_string(),
+            token: token.to_string(),
+            amount: amount.to_string(),
+            from_sub_account: "".to_string(),
+            nonce: timestamp,
+            payload_multi_sig_user: Some(format!("{:#x}", multi_sig_user).to_lowercase()),
+            outer_signer: Some(format!("{:#x}", self.wallet.address()).to_lowercase()),
+        };
+
+        let mut action =
+            serde_json::to_value(&send_asset).map_err(|e| Error::JsonParse(e.to_string()))?;
         if let Some(obj) = action.as_object_mut() {
             obj.insert("type".to_string(), serde_json::json!("sendAsset"));
         }

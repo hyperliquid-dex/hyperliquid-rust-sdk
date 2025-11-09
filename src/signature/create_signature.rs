@@ -52,6 +52,7 @@ pub(crate) fn sign_typed_data_multi_sig<T: Eip712>(
     Ok(signatures)
 }
 
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn sign_multi_sig_l1_action_payload(
     wallets: &[PrivateKeySigner],
     action: &serde_json::Value,
@@ -146,6 +147,75 @@ pub(crate) fn sign_multi_sig_action(
     };
 
     sign_typed_data(&envelope, wallet)
+}
+
+/// Sign a multi-sig user-signed action payload with a single wallet
+/// This is used to collect individual signatures from multi-sig participants
+///
+/// # Arguments
+/// * `wallet` - The wallet of the multi-sig participant
+/// * `action` - The SendAsset or other user-signed action to sign
+///
+/// # Returns
+/// A single signature that can be collected and combined with others
+pub fn sign_multi_sig_user_signed_action_single<T: Eip712>(
+    wallet: &PrivateKeySigner,
+    action: &T,
+) -> Result<Signature> {
+    sign_typed_data(action, wallet)
+}
+
+/// Sign a multi-sig L1 action payload with a single wallet
+/// This is used to collect individual signatures from multi-sig participants for L1 actions
+///
+/// # Arguments
+/// * `wallet` - The wallet of the multi-sig participant
+/// * `action` - The action to sign (e.g., order, cancel, etc.)
+/// * `multi_sig_user` - The address of the multi-sig user
+/// * `outer_signer` - The address of the wallet that will submit the transaction
+/// * `vault_address` - Optional vault address
+/// * `nonce` - The nonce for this action
+/// * `expires_after` - Optional expiration timestamp
+/// * `is_mainnet` - Whether this is for mainnet or testnet
+///
+/// # Returns
+/// A single signature that can be collected and combined with others
+#[allow(clippy::too_many_arguments)]
+pub fn sign_multi_sig_l1_action_single(
+    wallet: &PrivateKeySigner,
+    action: &serde_json::Value,
+    multi_sig_user: alloy::primitives::Address,
+    outer_signer: alloy::primitives::Address,
+    vault_address: Option<alloy::primitives::Address>,
+    nonce: u64,
+    expires_after: Option<u64>,
+    is_mainnet: bool,
+) -> Result<Signature> {
+    let multi_sig_user_str = format!("{:?}", multi_sig_user).to_lowercase();
+    let outer_signer_str = format!("{:?}", outer_signer).to_lowercase();
+
+    let envelope = serde_json::json!([multi_sig_user_str, outer_signer_str, action]);
+
+    let mut bytes =
+        rmp_serde::to_vec_named(&envelope).map_err(|e| Error::RmpParse(e.to_string()))?;
+
+    bytes.extend(nonce.to_be_bytes());
+
+    if let Some(vault_address) = vault_address {
+        bytes.push(1);
+        bytes.extend(vault_address.as_slice());
+    } else {
+        bytes.push(0);
+    }
+
+    if let Some(expires_after) = expires_after {
+        bytes.push(0);
+        bytes.extend(expires_after.to_be_bytes());
+    }
+
+    let connection_id = alloy::primitives::keccak256(bytes);
+
+    sign_l1_action(wallet, connection_id, is_mainnet)
 }
 
 #[cfg(test)]
