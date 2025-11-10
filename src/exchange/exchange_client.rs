@@ -368,6 +368,8 @@ impl ExchangeClient {
             amount: amount.to_string(),
             from_sub_account,
             nonce: timestamp,
+            payload_multi_sig_user: None,
+            outer_signer: None,
         };
 
         let signature = sign_typed_data(&send_asset, wallet)?;
@@ -1204,6 +1206,8 @@ impl ExchangeClient {
             amount: amount.to_string(),
             from_sub_account: "".to_string(),
             nonce: timestamp,
+            payload_multi_sig_user: Some(format!("{:#x}", multi_sig_user).to_lowercase()),
+            outer_signer: Some(format!("{:#x}", self.wallet.address()).to_lowercase()),
         };
 
         let signatures = sign_typed_data_multi_sig(&send_asset, wallets)?;
@@ -1245,6 +1249,8 @@ impl ExchangeClient {
             amount: amount.to_string(),
             from_sub_account: "".to_string(),
             nonce: timestamp,
+            payload_multi_sig_user: Some(format!("{:#x}", multi_sig_user).to_lowercase()),
+            outer_signer: Some(format!("{:#x}", self.wallet.address()).to_lowercase()),
         };
 
         let signatures = sign_typed_data_multi_sig(&send_asset, wallets)?;
@@ -1293,6 +1299,8 @@ impl ExchangeClient {
     ///     amount: "100".to_string(),
     ///     from_sub_account: "".to_string(),
     ///     nonce: 123456789,
+    ///     payload_multi_sig_user: Some(format!("{:#x}", multi_sig_user).to_lowercase()),
+    ///     outer_signer: Some("0x...".to_lowercase()),
     /// };
     ///
     /// let sig1 = sign_multi_sig_user_signed_action_single(&wallet1, &send_asset)?;
@@ -1332,6 +1340,8 @@ impl ExchangeClient {
             amount: amount.to_string(),
             from_sub_account: "".to_string(),
             nonce: timestamp,
+            payload_multi_sig_user: Some(format!("{:#x}", multi_sig_user).to_lowercase()),
+            outer_signer: Some(format!("{:#x}", self.wallet.address()).to_lowercase()),
         };
 
         let mut action =
@@ -1381,6 +1391,8 @@ impl ExchangeClient {
             amount: amount.to_string(),
             from_sub_account: "".to_string(),
             nonce: timestamp,
+            payload_multi_sig_user: Some(format!("{:#x}", multi_sig_user).to_lowercase()),
+            outer_signer: Some(format!("{:#x}", self.wallet.address()).to_lowercase()),
         };
 
         let mut action =
@@ -1647,6 +1659,8 @@ mod tests {
             amount: "100".to_string(),
             from_sub_account: "".to_string(),
             nonce: 1583838,
+            payload_multi_sig_user: None,
+            outer_signer: None,
         };
 
         let mainnet_signature = sign_typed_data(&mainnet_send, &wallet)?;
@@ -1661,6 +1675,8 @@ mod tests {
             amount: "50".to_string(),
             from_sub_account: "".to_string(),
             nonce: 1583838,
+            payload_multi_sig_user: None,
+            outer_signer: None,
         };
 
         let testnet_signature = sign_typed_data(&testnet_send, &wallet)?;
@@ -1676,6 +1692,8 @@ mod tests {
             amount: "100".to_string(),
             from_sub_account: "0xabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd".to_string(),
             nonce: 1583838,
+            payload_multi_sig_user: None,
+            outer_signer: None,
         };
 
         let vault_signature = sign_typed_data(&vault_send, &wallet)?;
