@@ -62,7 +62,7 @@ struct ExchangePayload {
     signature: Signature,
     nonce: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
-    vault_address: Option<Address>,
+    vault_address: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     expires_after: Option<u64>,
 }
@@ -71,8 +71,8 @@ struct ExchangePayload {
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct MultiSigPayload {
-    multi_sig_user: Address,
-    outer_signer: Address,
+    multi_sig_user: String,
+    outer_signer: String,
     action: serde_json::Value,
 }
 
@@ -245,6 +245,7 @@ impl ExchangeClient {
                 None
             } else {
                 self.vault_address
+                    .map(|addr| addr.to_string().to_lowercase())
             },
             expires_after: if should_exclude {
                 None
@@ -978,8 +979,8 @@ impl ExchangeClient {
             signature_chain_id: "0x66eee".to_string(),
             signatures: inner_signatures,
             payload: MultiSigPayload {
-                multi_sig_user,
-                outer_signer: self.wallet.address(),
+                multi_sig_user: multi_sig_user.to_string().to_lowercase(),
+                outer_signer: self.wallet.address().to_string().to_lowercase(),
                 action: inner_action,
             },
         };
@@ -1800,8 +1801,8 @@ mod tests {
             signature_chain_id: "0x66eee".to_string(),
             signatures: vec![sig],
             payload: MultiSigPayload {
-                multi_sig_user,
-                outer_signer: wallet.address(),
+                multi_sig_user: multi_sig_user.to_string().to_lowercase(),
+                outer_signer: wallet.address().to_string().to_lowercase(),
                 action: inner_action,
             },
         };
