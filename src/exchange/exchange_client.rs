@@ -300,7 +300,7 @@ impl ExchangeClient {
         let usd_send = UsdSend {
             signature_chain_id: 421614,
             hyperliquid_chain,
-            destination: destination.to_string(),
+            destination: destination.to_lowercase(),
             amount: amount.to_string(),
             time: timestamp,
         };
@@ -361,7 +361,7 @@ impl ExchangeClient {
         let send_asset = SendAsset {
             signature_chain_id: 421614,
             hyperliquid_chain,
-            destination: destination.to_string(),
+            destination: destination.to_lowercase(),
             source_dex: source_dex.to_string(),
             destination_dex: destination_dex.to_string(),
             token: token.to_string(),
@@ -843,7 +843,7 @@ impl ExchangeClient {
         let withdraw = Withdraw3 {
             signature_chain_id: 421614,
             hyperliquid_chain,
-            destination: destination.to_string(),
+            destination: destination.to_lowercase(),
             amount: amount.to_string(),
             time: timestamp,
         };
@@ -872,7 +872,7 @@ impl ExchangeClient {
         let spot_send = SpotSend {
             signature_chain_id: 421614,
             hyperliquid_chain,
-            destination: destination.to_string(),
+            destination: destination.to_lowercase(),
             amount: amount.to_string(),
             time: timestamp,
             token: token.to_string(),
@@ -1198,7 +1198,7 @@ impl ExchangeClient {
         let send_asset = SendAsset {
             signature_chain_id: 421614,
             hyperliquid_chain,
-            destination: destination.to_string(),
+            destination: destination.to_lowercase(),
             source_dex: "".to_string(),
             destination_dex: "".to_string(),
             token: "USDC".to_string(),
@@ -1243,7 +1243,7 @@ impl ExchangeClient {
         let send_asset = SendAsset {
             signature_chain_id: 421614,
             hyperliquid_chain,
-            destination: destination.to_string(),
+            destination: destination.to_lowercase(),
             source_dex: "".to_string(),
             destination_dex: "".to_string(),
             token: token.to_string(),
@@ -1338,7 +1338,7 @@ impl ExchangeClient {
         let send_asset = SendAsset {
             signature_chain_id: 421614,
             hyperliquid_chain,
-            destination: destination.to_string(),
+            destination: destination.to_lowercase(),
             source_dex: "".to_string(),
             destination_dex: "".to_string(),
             token: "USDC".to_string(),
@@ -1391,7 +1391,7 @@ impl ExchangeClient {
         let send_asset = SendAsset {
             signature_chain_id: 421614,
             hyperliquid_chain,
-            destination: destination.to_string(),
+            destination: destination.to_lowercase(),
             source_dex: "".to_string(),
             destination_dex: "".to_string(),
             token: token.to_string(),

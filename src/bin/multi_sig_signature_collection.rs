@@ -127,7 +127,7 @@ fn create_send_asset(
     SendAsset {
         signature_chain_id: 421614,
         hyperliquid_chain: "Testnet".to_string(),
-        destination: destination.to_string(),
+        destination: destination.to_lowercase(),
         source_dex: "".to_string(),
         destination_dex: "".to_string(),
         token: "USDC".to_string(),
