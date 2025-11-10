@@ -27,6 +27,12 @@ where
     s.serialize_str(&format!("0x{val:x}"))
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct MultiSigExtension {
+    pub payload_multi_sig_user: String,
+    pub outer_signer: String,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct UsdSend {
@@ -210,10 +216,8 @@ pub struct SendAsset {
     pub amount: String,
     pub from_sub_account: String,
     pub nonce: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub payload_multi_sig_user: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub outer_signer: Option<String>,
+    #[serde(skip)]
+    pub multi_sig_ext: Option<MultiSigExtension>,
 }
 
 impl Eip712 for SendAsset {
@@ -222,14 +226,9 @@ impl Eip712 for SendAsset {
     }
 
     fn struct_hash(&self) -> B256 {
-        if self.payload_multi_sig_user.is_some() && self.outer_signer.is_some() {
-            let multi_sig_user: Address = self
-                .payload_multi_sig_user
-                .as_ref()
-                .unwrap()
-                .parse()
-                .unwrap();
-            let outer_signer: Address = self.outer_signer.as_ref().unwrap().parse().unwrap();
+        if let Some(multi_sig_ext) = &self.multi_sig_ext {
+            let multi_sig_user: Address = multi_sig_ext.payload_multi_sig_user.parse().unwrap();
+            let outer_signer: Address = multi_sig_ext.outer_signer.parse().unwrap();
 
             let items = (
                 keccak256("HyperliquidTransaction:SendAsset(string hyperliquidChain,address payloadMultiSigUser,address outerSigner,string destination,string sourceDex,string destinationDex,string token,string amount,string fromSubAccount,uint64 nonce)"),

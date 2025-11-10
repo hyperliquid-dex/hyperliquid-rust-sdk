@@ -7,7 +7,9 @@
 /// Usage:
 ///   cargo run --bin multi_sig_signature_collection
 use alloy::signers::{local::PrivateKeySigner, Signature};
-use hyperliquid_rust_sdk::{sign_multi_sig_user_signed_action_single, SendAsset};
+use hyperliquid_rust_sdk::{
+    sign_multi_sig_user_signed_action_single, MultiSigExtension, SendAsset,
+};
 use log::info;
 use std::str::FromStr;
 
@@ -132,8 +134,10 @@ fn create_send_asset(
         amount: amount.to_string(),
         from_sub_account: "".to_string(),
         nonce,
-        payload_multi_sig_user: Some(format!("{:#x}", multi_sig_user).to_lowercase()),
-        outer_signer: Some(format!("{:#x}", outer_signer).to_lowercase()),
+        multi_sig_ext: Some(MultiSigExtension {
+            payload_multi_sig_user: format!("{:#x}", multi_sig_user).to_lowercase(),
+            outer_signer: format!("{:#x}", outer_signer).to_lowercase(),
+        }),
     }
 }
 
