@@ -210,10 +210,6 @@ pub struct SendAsset {
     pub amount: String,
     pub from_sub_account: String,
     pub nonce: u64,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub payload_multi_sig_user: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub outer_signer: Option<String>,
 }
 
 impl Eip712 for SendAsset {
@@ -222,31 +218,7 @@ impl Eip712 for SendAsset {
     }
 
     fn struct_hash(&self) -> B256 {
-        if self.payload_multi_sig_user.is_some() && self.outer_signer.is_some() {
-            let multi_sig_user: Address = self
-                .payload_multi_sig_user
-                .as_ref()
-                .unwrap()
-                .parse()
-                .unwrap();
-            let outer_signer: Address = self.outer_signer.as_ref().unwrap().parse().unwrap();
-
-            let items = (
-                keccak256("HyperliquidTransaction:SendAsset(string hyperliquidChain,address payloadMultiSigUser,address outerSigner,string destination,string sourceDex,string destinationDex,string token,string amount,string fromSubAccount,uint64 nonce)"),
-                keccak256(&self.hyperliquid_chain),
-                multi_sig_user,
-                outer_signer,
-                keccak256(&self.destination),
-                keccak256(&self.source_dex),
-                keccak256(&self.destination_dex),
-                keccak256(&self.token),
-                keccak256(&self.amount),
-                keccak256(&self.from_sub_account),
-                &self.nonce,
-            );
-            keccak256(items.abi_encode())
-        } else {
-            let items = (
+        let items = (
                 keccak256("HyperliquidTransaction:SendAsset(string hyperliquidChain,string destination,string sourceDex,string destinationDex,string token,string amount,string fromSubAccount,uint64 nonce)"),
                 keccak256(&self.hyperliquid_chain),
                 keccak256(&self.destination),
@@ -257,8 +229,7 @@ impl Eip712 for SendAsset {
                 keccak256(&self.from_sub_account),
                 &self.nonce,
             );
-            keccak256(items.abi_encode())
-        }
+        keccak256(items.abi_encode())
     }
 }
 
