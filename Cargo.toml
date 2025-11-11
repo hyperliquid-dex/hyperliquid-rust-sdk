@@ -13,9 +13,9 @@ repository = "https://github.com/hyperliquid-dex/hyperliquid-rust-sdk"
 
 [dependencies]
 alloy = { version = "1.0", default-features = false, features = [
-  "dyn-abi",
-  "sol-types",
-  "signer-local",
+    "dyn-abi",
+    "sol-types",
+    "signer-local",
 ] }
 chrono = "0.4.26"
 env_logger = "0.11.8"
@@ -24,9 +24,9 @@ lazy_static = "1.0"
 log = "0.4.19"
 reqwest = "0.12.19"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
+serde_json = { version = "1.0", features = ["preserve_order"] }
 rmp-serde = "1.0"
 thiserror = "2.0"
 tokio = { version = "1.0", features = ["full"] }
-tokio-tungstenite = { version = "0.20.0", features = ["native-tls"] }
+tokio-tungstenite = { version = "0.28.0", features = ["native-tls"] }
 uuid = { version = "1.0", features = ["v4"] }

@@ -1,13 +1,3 @@
-use std::collections::HashMap;
-
-use alloy::{
-    primitives::{keccak256, Address, Signature, B256},
-    signers::local::PrivateKeySigner,
-};
-use log::debug;
-use reqwest::Client;
-use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
-
 use crate::{
     exchange::{
         actions::{
@@ -29,9 +19,18 @@ use crate::{
         sign_l1_action, sign_multi_sig_action, sign_multi_sig_l1_action_payload, sign_typed_data,
         sign_typed_data_multi_sig,
     },
-    BaseUrl, BulkCancelCloid, ClassTransfer, Error, ExchangeResponseStatus, SpotSend, SpotUser,
-    VaultTransfer, Withdraw3,
+    BaseUrl, BulkCancelCloid, ClassTransfer, Error, ExchangeResponseStatus, MultiSigExtension,
+    SpotSend, SpotUser, VaultTransfer, Withdraw3,
 };
+use alloy::{
+    hex,
+    primitives::{keccak256, Address, Signature, B256},
+    signers::local::PrivateKeySigner,
+};
+use log::debug;
+use reqwest::Client;
+use serde::{ser::SerializeStruct, Deserialize, Serialize, Serializer};
+use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct ExchangeClient {
@@ -54,34 +53,34 @@ where
     state.end()
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ExchangePayload {
-    action: serde_json::Value,
+    action: PostAction,
     #[serde(serialize_with = "serialize_sig")]
     signature: Signature,
     nonce: u64,
     #[serde(skip_serializing_if = "Option::is_none")]
-    vault_address: Option<Address>,
+    vault_address: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     expires_after: Option<u64>,
 }
 
 // Multi-sig wrapper structures
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct MultiSigPayload {
-    multi_sig_user: Address,
-    outer_signer: Address,
-    action: serde_json::Value,
+    multi_sig_user: String,
+    outer_signer: String,
+    action: Actions,
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
-struct MultiSigAction {
-    #[serde(rename = "type")]
-    type_: String,
-    signature_chain_id: String,
+pub(crate) struct MultiSigAction {
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub r#type: Option<String>,
+    pub signature_chain_id: String,
     #[serde(serialize_with = "serialize_sigs")]
     signatures: Vec<Signature>,
     payload: MultiSigPayload,
@@ -95,8 +94,8 @@ where
     let mut seq = s.serialize_seq(Some(sigs.len()))?;
     for sig in sigs {
         let sig_obj = SignatureObj {
-            r: sig.r(),
-            s: sig.s(),
+            r: format!("0x{}", hex::encode::<[u8; 32]>(sig.r().to_be_bytes())),
+            s: format!("0x{}", hex::encode::<[u8; 32]>(sig.s().to_be_bytes())),
             v: 27 + sig.v() as u64,
         };
         seq.serialize_element(&sig_obj)?;
@@ -106,8 +105,8 @@ where
 
 #[derive(Serialize)]
 struct SignatureObj {
-    r: alloy::primitives::U256,
-    s: alloy::primitives::U256,
+    r: String,
+    s: String,
     v: u64,
 }
 
@@ -135,6 +134,25 @@ pub enum Actions {
     ClaimRewards(ClaimRewards),
     ConvertToMultiSig(ConvertToMultiSig),
     UpdateMultiSigAddresses(UpdateMultiSigAddresses),
+}
+
+#[derive(Serialize)]
+#[serde(untagged)]
+enum PostAction {
+    Std(Actions),
+    MultiSig(MultiSigAction),
+}
+
+impl From<Actions> for PostAction {
+    fn from(action: Actions) -> Self {
+        PostAction::Std(action)
+    }
+}
+
+impl From<MultiSigAction> for PostAction {
+    fn from(action: MultiSigAction) -> Self {
+        PostAction::MultiSig(action)
+    }
 }
 
 impl Actions {
@@ -212,39 +230,39 @@ impl ExchangeClient {
 
     /// Check if an action type should exclude vault_address and expires_after from the payload
     /// Based on Python SDK's _post_action logic
-    fn should_exclude_vault_and_expires(action: &serde_json::Value) -> bool {
-        if let Some(action_type) = action.get("type").and_then(|t| t.as_str()) {
-            matches!(
-                action_type,
-                "usdSend"
-                    | "withdraw3"
-                    | "spotSend"
-                    | "sendAsset"
-                    | "spotUser"
-                    | "usdClassTransfer"
-            )
-        } else {
-            false
-        }
+    fn should_exclude_vault_and_expires(action: &Actions) -> bool {
+        matches!(
+            action,
+            Actions::UsdSend(_)
+                | Actions::Withdraw3(_)
+                | Actions::SpotSend(_)
+                | Actions::SendAsset(_)
+                | Actions::SpotUser(_)
+        )
     }
 
-    async fn post(
+    async fn post<PA: Into<PostAction>>(
         &self,
-        action: serde_json::Value,
+        action: PA,
         signature: Signature,
         nonce: u64,
     ) -> Result<ExchangeResponseStatus> {
         // Determine if we should exclude vault_address and expires_after
-        let should_exclude = Self::should_exclude_vault_and_expires(&action);
+        let post_action = action.into();
+        let should_exclude = match &post_action {
+            PostAction::Std(action) => Self::should_exclude_vault_and_expires(action),
+            PostAction::MultiSig(_) => false,
+        };
 
         let exchange_payload = ExchangePayload {
-            action,
+            action: post_action,
             signature,
             nonce,
             vault_address: if should_exclude {
                 None
             } else {
                 self.vault_address
+                    .map(|addr| addr.to_string().to_lowercase())
             },
             expires_after: if should_exclude {
                 None
@@ -276,7 +294,6 @@ impl ExchangeClient {
 
         let action = Actions::EvmUserModify(EvmUserModify { using_big_blocks });
         let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
@@ -297,18 +314,17 @@ impl ExchangeClient {
         };
 
         let timestamp = next_nonce();
-        let usd_send = UsdSend {
+        let action = UsdSend {
             signature_chain_id: 421614,
             hyperliquid_chain,
-            destination: destination.to_string(),
+            destination: destination.to_lowercase(),
             amount: amount.to_string(),
             time: timestamp,
         };
-        let signature = sign_typed_data(&usd_send, wallet)?;
-        let action = serde_json::to_value(Actions::UsdSend(usd_send))
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
+        let signature = sign_typed_data(&action, wallet)?;
 
-        self.post(action, signature, timestamp).await
+        self.post(Actions::UsdSend(action), signature, timestamp)
+            .await
     }
 
     pub async fn class_transfer(
@@ -327,7 +343,6 @@ impl ExchangeClient {
             class_transfer: ClassTransfer { usdc, to_perp },
         });
         let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
@@ -358,23 +373,23 @@ impl ExchangeClient {
             .vault_address
             .map_or_else(String::new, |vault_addr| format!("{vault_addr:?}"));
 
-        let send_asset = SendAsset {
+        let action = SendAsset {
             signature_chain_id: 421614,
             hyperliquid_chain,
-            destination: destination.to_string(),
+            destination: destination.to_lowercase(),
             source_dex: source_dex.to_string(),
             destination_dex: destination_dex.to_string(),
             token: token.to_string(),
             amount: amount.to_string(),
             from_sub_account,
             nonce: timestamp,
+            multi_sig_ext: None,
         };
 
-        let signature = sign_typed_data(&send_asset, wallet)?;
-        let action = serde_json::to_value(Actions::SendAsset(send_asset))
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
+        let signature = sign_typed_data(&action, wallet)?;
 
-        self.post(action, signature, timestamp).await
+        self.post(Actions::SendAsset(action), signature, timestamp)
+            .await
     }
 
     pub async fn vault_transfer(
@@ -398,7 +413,6 @@ impl ExchangeClient {
             usd,
         });
         let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
@@ -595,7 +609,6 @@ impl ExchangeClient {
             builder: None,
         });
         let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
@@ -625,7 +638,6 @@ impl ExchangeClient {
             builder: Some(builder),
         });
         let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
@@ -665,7 +677,6 @@ impl ExchangeClient {
         });
         let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
 
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
@@ -701,7 +712,6 @@ impl ExchangeClient {
         });
         let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
 
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
@@ -741,7 +751,6 @@ impl ExchangeClient {
         });
 
         let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
@@ -766,7 +775,7 @@ impl ExchangeClient {
             leverage,
         });
         let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
@@ -791,7 +800,7 @@ impl ExchangeClient {
             ntli: amount,
         });
         let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
+
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
@@ -820,8 +829,7 @@ impl ExchangeClient {
             nonce,
         };
         let signature = sign_typed_data(&approve_agent, wallet)?;
-        let action = serde_json::to_value(Actions::ApproveAgent(approve_agent))
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
+        let action = Actions::ApproveAgent(approve_agent);
         Ok((agent.to_bytes(), self.post(action, signature, nonce).await?))
     }
 
@@ -842,13 +850,12 @@ impl ExchangeClient {
         let withdraw = Withdraw3 {
             signature_chain_id: 421614,
             hyperliquid_chain,
-            destination: destination.to_string(),
+            destination: destination.to_lowercase(),
             amount: amount.to_string(),
             time: timestamp,
         };
         let signature = sign_typed_data(&withdraw, wallet)?;
-        let action = serde_json::to_value(Actions::Withdraw3(withdraw))
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
+        let action = Actions::Withdraw3(withdraw);
 
         self.post(action, signature, timestamp).await
     }
@@ -871,14 +878,13 @@ impl ExchangeClient {
         let spot_send = SpotSend {
             signature_chain_id: 421614,
             hyperliquid_chain,
-            destination: destination.to_string(),
+            destination: destination.to_lowercase(),
             amount: amount.to_string(),
             time: timestamp,
             token: token.to_string(),
         };
         let signature = sign_typed_data(&spot_send, wallet)?;
-        let action = serde_json::to_value(Actions::SpotSend(spot_send))
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
+        let action = Actions::SpotSend(spot_send);
 
         self.post(action, signature, timestamp).await
     }
@@ -894,7 +900,6 @@ impl ExchangeClient {
         let action = Actions::SetReferrer(SetReferrer { code });
 
         let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
@@ -924,8 +929,7 @@ impl ExchangeClient {
             nonce: timestamp,
         };
         let signature = sign_typed_data(&approve_builder_fee, wallet)?;
-        let action = serde_json::to_value(Actions::ApproveBuilderFee(approve_builder_fee))
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
+        let action = Actions::ApproveBuilderFee(approve_builder_fee);
 
         self.post(action, signature, timestamp).await
     }
@@ -940,7 +944,6 @@ impl ExchangeClient {
 
         let action = Actions::ScheduleCancel(ScheduleCancel { time });
         let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
@@ -956,7 +959,6 @@ impl ExchangeClient {
 
         let action = Actions::ClaimRewards(ClaimRewards {});
         let connection_id = action.hash(timestamp, self.vault_address, self.expires_after)?;
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
 
@@ -968,35 +970,32 @@ impl ExchangeClient {
     async fn post_multi_sig(
         &self,
         multi_sig_user: Address,
-        inner_action: serde_json::Value,
+        inner_action: Actions,
         inner_signatures: Vec<Signature>,
         nonce: u64,
     ) -> Result<ExchangeResponseStatus> {
         let multi_sig_action = MultiSigAction {
-            type_: "multiSig".to_string(),
-            signature_chain_id: "0x66eee".to_string(),
+            r#type: Some("multiSig".to_string()),
+            signature_chain_id: "0x1".to_string(),
             signatures: inner_signatures,
             payload: MultiSigPayload {
-                multi_sig_user,
-                outer_signer: self.wallet.address(),
+                multi_sig_user: multi_sig_user.to_string().to_lowercase(),
+                outer_signer: self.wallet.address().to_string().to_lowercase(),
                 action: inner_action,
             },
         };
 
-        let multi_sig_action_value =
-            serde_json::to_value(&multi_sig_action).map_err(|e| Error::JsonParse(e.to_string()))?;
-
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_multi_sig_action(
             &self.wallet,
-            &multi_sig_action_value,
+            &multi_sig_action,
             self.vault_address,
             nonce,
             self.expires_after,
             is_mainnet,
         )?;
 
-        self.post(multi_sig_action_value, signature, nonce).await
+        self.post(multi_sig_action, signature, nonce).await
     }
 
     /// Convert a regular user account to a multi-sig account
@@ -1021,8 +1020,7 @@ impl ExchangeClient {
             time: timestamp,
         };
         let signature = sign_typed_data(&convert_to_multi_sig, wallet)?;
-        let action = serde_json::to_value(Actions::ConvertToMultiSig(convert_to_multi_sig))
-            .map_err(|e| Error::JsonParse(e.to_string()))?;
+        let action = Actions::ConvertToMultiSig(convert_to_multi_sig);
 
         self.post(action, signature, timestamp).await
     }
@@ -1051,9 +1049,7 @@ impl ExchangeClient {
             time: timestamp,
         };
         let signature = sign_typed_data(&update_multi_sig_addresses, wallet)?;
-        let action =
-            serde_json::to_value(Actions::UpdateMultiSigAddresses(update_multi_sig_addresses))
-                .map_err(|e| Error::JsonParse(e.to_string()))?;
+        let action = Actions::UpdateMultiSigAddresses(update_multi_sig_addresses);
 
         self.post(action, signature, timestamp).await
     }
@@ -1073,7 +1069,6 @@ impl ExchangeClient {
             grouping: "na".to_string(),
             builder: None,
         });
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         let is_mainnet = self.http_client.is_mainnet();
         let outer_signer = self.wallet.address();
@@ -1172,7 +1167,6 @@ impl ExchangeClient {
             grouping: "na".to_string(),
             builder: None,
         });
-        let action = serde_json::to_value(&action).map_err(|e| Error::JsonParse(e.to_string()))?;
 
         self.post_multi_sig(multi_sig_user, action, signatures, timestamp)
             .await
@@ -1197,25 +1191,28 @@ impl ExchangeClient {
         let send_asset = SendAsset {
             signature_chain_id: 421614,
             hyperliquid_chain,
-            destination: destination.to_string(),
+            destination: destination.to_lowercase(),
             source_dex: "".to_string(),
             destination_dex: "".to_string(),
             token: "USDC".to_string(),
             amount: amount.to_string(),
             from_sub_account: "".to_string(),
             nonce: timestamp,
+            multi_sig_ext: Some(MultiSigExtension {
+                payload_multi_sig_user: format!("{:#x}", multi_sig_user).to_lowercase(),
+                outer_signer: format!("{:#x}", self.wallet.address()).to_lowercase(),
+            }),
         };
 
         let signatures = sign_typed_data_multi_sig(&send_asset, wallets)?;
 
-        let mut action =
-            serde_json::to_value(&send_asset).map_err(|e| Error::JsonParse(e.to_string()))?;
-        if let Some(obj) = action.as_object_mut() {
-            obj.insert("type".to_string(), serde_json::json!("sendAsset"));
-        }
-
-        self.post_multi_sig(multi_sig_user, action, signatures, timestamp)
-            .await
+        self.post_multi_sig(
+            multi_sig_user,
+            Actions::SendAsset(send_asset),
+            signatures,
+            timestamp,
+        )
+        .await
     }
 
     /// Send spot tokens from a multi-sig user with multiple signatures
@@ -1238,25 +1235,28 @@ impl ExchangeClient {
         let send_asset = SendAsset {
             signature_chain_id: 421614,
             hyperliquid_chain,
-            destination: destination.to_string(),
+            destination: destination.to_lowercase(),
             source_dex: "".to_string(),
             destination_dex: "".to_string(),
             token: token.to_string(),
             amount: amount.to_string(),
             from_sub_account: "".to_string(),
             nonce: timestamp,
+            multi_sig_ext: Some(MultiSigExtension {
+                payload_multi_sig_user: format!("{:#x}", multi_sig_user).to_lowercase(),
+                outer_signer: format!("{:#x}", self.wallet.address()).to_lowercase(),
+            }),
         };
 
         let signatures = sign_typed_data_multi_sig(&send_asset, wallets)?;
 
-        let mut action =
-            serde_json::to_value(&send_asset).map_err(|e| Error::JsonParse(e.to_string()))?;
-        if let Some(obj) = action.as_object_mut() {
-            obj.insert("type".to_string(), serde_json::json!("sendAsset"));
-        }
-
-        self.post_multi_sig(multi_sig_user, action, signatures, timestamp)
-            .await
+        self.post_multi_sig(
+            multi_sig_user,
+            Actions::SendAsset(send_asset),
+            signatures,
+            timestamp,
+        )
+        .await
     }
 
     /// Send USDC from a multi-sig user with pre-collected signatures
@@ -1293,6 +1293,10 @@ impl ExchangeClient {
     ///     amount: "100".to_string(),
     ///     from_sub_account: "".to_string(),
     ///     nonce: 123456789,
+    ///     multi_sig_ext: Some(MultiSigExtension {
+    ///     payload_multi_sig_user: Some(format!("{:#x}", multi_sig_user).to_lowercase()),
+    ///         outer_signer: Some("0x...".to_lowercase()),
+    ///     }),
     /// };
     ///
     /// let sig1 = sign_multi_sig_user_signed_action_single(&wallet1, &send_asset)?;
@@ -1325,23 +1329,26 @@ impl ExchangeClient {
         let send_asset = SendAsset {
             signature_chain_id: 421614,
             hyperliquid_chain,
-            destination: destination.to_string(),
+            destination: destination.to_lowercase(),
             source_dex: "".to_string(),
             destination_dex: "".to_string(),
             token: "USDC".to_string(),
             amount: amount.to_string(),
             from_sub_account: "".to_string(),
             nonce: timestamp,
+            multi_sig_ext: Some(MultiSigExtension {
+                payload_multi_sig_user: format!("{:#x}", multi_sig_user).to_lowercase(),
+                outer_signer: format!("{:#x}", self.wallet.address()).to_lowercase(),
+            }),
         };
 
-        let mut action =
-            serde_json::to_value(&send_asset).map_err(|e| Error::JsonParse(e.to_string()))?;
-        if let Some(obj) = action.as_object_mut() {
-            obj.insert("type".to_string(), serde_json::json!("sendAsset"));
-        }
-
-        self.post_multi_sig(multi_sig_user, action, signatures, timestamp)
-            .await
+        self.post_multi_sig(
+            multi_sig_user,
+            Actions::SendAsset(send_asset),
+            signatures,
+            timestamp,
+        )
+        .await
     }
 
     /// Send spot tokens from a multi-sig user with pre-collected signatures
@@ -1374,23 +1381,26 @@ impl ExchangeClient {
         let send_asset = SendAsset {
             signature_chain_id: 421614,
             hyperliquid_chain,
-            destination: destination.to_string(),
+            destination: destination.to_lowercase(),
             source_dex: "".to_string(),
             destination_dex: "".to_string(),
             token: token.to_string(),
             amount: amount.to_string(),
             from_sub_account: "".to_string(),
             nonce: timestamp,
+            multi_sig_ext: Some(MultiSigExtension {
+                payload_multi_sig_user: format!("{:#x}", multi_sig_user).to_lowercase(),
+                outer_signer: format!("{:#x}", self.wallet.address()).to_lowercase(),
+            }),
         };
 
-        let mut action =
-            serde_json::to_value(&send_asset).map_err(|e| Error::JsonParse(e.to_string()))?;
-        if let Some(obj) = action.as_object_mut() {
-            obj.insert("type".to_string(), serde_json::json!("sendAsset"));
-        }
-
-        self.post_multi_sig(multi_sig_user, action, signatures, timestamp)
-            .await
+        self.post_multi_sig(
+            multi_sig_user,
+            Actions::SendAsset(send_asset),
+            signatures,
+            timestamp,
+        )
+        .await
     }
 }
 
@@ -1647,6 +1657,7 @@ mod tests {
             amount: "100".to_string(),
             from_sub_account: "".to_string(),
             nonce: 1583838,
+            multi_sig_ext: None,
         };
 
         let mainnet_signature = sign_typed_data(&mainnet_send, &wallet)?;
@@ -1661,6 +1672,7 @@ mod tests {
             amount: "50".to_string(),
             from_sub_account: "".to_string(),
             nonce: 1583838,
+            multi_sig_ext: None,
         };
 
         let testnet_signature = sign_typed_data(&testnet_send, &wallet)?;
@@ -1676,6 +1688,7 @@ mod tests {
             amount: "100".to_string(),
             from_sub_account: "0xabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd".to_string(),
             nonce: 1583838,
+            multi_sig_ext: None,
         };
 
         let vault_signature = sign_typed_data(&vault_send, &wallet)?;
@@ -1750,7 +1763,7 @@ mod tests {
             .map_err(|e| Error::GenericParse(format!("{:?}", e)))?;
 
         // Create inner action
-        let inner_action = serde_json::json!({
+        let inner_action: Actions = serde_json::from_value(serde_json::json!({
             "type": "order",
             "orders": [{
                 "a": 0,
@@ -1762,7 +1775,8 @@ mod tests {
                 "c": null
             }],
             "grouping": "na"
-        });
+        }))
+        .unwrap();
 
         // Create dummy signature
         let connection_id =
@@ -1772,12 +1786,12 @@ mod tests {
 
         // Create multi-sig action wrapper
         let multi_sig_action = MultiSigAction {
-            type_: "multiSig".to_string(),
+            r#type: Some("multiSig".to_string()),
             signature_chain_id: "0x66eee".to_string(),
             signatures: vec![sig],
             payload: MultiSigPayload {
-                multi_sig_user,
-                outer_signer: wallet.address(),
+                multi_sig_user: multi_sig_user.to_string().to_lowercase(),
+                outer_signer: wallet.address().to_string().to_lowercase(),
                 action: inner_action,
             },
         };

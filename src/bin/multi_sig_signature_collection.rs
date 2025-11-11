@@ -7,7 +7,9 @@
 /// Usage:
 ///   cargo run --bin multi_sig_signature_collection
 use alloy::signers::{local::PrivateKeySigner, Signature};
-use hyperliquid_rust_sdk::{sign_multi_sig_user_signed_action_single, SendAsset};
+use hyperliquid_rust_sdk::{
+    sign_multi_sig_user_signed_action_single, MultiSigExtension, SendAsset,
+};
 use log::info;
 use std::str::FromStr;
 
@@ -54,7 +56,7 @@ fn demonstrate_signature_collection() -> Result<()> {
     info!("Signer 2 address: {}", signer2_wallet.address());
 
     // Both signers create the same SendAsset action
-    let send_asset = create_send_asset(destination, amount, nonce);
+    let send_asset = create_send_asset(multi_sig_user, outer_signer, destination, amount, nonce);
 
     // Signer 1 signs
     let sig1 = sign_multi_sig_user_signed_action_single(&signer1_wallet, &send_asset)?;
@@ -115,17 +117,27 @@ fn demonstrate_signature_collection() -> Result<()> {
 }
 
 /// Create a SendAsset action - must be identical for all signers
-fn create_send_asset(destination: &str, amount: &str, nonce: u64) -> SendAsset {
+fn create_send_asset(
+    multi_sig_user: alloy::primitives::Address,
+    outer_signer: alloy::primitives::Address,
+    destination: &str,
+    amount: &str,
+    nonce: u64,
+) -> SendAsset {
     SendAsset {
         signature_chain_id: 421614,
         hyperliquid_chain: "Testnet".to_string(),
-        destination: destination.to_string(),
+        destination: destination.to_lowercase(),
         source_dex: "".to_string(),
         destination_dex: "".to_string(),
         token: "USDC".to_string(),
         amount: amount.to_string(),
         from_sub_account: "".to_string(),
         nonce,
+        multi_sig_ext: Some(MultiSigExtension {
+            payload_multi_sig_user: format!("{:#x}", multi_sig_user).to_lowercase(),
+            outer_signer: format!("{:#x}", outer_signer).to_lowercase(),
+        }),
     }
 }
 

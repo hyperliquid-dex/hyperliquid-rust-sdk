@@ -27,6 +27,12 @@ where
     s.serialize_str(&format!("0x{val:x}"))
 }
 
+#[derive(Debug, Clone, Deserialize)]
+pub struct MultiSigExtension {
+    pub payload_multi_sig_user: String,
+    pub outer_signer: String,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct UsdSend {
@@ -210,6 +216,8 @@ pub struct SendAsset {
     pub amount: String,
     pub from_sub_account: String,
     pub nonce: u64,
+    #[serde(skip)]
+    pub multi_sig_ext: Option<MultiSigExtension>,
 }
 
 impl Eip712 for SendAsset {
@@ -218,7 +226,26 @@ impl Eip712 for SendAsset {
     }
 
     fn struct_hash(&self) -> B256 {
-        let items = (
+        if let Some(multi_sig_ext) = &self.multi_sig_ext {
+            let multi_sig_user: Address = multi_sig_ext.payload_multi_sig_user.parse().unwrap();
+            let outer_signer: Address = multi_sig_ext.outer_signer.parse().unwrap();
+
+            let items = (
+                keccak256("HyperliquidTransaction:SendAsset(string hyperliquidChain,address payloadMultiSigUser,address outerSigner,string destination,string sourceDex,string destinationDex,string token,string amount,string fromSubAccount,uint64 nonce)"),
+                keccak256(&self.hyperliquid_chain),
+                multi_sig_user,
+                outer_signer,
+                keccak256(&self.destination),
+                keccak256(&self.source_dex),
+                keccak256(&self.destination_dex),
+                keccak256(&self.token),
+                keccak256(&self.amount),
+                keccak256(&self.from_sub_account),
+                &self.nonce,
+            );
+            keccak256(items.abi_encode())
+        } else {
+            let items = (
                 keccak256("HyperliquidTransaction:SendAsset(string hyperliquidChain,string destination,string sourceDex,string destinationDex,string token,string amount,string fromSubAccount,uint64 nonce)"),
                 keccak256(&self.hyperliquid_chain),
                 keccak256(&self.destination),
@@ -229,7 +256,8 @@ impl Eip712 for SendAsset {
                 keccak256(&self.from_sub_account),
                 &self.nonce,
             );
-        keccak256(items.abi_encode())
+            keccak256(items.abi_encode())
+        }
     }
 }
 
