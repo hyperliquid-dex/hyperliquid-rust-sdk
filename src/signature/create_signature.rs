@@ -1,8 +1,8 @@
+use crate::{eip712::Eip712, prelude::*, signature::agent::l1, Error};
 use alloy::{
     primitives::B256,
     signers::{local::PrivateKeySigner, Signature, SignerSync},
 };
-use crate::{eip712::Eip712, prelude::*, signature::agent::l1, Error};
 
 pub(crate) fn sign_l1_action(
     wallet: &PrivateKeySigner,
