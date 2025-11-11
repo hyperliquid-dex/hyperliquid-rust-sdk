@@ -139,8 +139,19 @@ pub(crate) fn sign_multi_sig_action(
         "Testnet".to_string()
     };
 
+    let signature_chain_id = u64::from_str_radix(
+        multi_sig_action.signature_chain_id.trim_start_matches("0x"),
+        16,
+    )
+    .map_err(|_| {
+        Error::GenericParse(format!(
+            "Invalid signature chain ID: {}",
+            multi_sig_action.signature_chain_id
+        ))
+    })?;
+
     let envelope = MultiSigEnvelope {
-        signature_chain_id: 421614, // Always use this chain ID for multi-sig
+        signature_chain_id,
         hyperliquid_chain,
         multi_sig_action_hash,
         nonce,

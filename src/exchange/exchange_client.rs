@@ -80,7 +80,7 @@ struct MultiSigPayload {
 pub(crate) struct MultiSigAction {
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
     pub r#type: Option<String>,
-    signature_chain_id: String,
+    pub signature_chain_id: String,
     #[serde(serialize_with = "serialize_sigs")]
     signatures: Vec<Signature>,
     payload: MultiSigPayload,
