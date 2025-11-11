@@ -1194,7 +1194,7 @@ impl ExchangeClient {
             "Testnet".to_string()
         };
 
-        let timestamp = next_nonce();
+        let timestamp = 1111111;
 
         let send_asset = SendAsset {
             signature_chain_id: 421614,
