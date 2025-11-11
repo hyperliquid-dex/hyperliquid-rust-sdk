@@ -23,6 +23,7 @@ use crate::{
     SpotSend, SpotUser, VaultTransfer, Withdraw3,
 };
 use alloy::{
+    hex,
     primitives::{keccak256, Address, Signature, B256},
     signers::local::PrivateKeySigner,
 };
@@ -93,8 +94,8 @@ where
     let mut seq = s.serialize_seq(Some(sigs.len()))?;
     for sig in sigs {
         let sig_obj = SignatureObj {
-            r: sig.r(),
-            s: sig.s(),
+            r: format!("0x{}", hex::encode::<[u8; 32]>(sig.r().to_be_bytes())),
+            s: format!("0x{}", hex::encode::<[u8; 32]>(sig.s().to_be_bytes())),
             v: 27 + sig.v() as u64,
         };
         seq.serialize_element(&sig_obj)?;
@@ -104,8 +105,8 @@ where
 
 #[derive(Serialize)]
 struct SignatureObj {
-    r: alloy::primitives::U256,
-    s: alloy::primitives::U256,
+    r: String,
+    s: String,
     v: u64,
 }
 
