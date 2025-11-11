@@ -1217,7 +1217,7 @@ impl ExchangeClient {
         let mut action =
             serde_json::to_value(&send_asset).map_err(|e| Error::JsonParse(e.to_string()))?;
         if let Some(obj) = action.as_object_mut() {
-            obj.insert("type".to_string(), serde_json::json!("sendAsset"));
+            obj.shift_insert(0, "type".to_string(), serde_json::json!("sendAsset"));
         }
 
         self.post_multi_sig(multi_sig_user, action, signatures, timestamp)
@@ -1262,7 +1262,7 @@ impl ExchangeClient {
         let mut action =
             serde_json::to_value(&send_asset).map_err(|e| Error::JsonParse(e.to_string()))?;
         if let Some(obj) = action.as_object_mut() {
-            obj.insert("type".to_string(), serde_json::json!("sendAsset"));
+            obj.shift_insert(0, "type".to_string(), serde_json::json!("sendAsset"));
         }
 
         self.post_multi_sig(multi_sig_user, action, signatures, timestamp)
@@ -1355,7 +1355,7 @@ impl ExchangeClient {
         let mut action =
             serde_json::to_value(&send_asset).map_err(|e| Error::JsonParse(e.to_string()))?;
         if let Some(obj) = action.as_object_mut() {
-            obj.insert("type".to_string(), serde_json::json!("sendAsset"));
+            obj.shift_insert(0, "type".to_string(), serde_json::json!("sendAsset"));
         }
 
         self.post_multi_sig(multi_sig_user, action, signatures, timestamp)
@@ -1408,7 +1408,7 @@ impl ExchangeClient {
         let mut action =
             serde_json::to_value(&send_asset).map_err(|e| Error::JsonParse(e.to_string()))?;
         if let Some(obj) = action.as_object_mut() {
-            obj.insert("type".to_string(), serde_json::json!("sendAsset"));
+            obj.shift_insert(0, "type".to_string(), serde_json::json!("sendAsset"));
         }
 
         self.post_multi_sig(multi_sig_user, action, signatures, timestamp)
