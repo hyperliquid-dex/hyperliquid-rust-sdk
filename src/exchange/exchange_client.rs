@@ -976,7 +976,7 @@ impl ExchangeClient {
     ) -> Result<ExchangeResponseStatus> {
         let multi_sig_action = MultiSigAction {
             type_: "multiSig".to_string(),
-            signature_chain_id: "0x1".to_string(),
+            signature_chain_id: "0x66eee".to_string(),
             signatures: inner_signatures,
             payload: MultiSigPayload {
                 multi_sig_user: multi_sig_user.to_string().to_lowercase(),
