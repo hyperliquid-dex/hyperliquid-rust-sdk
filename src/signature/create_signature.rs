@@ -109,7 +109,8 @@ pub(crate) fn sign_multi_sig_action(
     // Remove the "type" field before hashing (as per Python SDK)
     let mut action_without_type = multi_sig_action.clone();
     if let Some(obj) = action_without_type.as_object_mut() {
-        obj.remove("type");
+        // Need to preserve the order of the fields
+        obj.shift_remove("type");
     }
 
     let mut bytes = rmp_serde::to_vec_named(&action_without_type)
