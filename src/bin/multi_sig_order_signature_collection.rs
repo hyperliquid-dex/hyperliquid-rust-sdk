@@ -37,7 +37,7 @@ fn demonstrate_order_signature_collection() -> Result<()> {
 
     // Create the order action
     // All signers must create the exact same action
-    let action = serde_json::json!({
+    let action = serde_json::from_value(serde_json::json!({
         "type": "order",
         "orders": [{
             "a": 0,          // asset index (0 = BTC)
@@ -48,7 +48,8 @@ fn demonstrate_order_signature_collection() -> Result<()> {
             "t": {"limit": {"tif": "Gtc"}}
         }],
         "grouping": "na"
-    });
+    }))
+    .unwrap();
 
     info!("Order action:");
     info!("{}\n", serde_json::to_string_pretty(&action)?);

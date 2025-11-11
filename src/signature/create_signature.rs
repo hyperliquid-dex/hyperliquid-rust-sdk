@@ -1,5 +1,10 @@
-use crate::{eip712::Eip712, prelude::*, signature::agent::l1, Error};
-use alloy::{hex, primitives::B256, signers::{local::PrivateKeySigner, Signature, SignerSync}};
+use crate::exchange::MultiSigAction;
+use crate::{eip712::Eip712, prelude::*, signature::agent::l1, Actions, Error};
+use alloy::{
+    hex,
+    primitives::B256,
+    signers::{local::PrivateKeySigner, Signature, SignerSync},
+};
 
 pub(crate) fn sign_l1_action(
     wallet: &PrivateKeySigner,
@@ -51,7 +56,7 @@ pub(crate) fn sign_typed_data_multi_sig<T: Eip712>(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn sign_multi_sig_l1_action_payload(
     wallets: &[PrivateKeySigner],
-    action: &serde_json::Value,
+    action: &Actions,
     multi_sig_user: alloy::primitives::Address,
     outer_signer: alloy::primitives::Address,
     vault_address: Option<alloy::primitives::Address>,
@@ -94,7 +99,7 @@ pub(crate) fn sign_multi_sig_l1_action_payload(
 /// 3. Creates and signs the MultiSigEnvelope
 pub(crate) fn sign_multi_sig_action(
     wallet: &PrivateKeySigner,
-    multi_sig_action: &serde_json::Value,
+    multi_sig_action: &MultiSigAction,
     vault_address: Option<alloy::primitives::Address>,
     nonce: u64,
     expires_after: Option<u64>,
@@ -104,15 +109,11 @@ pub(crate) fn sign_multi_sig_action(
     use alloy::primitives::keccak256;
 
     // Remove the "type" field before hashing (as per Python SDK)
-    let mut action_without_type = multi_sig_action.clone();
-    if let Some(obj) = action_without_type.as_object_mut() {
-        // Need to preserve the order of the fields
-        obj.shift_remove("type");
-    }
+    let mut action_without_type: MultiSigAction = multi_sig_action.clone();
+    action_without_type.r#type = None;
 
     let mut bytes = rmp_serde::to_vec_named(&action_without_type)
         .map_err(|e| Error::RmpParse(e.to_string()))?;
-    println!("{}", action_without_type);
     println!("{}", hex::encode(&bytes));
 
     bytes.extend(nonce.to_be_bytes());
@@ -182,7 +183,7 @@ pub fn sign_multi_sig_user_signed_action_single<T: Eip712>(
 #[allow(clippy::too_many_arguments)]
 pub fn sign_multi_sig_l1_action_single(
     wallet: &PrivateKeySigner,
-    action: &serde_json::Value,
+    action: &Actions,
     multi_sig_user: alloy::primitives::Address,
     outer_signer: alloy::primitives::Address,
     vault_address: Option<alloy::primitives::Address>,
@@ -396,11 +397,11 @@ mod tests {
             alloy::primitives::Address::from_str("0x0d1d9635d0640821d15e323ac8adadfa9c111414")
                 .map_err(|e| Error::GenericParse(e.to_string()))?;
 
-        let action = serde_json::json!({
+        let action = serde_json::from_value(serde_json::json!({
             "type": "order",
             "orders": [{"a": 4, "b": true, "p": "1100", "s": "0.2", "r": false, "t": {"limit": {"tif": "Gtc"}}}],
             "grouping": "na"
-        });
+        })).unwrap();
 
         let nonce = 0u64;
 
