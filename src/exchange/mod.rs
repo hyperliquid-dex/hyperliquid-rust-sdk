@@ -1,4 +1,4 @@
-mod actions;
+pub mod actions;
 mod builder;
 mod cancel;
 mod exchange_client;
