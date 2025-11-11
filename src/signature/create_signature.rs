@@ -115,7 +115,6 @@ pub(crate) fn sign_multi_sig_action(
 
     let mut bytes = rmp_serde::to_vec_named(&action_without_type)
         .map_err(|e| Error::RmpParse(e.to_string()))?;
-    println!("{}", action_without_type);
 
     bytes.extend(nonce.to_be_bytes());
 
