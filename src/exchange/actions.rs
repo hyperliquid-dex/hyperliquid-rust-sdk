@@ -305,3 +305,67 @@ pub struct ApproveBuilderFee {
     pub signature_chain_id: U256,
     pub hyperliquid_chain: String,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct SendAsset {
+    pub hyperliquid_chain: String,
+    pub signature_chain_id: U256,
+    pub destination: String,
+    pub source_dex: String,
+    pub destination_dex: String,
+    pub token: String,
+    pub amount: String,
+    pub from_sub_account: String,
+    pub nonce: u64,
+}
+
+impl Eip712 for SendAsset {
+    type Error = Eip712Error;
+
+    fn domain(&self) -> Result<EIP712Domain, Self::Error> {
+        Ok(eip_712_domain(self.signature_chain_id))
+    }
+
+    fn type_hash() -> Result<[u8; 32], Self::Error> {
+        Ok(eip712::make_type_hash(
+            format!("{HYPERLIQUID_EIP_PREFIX}SendAsset"),
+            &[
+                ("hyperliquidChain".to_string(), ParamType::String),
+                ("destination".to_string(), ParamType::String),
+                ("sourceDex".to_string(), ParamType::String),
+                ("destinationDex".to_string(), ParamType::String),
+                ("token".to_string(), ParamType::String),
+                ("amount".to_string(), ParamType::String),
+                ("fromSubAccount".to_string(), ParamType::String),
+                ("nonce".to_string(), ParamType::Uint(64)),
+            ],
+        ))
+    }
+
+    fn struct_hash(&self) -> Result<[u8; 32], Self::Error> {
+        let Self {
+            signature_chain_id: _,
+            hyperliquid_chain,
+            destination,
+            source_dex,
+            destination_dex,
+            token,
+            amount,
+            from_sub_account,
+            nonce,
+        } = self;
+        let items = vec![
+            ethers::abi::Token::Uint(Self::type_hash()?.into()),
+            encode_eip712_type(hyperliquid_chain.clone().into_token()),
+            encode_eip712_type(destination.clone().into_token()),
+            encode_eip712_type(source_dex.clone().into_token()),
+            encode_eip712_type(destination_dex.clone().into_token()),
+            encode_eip712_type(token.clone().into_token()),
+            encode_eip712_type(amount.clone().into_token()),
+            encode_eip712_type(from_sub_account.clone().into_token()),
+            encode_eip712_type(nonce.into_token()),
+        ];
+        Ok(keccak256(encode(&items)))
+    }
+}

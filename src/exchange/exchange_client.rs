@@ -2,8 +2,8 @@ use crate::signature::sign_typed_data;
 use crate::{
     exchange::{
         actions::{
-            ApproveAgent, ApproveBuilderFee, BulkCancel, BulkModify, BulkOrder, SetReferrer,
-            UpdateIsolatedMargin, UpdateLeverage, UsdSend,
+            ApproveAgent, ApproveBuilderFee, BulkCancel, BulkModify, BulkOrder, SendAsset,
+            SetReferrer, UpdateIsolatedMargin, UpdateLeverage, UsdSend,
         },
         cancel::{CancelRequest, CancelRequestCloid},
         modify::{ClientModifyRequest, ModifyRequest},
@@ -69,6 +69,7 @@ pub enum Actions {
     SpotSend(SpotSend),
     SetReferrer(SetReferrer),
     ApproveBuilderFee(ApproveBuilderFee),
+    SendAsset(SendAsset),
 }
 
 impl Actions {
@@ -815,6 +816,42 @@ impl ExchangeClient {
 
         let is_mainnet = self.http_client.is_mainnet();
         let signature = sign_l1_action(wallet, connection_id, is_mainnet)?;
+        self.post(action, signature, timestamp, None).await
+    }
+
+    pub async fn send_asset(
+        &self,
+        destination: &str,
+        source_dex: &str,
+        destination_dex: &str,
+        token: &str,
+        amount: &str,
+        from_sub_account: &str,
+        wallet: Option<&LocalWallet>,
+    ) -> Result<ExchangeResponseStatus> {
+        let wallet = wallet.unwrap_or(&self.wallet);
+        let hyperliquid_chain = if self.http_client.is_mainnet() {
+            "Mainnet".to_string()
+        } else {
+            "Testnet".to_string()
+        };
+
+        let timestamp = next_nonce();
+        let send_asset = SendAsset {
+            signature_chain_id: 421614.into(),
+            hyperliquid_chain,
+            destination: destination.to_string(),
+            source_dex: source_dex.to_string(),
+            destination_dex: destination_dex.to_string(),
+            token: token.to_string(),
+            amount: amount.to_string(),
+            from_sub_account: from_sub_account.to_string(),
+            nonce: timestamp,
+        };
+        let signature = sign_typed_data(&send_asset, wallet)?;
+        let action = serde_json::to_value(Actions::SendAsset(send_asset))
+            .map_err(|e| Error::JsonParse(e.to_string()))?;
+
         self.post(action, signature, timestamp, None).await
     }
 }
