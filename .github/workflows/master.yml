@@ -2,19 +2,42 @@ name: Continuous Integration
 
 on:
   push:
-    branches:
-      - master
+    branches: [ master ]
   pull_request:
-    branches:
-      - master
+    branches: [ master ]
+  workflow_dispatch: # Allows manual triggering from UI
+
+# Security: Limit token permissions to read-only
+permissions:
+  contents: read
 
 jobs:
-  ubuntu:
-    runs-on: ubuntu-latest
+  test:
+    name: Test Suite (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # Test on all major platforms to ensure true cross-platform compatibility
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust Toolchain
+        # Replaces the deprecated actions-rs/toolchain
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          components: clippy,rustfmt
-      - run: ./ci.sh
+          components: clippy, rustfmt
+
+      - name: Rust Cache
+        # CRITICAL OPTIMIZATION: Caches cargo registry and build artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run CI Script
+        # Using 'bash' ensures the script runs even on Windows (via Git Bash)
+        shell: bash
+        run: |
+          chmod +x ci.sh
+          ./ci.sh
