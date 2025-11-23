@@ -1,20 +1,46 @@
+# Workflow Name: Continuous Integration
 name: Continuous Integration
 
+# Event Triggers: Define when the workflow should run.
 on:
+  # Run on pushes to the main branch (or master, if that is the standard branch).
   push:
     branches:
-      - master
+      - main  # Changed 'master' to 'main' for modern practice
+  
+  # Run on all Pull Requests targeting the main branch.
   pull_request:
     branches:
-      - master
+      - main  # Changed 'master' to 'main'
 
+# Define the set of jobs (tasks) to be executed.
 jobs:
-  ubuntu:
-    runs-on: ubuntu-latest
+  # The main test job, using a build matrix for cross-platform testing.
+  test:
+    # Use a matrix strategy to test across different runners (OS) and Rust toolchains.
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        rust: [stable]
+    
+    # Specify the runner (operating system) for the job.
+    runs-on: ${{ matrix.os }}
+    
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
+      # Step 1: Checkout the source code using the official action.
+      - name: Checkout Code
+        uses: actions/checkout@v4 # Updated to v4 for latest stability
+
+      # Step 2: Install the specified Rust toolchain. 
+      # Using the recommended 'actions/setup-rust' instead of the deprecated 'actions-rs/toolchain'.
+      - name: Install Rust Toolchain
+        uses: actions/setup-rust@v1
         with:
-          toolchain: stable
-          components: clippy,rustfmt
-      - run: ./ci.sh
+          rust-version: ${{ matrix.rust }}
+          # Install components directly here, as setup-rust supports this for the main toolchain.
+          components: clippy, rustfmt
+
+      # Step 3: Execute the custom continuous integration script.
+      # This script should handle building, testing, linting, and formatting checks.
+      - name: Run CI Script
+        run: ./ci.sh
